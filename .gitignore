@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+.env
+*.local
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# CodeGraph index (local)
+.codegraph/
