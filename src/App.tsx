@@ -1,7 +1,13 @@
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { ProjectsPage } from './features/projects/pages/ProjectsPage';
+
 export default function App() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <h1 className="text-3xl font-bold">GreyTest</h1>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="*" element={<Navigate to="/projects" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
