@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Trash2, GitBranch, Archive, FolderOpen } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { useDeleteProject, useProjects } from '../hooks/useProjects';
@@ -23,6 +24,7 @@ function timeAgo(dateStr: string): string {
 export function ProjectList() {
   const { data: projects, isLoading, error } = useProjects();
   const remove = useDeleteProject();
+  const navigate = useNavigate();
 
   if (isLoading) return <SkeletonLoader count={3} />;
 
@@ -57,7 +59,8 @@ export function ProjectList() {
       {projects.map((p, i) => (
         <div
           key={p.id}
-          className="bg-neutral-primary-soft border border-border-default rounded-base shadow-xs px-5 py-4 transition-all duration-200 hover:border-border-default-strong hover:shadow-sm flex items-center justify-between gap-4 animate-fade-in-up"
+          onClick={() => navigate(`/projects/${p.id}`)}
+          className="bg-neutral-primary-soft border border-border-default rounded-base shadow-xs px-5 py-4 transition-all duration-200 hover:border-border-default-strong hover:shadow-sm flex items-center justify-between gap-4 animate-fade-in-up cursor-pointer"
           style={{ animationDelay: `${i * 0.06}s` }}
         >
           {/* Left: Project info */}
@@ -84,7 +87,7 @@ export function ProjectList() {
           <div className="flex items-center gap-3 shrink-0">
             <StatusBadge status={p.status} />
             <button
-              onClick={() => remove.mutate(p.id)}
+              onClick={(e) => { e.stopPropagation(); remove.mutate(p.id); }}
               disabled={remove.isPending}
               className="btn-ghost-danger"
               title="Xóa project"

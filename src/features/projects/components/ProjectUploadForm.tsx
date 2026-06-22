@@ -111,7 +111,7 @@ export function ProjectUploadForm() {
               {upload.isPending ? (
                 <>
                   <span className="h-3.5 w-3.5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                  Đang tải lên...
+                  Đang tải lên và phân tích...
                 </>
               ) : (
                 <>
@@ -155,7 +155,7 @@ export function ProjectUploadForm() {
               {clone.isPending ? (
                 <>
                   <span className="h-3.5 w-3.5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                  Đang clone...
+                  Đang clone và phân tích...
                 </>
               ) : (
                 <>
