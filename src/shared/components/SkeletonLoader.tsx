@@ -8,7 +8,7 @@ export function SkeletonLoader({ count = 3 }: SkeletonLoaderProps) {
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="bg-neutral-primary-soft border border-border-default rounded-base shadow-xs p-5 animate-fade-in-up"
+          className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-sm animate-fade-in-up"
           style={{ animationDelay: `${i * 0.08}s` }}
         >
           <div className="flex items-center justify-between">

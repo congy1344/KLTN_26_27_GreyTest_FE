@@ -96,7 +96,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-medium border ${config.bg} ${config.border} ${config.text}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium ${config.bg} ${config.border} ${config.text}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${config.dotColor}`} />
       {config.label}

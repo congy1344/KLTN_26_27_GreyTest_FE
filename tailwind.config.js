@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Lato', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Aptos', 'Segoe UI Variable', 'Segoe UI', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
         // Design System Colors mapping to CSS Variables

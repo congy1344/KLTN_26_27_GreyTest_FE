@@ -32,7 +32,6 @@ export function ClassTree({ classes }: ClassTreeProps) {
   const [expandedClasses, setExpandedClasses] = useState<Set<number>>(new Set());
   const [expandedMethods, setExpandedMethods] = useState<Set<number>>(new Set());
 
-  // Nhóm class theo loại, sắp xếp theo thứ tự: SERVICE → CONTROLLER → REPOSITORY → ENTITY → OTHER
   const typeOrder = ['SERVICE', 'CONTROLLER', 'REPOSITORY', 'ENTITY', 'ENUM', 'RECORD', 'OTHER'];
   const grouped = typeOrder
     .map((type) => ({
@@ -59,137 +58,138 @@ export function ClassTree({ classes }: ClassTreeProps) {
     });
   };
 
+  if (!classes.length) {
+    return (
+      <div className="rounded-base border border-border-default bg-neutral-primary-soft p-8 text-center shadow-sm">
+        <p className="text-sm font-semibold text-heading">Chưa có class nào được trích xuất</p>
+        <p className="mt-1 text-xs text-body-subtle">Hãy kiểm tra lại project có source trong src/main/java không.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {grouped.map(({ type, items }) => {
         const cfg = CLASS_TYPE_CONFIG[type] || CLASS_TYPE_CONFIG.OTHER;
         return (
           <div key={type}>
-            {/* Group header */}
-            <div className="flex items-center gap-2 mb-3">
-              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${cfg.bg} ${cfg.border} ${cfg.text}`}>
+            <div className="mb-3 flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${cfg.bg} ${cfg.border} ${cfg.text}`}>
                 {cfg.label}
               </span>
-              <span className="text-xs text-body-subtle">{items.length} class{items.length > 1 ? 'es' : ''}</span>
+              <span className="text-xs text-body-subtle">{items.length} class</span>
             </div>
 
-            {/* Class items */}
             <div className="space-y-2">
               {items.map((cls) => {
                 const isExpanded = expandedClasses.has(cls.id);
                 return (
                   <div
                     key={cls.id}
-                    className="bg-neutral-primary-soft border border-border-default rounded-base shadow-xs overflow-hidden transition-all duration-200"
+                    className="overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft shadow-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
                   >
-                    {/* Class header */}
                     <button
                       onClick={() => toggleClass(cls.id)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-neutral-secondary-medium transition-colors duration-150"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-neutral-secondary-soft"
                       id={`btn-toggle-class-${cls.id}`}
                     >
                       <ChevronDown
                         size={14}
-                        strokeWidth={2}
-                        className={`text-body-subtle shrink-0 transition-transform duration-150 ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
+                        strokeWidth={1.8}
+                        className={`shrink-0 text-body-subtle transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
                       />
-                      <Box size={14} strokeWidth={1.5} className={cfg.text + ' shrink-0'} />
+                      <Box size={14} strokeWidth={1.6} className={cfg.text + ' shrink-0'} />
                       <div className="min-w-0 flex-1">
                         <span className="text-sm font-semibold text-heading">{cls.className}</span>
                         {cls.packageName && (
-                          <span className="text-[11px] text-body-subtle font-mono ml-2">{cls.packageName}</span>
+                          <span className="ml-2 text-[11px] font-mono text-body-subtle">{cls.packageName}</span>
                         )}
                       </div>
-                      <span className="text-[11px] text-body-subtle shrink-0">
-                        {cls.methods.length} method{cls.methods.length !== 1 ? 's' : ''}
+                      <span className="shrink-0 rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] text-body-subtle">
+                        {cls.methods.length} method
                       </span>
                     </button>
 
-                    {/* Methods */}
                     {isExpanded && cls.methods.length > 0 && (
                       <div className="border-t border-border-default">
                         {cls.methods.map((method) => {
                           const isMethodExpanded = expandedMethods.has(method.id);
                           return (
                             <div key={method.id} className="border-b border-border-default last:border-b-0">
-                              {/* Method header */}
                               <button
                                 onClick={() => toggleMethod(method.id)}
-                                className="w-full flex items-center gap-3 px-5 py-2.5 text-left hover:bg-neutral-secondary-soft transition-colors duration-150"
+                                className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-neutral-secondary-soft"
                                 id={`btn-toggle-method-${method.id}`}
                               >
                                 <ChevronDown
                                   size={12}
-                                  strokeWidth={2}
-                                  className={`text-body-subtle shrink-0 transition-transform duration-150 ${isMethodExpanded ? 'rotate-0' : '-rotate-90'}`}
+                                  strokeWidth={1.8}
+                                  className={`shrink-0 text-body-subtle transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${isMethodExpanded ? 'rotate-0' : '-rotate-90'}`}
                                 />
-                                <Code2 size={12} strokeWidth={1.5} className="text-body-subtle shrink-0" />
+                                <Code2 size={12} strokeWidth={1.6} className="shrink-0 text-body-subtle" />
                                 <div className="min-w-0 flex-1">
-                                  <span className="text-[13px] font-medium text-heading font-mono">
+                                  <span className="font-mono text-[13px] font-medium text-heading">
                                     {method.methodName}
                                   </span>
-                                  <span className="text-[11px] text-body-subtle ml-1">
+                                  <span className="ml-1 text-[11px] text-body-subtle">
                                     ({method.parameters.map((p) => p.type).join(', ')})
                                   </span>
                                   {method.returnType && (
                                     <>
-                                      <ArrowRight size={10} className="inline mx-1 text-body-subtle" />
-                                      <span className="text-[11px] text-body-subtle font-mono">{method.returnType}</span>
+                                      <ArrowRight size={10} className="mx-1 inline text-body-subtle" />
+                                      <span className="font-mono text-[11px] text-body-subtle">{method.returnType}</span>
                                     </>
                                   )}
                                 </div>
-                                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${
                                   method.visibility === 'PUBLIC' ? 'bg-success-soft text-fg-success-strong' :
                                   method.visibility === 'PRIVATE' ? 'bg-danger-soft text-fg-danger-strong' :
                                   'bg-neutral-secondary-medium text-body'
-                                }`}>
+                                }`}
+                                >
                                   {method.visibility?.toLowerCase()}
                                 </span>
                               </button>
 
-                              {/* Method details */}
                               {isMethodExpanded && (
-                                <div className="px-5 pb-3 space-y-3 bg-neutral-secondary-soft">
-                                  {/* Endpoints */}
+                                <div className="space-y-3 bg-neutral-secondary-soft px-5 pb-4">
                                   {method.endpoints.length > 0 && (
-                                    <div className="space-y-1.5 pt-2">
+                                    <div className="space-y-1.5 pt-3">
                                       {method.endpoints.map((ep) => (
-                                        <div key={ep.id} className="flex items-center gap-2">
-                                          <Globe size={11} strokeWidth={1.5} className="text-body-subtle shrink-0" />
-                                          <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold font-mono border ${HTTP_METHOD_COLOR[ep.httpMethod] || HTTP_METHOD_COLOR.GET}`}>
+                                        <div key={ep.id} className="flex min-w-0 items-center gap-2">
+                                          <Globe size={11} strokeWidth={1.6} className="shrink-0 text-body-subtle" />
+                                          <span className={`inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold ${HTTP_METHOD_COLOR[ep.httpMethod] || HTTP_METHOD_COLOR.GET}`}>
                                             {ep.httpMethod}
                                           </span>
-                                          <span className="text-xs font-mono text-heading">{ep.path}</span>
+                                          <span className="truncate font-mono text-xs text-heading">{ep.path}</span>
                                         </div>
                                       ))}
                                     </div>
                                   )}
 
-                                  {/* Source code */}
                                   {method.sourceCode && (
                                     <div className="relative">
-                                      <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[10px] text-body-subtle font-medium uppercase tracking-wider">Source Code</span>
+                                      <div className="mb-1 flex items-center justify-between">
+                                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-body-subtle">Source Code</span>
                                         {method.lineStart > 0 && (
-                                          <span className="text-[10px] text-body-subtle font-mono">
-                                            L{method.lineStart}–{method.lineEnd}
+                                          <span className="font-mono text-[10px] text-body-subtle">
+                                            L{method.lineStart}-{method.lineEnd}
                                           </span>
                                         )}
                                       </div>
-                                      <pre className="bg-neutral-primary-medium border border-border-default rounded-default p-3 text-[12px] font-mono text-heading overflow-x-auto leading-relaxed max-h-[280px] overflow-y-auto">
+                                      <pre className="max-h-[280px] overflow-auto rounded-default border border-border-default bg-neutral-primary-medium p-3 font-mono text-[12px] leading-relaxed text-heading">
                                         <code>{method.sourceCode}</code>
                                       </pre>
                                     </div>
                                   )}
 
-                                  {/* Parameters & throws */}
                                   {method.throwsList.length > 0 && (
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-[10px] text-body-subtle font-medium">Throws:</span>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <span className="text-[10px] font-medium text-body-subtle">Throws:</span>
                                       {method.throwsList.map((t) => (
                                         <span
                                           key={t}
-                                          className="text-[10px] font-mono bg-danger-soft text-fg-danger-strong border border-border-danger-subtle rounded px-1.5 py-0.5"
+                                          className="rounded border border-border-danger-subtle bg-danger-soft px-1.5 py-0.5 font-mono text-[10px] text-fg-danger-strong"
                                         >
                                           {t}
                                         </span>

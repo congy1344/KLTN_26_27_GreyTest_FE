@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Upload, GitBranch, File as FileIcon, ArrowRight } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { useCloneGithub, useUploadProject } from '../hooks/useProjects';
@@ -49,15 +49,17 @@ export function ProjectUploadForm() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* ZIP Upload Card */}
-        <GlassCard className="!p-5">
-          <form onSubmit={submitZip}>
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-softer text-fg-brand-strong shrink-0">
-                <Upload size={16} strokeWidth={2} />
+      <div className="grid items-stretch gap-5 md:grid-cols-2">
+        <GlassCard className="h-full">
+          <form onSubmit={submitZip} className="flex h-full flex-col">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-default bg-brand-softer text-fg-brand-strong">
+                <Upload size={16} strokeWidth={1.8} />
               </div>
-              <h3 className="text-sm font-semibold text-heading">Upload ZIP</h3>
+              <div>
+                <h3 className="text-sm font-semibold text-heading">Upload ZIP</h3>
+                <p className="text-xs text-body-subtle">Tự động phân tích sau khi tải lên</p>
+              </div>
             </div>
 
             <input
@@ -74,7 +76,7 @@ export function ProjectUploadForm() {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`mb-4 flex cursor-pointer flex-col items-center justify-center rounded-default border border-dashed px-4 py-8 transition-all duration-200 ${
+              className={`mb-4 flex min-h-[162px] cursor-pointer flex-col items-center justify-center rounded-default border border-dashed px-4 py-8 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                 isDragging
                   ? 'border-border-brand bg-brand-softer text-fg-brand'
                   : file
@@ -84,20 +86,20 @@ export function ProjectUploadForm() {
             >
               {file ? (
                 <div className="flex items-center gap-2 text-sm">
-                  <FileIcon size={16} className="text-fg-brand-strong animate-pulse" strokeWidth={2} />
-                  <span className="font-medium truncate max-w-[180px]">{file.name}</span>
+                  <FileIcon size={16} className="text-fg-brand-strong animate-pulse" strokeWidth={1.8} />
+                  <span className="max-w-[180px] truncate font-medium">{file.name}</span>
                 </div>
               ) : (
                 <>
                   <Upload
                     size={20}
                     className={`mb-2 ${isDragging ? 'text-fg-brand' : 'text-body-subtle'}`}
-                    strokeWidth={1.5}
+                    strokeWidth={1.6}
                   />
                   <p className="text-xs font-medium">
                     Kéo thả file <span className="text-fg-brand">.zip</span> vào đây
                   </p>
-                  <p className="text-[11px] text-body-subtle mt-1">hoặc click để chọn</p>
+                  <p className="mt-1 text-[11px] text-body-subtle">hoặc click để chọn</p>
                 </>
               )}
             </div>
@@ -105,62 +107,69 @@ export function ProjectUploadForm() {
             <button
               type="submit"
               disabled={!file || upload.isPending}
-              className="btn btn-brand w-full justify-center"
+              className="btn btn-brand mt-auto w-full justify-center"
               id="btn-upload-zip"
             >
               {upload.isPending ? (
                 <>
                   <span className="h-3.5 w-3.5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                  Đang tải lên và phân tích...
+                  Đang tải lên và phân tích
                 </>
               ) : (
                 <>
                   Tải lên
-                  <ArrowRight size={14} strokeWidth={2} />
+                  <ArrowRight size={14} strokeWidth={1.8} />
                 </>
               )}
             </button>
           </form>
         </GlassCard>
 
-        {/* GitHub Clone Card */}
-        <GlassCard className="!p-5">
-          <form onSubmit={submitGithub}>
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-softer text-fg-brand-strong shrink-0">
-                <GitBranch size={16} strokeWidth={2} />
+        <GlassCard className="h-full">
+          <form onSubmit={submitGithub} className="flex h-full flex-col">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-default bg-brand-softer text-fg-brand-strong">
+                <GitBranch size={16} strokeWidth={1.8} />
               </div>
-              <h3 className="text-sm font-semibold text-heading">GitHub Repository</h3>
+              <div>
+                <h3 className="text-sm font-semibold text-heading">GitHub Repository</h3>
+                <p className="text-xs text-body-subtle">Clone repo public để phân tích</p>
+              </div>
             </div>
 
-            <label htmlFor="github-url-input" className="block text-xs font-medium text-heading mb-2">
-              Repository URL
-            </label>
-            <input
-              id="github-url-input"
-              type="url"
-              value={githubUrl}
-              onChange={(e) => setGithubUrl(e.target.value)}
-              placeholder="https://github.com/user/repo"
-              className="form-input w-full mb-4"
-              disabled={clone.isPending}
-            />
+            <div className="mb-4 flex min-h-[162px] flex-col justify-center rounded-default border border-border-default bg-neutral-secondary-soft p-4">
+              <label htmlFor="github-url-input" className="mb-2 block text-xs font-medium text-heading">
+                Repository URL
+              </label>
+              <input
+                id="github-url-input"
+                type="url"
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                placeholder="https://github.com/user/repo"
+                className="form-input w-full"
+                disabled={clone.isPending}
+              />
+              <p className="mt-2 text-[11px] leading-relaxed text-body-subtle">
+                Hỗ trợ repository public. Backend sẽ clone và phân tích ngay sau khi nhận URL.
+              </p>
+            </div>
 
             <button
               type="submit"
               disabled={!githubUrl.trim() || clone.isPending}
-              className="btn btn-brand w-full justify-center"
+              className="btn btn-brand mt-auto w-full justify-center"
               id="btn-clone-github"
             >
               {clone.isPending ? (
                 <>
                   <span className="h-3.5 w-3.5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                  Đang clone và phân tích...
+                  Đang clone và phân tích
                 </>
               ) : (
                 <>
                   Clone
-                  <ArrowRight size={14} strokeWidth={2} />
+                  <ArrowRight size={14} strokeWidth={1.8} />
                 </>
               )}
             </button>
@@ -168,10 +177,9 @@ export function ProjectUploadForm() {
         </GlassCard>
       </div>
 
-      {/* Error message Alert */}
       {error && (
-        <div className="flex items-center gap-2.5 rounded-base bg-danger-soft border border-border-danger-subtle px-4 py-3 animate-fade-in text-[14px] text-fg-danger-strong">
-          <div className="h-1.5 w-1.5 rounded-full bg-danger shrink-0" />
+        <div className="flex items-center gap-2.5 rounded-base border border-border-danger-subtle bg-danger-soft px-4 py-3 text-[14px] text-fg-danger-strong animate-fade-in">
+          <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
           <p className="font-medium">{getErrorMessage(error)}</p>
         </div>
       )}

@@ -25,29 +25,32 @@ export function ProjectList() {
   const { data: projects, isLoading, error } = useProjects();
   const remove = useDeleteProject();
   const navigate = useNavigate();
+  const sortedProjects = [...(projects ?? [])].sort(
+    (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  );
 
   if (isLoading) return <SkeletonLoader count={3} />;
 
   if (error) {
     return (
-      <div className="bg-neutral-primary-soft border border-border-default rounded-base shadow-xs p-8 flex flex-col items-center justify-center text-center animate-fade-in">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-danger-soft text-fg-danger-strong mb-4 shrink-0">
-          <FolderOpen size={20} strokeWidth={2} />
+      <div className="flex flex-col items-center justify-center rounded-base border border-border-default bg-neutral-primary-soft p-8 text-center shadow-sm animate-fade-in">
+        <div className="mb-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-default bg-danger-soft text-fg-danger-strong">
+          <FolderOpen size={20} strokeWidth={1.8} />
         </div>
-        <p className="text-sm font-semibold text-fg-danger-strong mb-1">{getErrorMessage(error)}</p>
+        <p className="mb-1 text-sm font-semibold text-fg-danger-strong">{getErrorMessage(error)}</p>
         <p className="text-xs text-body-subtle">Không thể tải danh sách project</p>
       </div>
     );
   }
 
-  if (!projects?.length) {
+  if (!sortedProjects.length) {
     return (
-      <div className="bg-neutral-primary-soft border border-border-default rounded-base shadow-xs p-12 flex flex-col items-center justify-center text-center animate-fade-in">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-neutral-secondary-medium text-body-subtle mb-4 shrink-0">
-          <FolderOpen size={24} strokeWidth={1.5} />
+      <div className="flex flex-col items-center justify-center rounded-base border border-border-default bg-neutral-primary-soft p-12 text-center shadow-sm animate-fade-in">
+        <div className="mb-4 flex h-14 w-14 shrink-0 items-center justify-center rounded-default bg-neutral-secondary-medium text-body-subtle">
+          <FolderOpen size={24} strokeWidth={1.6} />
         </div>
-        <p className="text-sm font-semibold text-heading mb-1.5">Chưa có project nào</p>
-        <p className="text-xs text-body-subtle max-w-[280px] leading-relaxed">
+        <p className="mb-1.5 text-sm font-semibold text-heading">Chưa có project nào</p>
+        <p className="max-w-[280px] text-xs leading-relaxed text-body-subtle">
           Upload file ZIP hoặc clone từ GitHub để bắt đầu phân tích tự động.
         </p>
       </div>
@@ -56,35 +59,43 @@ export function ProjectList() {
 
   return (
     <div className="space-y-3">
-      {projects.map((p, i) => (
+      {sortedProjects.map((p, i) => {
+        const isGithub = p.sourceType === 'GITHUB';
+        return (
         <div
           key={p.id}
           onClick={() => navigate(`/projects/${p.id}`)}
-          className="bg-neutral-primary-soft border border-border-default rounded-base shadow-xs px-5 py-4 transition-all duration-200 hover:border-border-default-strong hover:shadow-sm flex items-center justify-between gap-4 animate-fade-in-up cursor-pointer"
+          className={`flex cursor-pointer items-center justify-between gap-4 rounded-base border bg-neutral-primary-soft px-5 py-4 shadow-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:border-border-default-strong hover:shadow-md animate-fade-in-up ${
+            isGithub ? 'border-border-brand-subtle' : 'border-border-default'
+          }`}
           style={{ animationDelay: `${i * 0.06}s` }}
         >
-          {/* Left: Project info */}
-          <div className="flex items-center gap-3.5 min-w-0 flex-1">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-secondary-medium text-body-subtle">
-              {p.sourceType === 'GITHUB' ? (
-                <GitBranch size={16} strokeWidth={1.5} />
+          <div className="flex min-w-0 flex-1 items-center gap-3.5">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-default ${
+              isGithub ? 'bg-brand-softer text-fg-brand-strong' : 'bg-neutral-secondary-medium text-body-subtle'
+            }`}>
+              {isGithub ? (
+                <GitBranch size={16} strokeWidth={1.7} />
               ) : (
-                <Archive size={16} strokeWidth={1.5} />
+                <Archive size={16} strokeWidth={1.7} />
               )}
             </div>
 
             <div className="min-w-0">
-              <h4 className="text-sm font-semibold text-heading truncate">{p.name}</h4>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-[11px] text-body-subtle font-mono">{p.sourceType}</span>
-                <span className="text-border-default-strong text-[11px] select-none">·</span>
+              <h4 className="truncate text-sm font-semibold text-heading">{p.name}</h4>
+              <div className="mt-1 flex items-center gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  isGithub ? 'bg-brand-softer text-fg-brand-strong' : 'bg-neutral-secondary-medium text-body'
+                }`}>
+                  {isGithub ? 'GitHub' : 'ZIP'}
+                </span>
+                <span className="h-1 w-1 rounded-full bg-neutral-quaternary" />
                 <span className="text-[11px] text-body-subtle">{timeAgo(p.createdAt)}</span>
               </div>
             </div>
           </div>
 
-          {/* Right: Status + actions */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex shrink-0 items-center gap-3">
             <StatusBadge status={p.status} />
             <button
               onClick={(e) => { e.stopPropagation(); remove.mutate(p.id); }}
@@ -93,11 +104,12 @@ export function ProjectList() {
               title="Xóa project"
               id={`btn-delete-project-${p.id}`}
             >
-              <Trash2 size={14} strokeWidth={1.5} />
+              <Trash2 size={14} strokeWidth={1.6} />
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

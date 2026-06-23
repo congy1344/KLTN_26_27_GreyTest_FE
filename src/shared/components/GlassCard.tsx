@@ -7,8 +7,8 @@ interface GlassCardProps {
 export function GlassCard({ children, className = '', hover = false }: GlassCardProps) {
   return (
     <div
-      className={`bg-neutral-primary-soft border border-border-default rounded-base shadow-xs p-5 transition-all duration-200 ${
-        hover ? 'cursor-pointer hover:border-border-default-strong hover:shadow-sm' : ''
+      className={`rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+        hover ? 'cursor-pointer hover:-translate-y-0.5 hover:border-border-default-strong hover:shadow-md' : ''
       } ${className}`}
     >
       {children}
