@@ -40,6 +40,14 @@ export interface EndpointInfo {
   methodName: string;
 }
 
+export interface RelevantAnnotationInfo {
+  id: number;
+  targetType: string;
+  category: string;
+  annotationName: string;
+  attributes: string | null;
+}
+
 export interface JavaMethodInfo {
   id: number;
   methodName: string;
@@ -50,6 +58,7 @@ export interface JavaMethodInfo {
   sourceCode: string;
   lineStart: number;
   lineEnd: number;
+  annotations?: RelevantAnnotationInfo[];
   endpoints: EndpointInfo[];
 }
 
@@ -60,6 +69,7 @@ export interface JavaClassInfo {
   qualifiedName: string;
   classType: string;
   filePath: string;
+  annotations?: RelevantAnnotationInfo[];
   methods: JavaMethodInfo[];
 }
 
@@ -71,6 +81,18 @@ export interface ServiceRelation {
   repositoryQualifiedName: string;
 }
 
+export interface ControllerServiceRelation {
+  id: number;
+  controllerClassName: string;
+  controllerQualifiedName: string;
+  controllerMethodName: string;
+  serviceClassName: string;
+  serviceQualifiedName: string;
+  serviceMethodName: string;
+  serviceFieldName: string;
+  serviceFieldType: string;
+}
+
 export interface AnalysisResult {
   projectId: number;
   projectName: string;
@@ -79,7 +101,13 @@ export interface AnalysisResult {
   totalMethods: number;
   totalEndpoints: number;
   totalRelations: number;
+  totalControllerServiceRelations?: number;
   existingTestFiles: number;
+  totalProductionFiles?: number;
+  parsedProductionFiles?: number;
+  failedParseFiles?: number;
+  failedParseFilePaths?: string[];
   classes: JavaClassInfo[];
   relations: ServiceRelation[];
+  controllerServiceRelations?: ControllerServiceRelation[];
 }

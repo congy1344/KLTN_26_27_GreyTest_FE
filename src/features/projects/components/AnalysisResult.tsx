@@ -1,7 +1,7 @@
 import { AnalysisStats } from './AnalysisStats';
 import { ClassTree } from './ClassTree';
 import type { AnalysisResult as AnalysisResultType } from '../types';
-import { GitFork, ArrowRight, ShieldCheck } from 'lucide-react';
+import { GitFork, ArrowRight, ShieldCheck, AlertTriangle } from 'lucide-react';
 
 interface AnalysisResultProps {
   data: AnalysisResultType;
@@ -38,6 +38,30 @@ export function AnalysisResult({ data }: AnalysisResultProps) {
               <p className="mt-0.5 text-xs leading-relaxed text-body">
                 Các file trong src/test/java được giữ nguyên nhưng không đưa vào phân tích hoặc context sinh test.
               </p>
+            </div>
+          </div>
+        )}
+
+        {(data.failedParseFiles ?? 0) > 0 && (
+          <div className="mt-4 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4 shadow-xs">
+            <AlertTriangle size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-warning-strong" />
+            <div>
+              <p className="text-sm font-semibold text-warning-strong">
+                {data.failedParseFiles} file production Java khong parse duoc
+              </p>
+              <p className="mt-0.5 text-xs leading-relaxed text-body">
+                Nhung file nay duoc bo qua khoi static analysis context nen he thong se khong sinh test truc tiep cho
+                class/method nam trong do.
+              </p>
+              {(data.failedParseFilePaths?.length ?? 0) > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {data.failedParseFilePaths!.slice(0, 5).map((path) => (
+                    <li key={path} className="font-mono text-xs text-body-subtle">
+                      {path}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         )}
