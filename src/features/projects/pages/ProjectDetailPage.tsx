@@ -6,6 +6,7 @@ import { AnalysisResult } from '../components/AnalysisResult';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { AppShell } from '../../../shared/components/AppShell';
+import { BusinessRulesPanel } from '../../business-rules/components/BusinessRulesPanel';
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -177,6 +178,10 @@ export function ProjectDetailPage() {
             {getErrorMessage(analysisError)}
           </p>
         </div>
+      )}
+
+      {hasAnalysis && (
+        <BusinessRulesPanel projectId={projectId} />
       )}
     </AppShell>
   );

@@ -1,5 +1,6 @@
 import { Beaker, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useCurrentUser, useLogout } from '../../features/auth/hooks/useAuth';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -8,6 +9,14 @@ interface AppShellProps {
 
 export function AppShell({ children, maxWidth = 'default' }: AppShellProps) {
   const widthClass = maxWidth === 'wide' ? 'max-w-6xl' : 'max-w-5xl';
+  const navigate = useNavigate();
+  const { data: user } = useCurrentUser();
+  const logout = useLogout();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <div className="min-h-[100dvh] text-body">
@@ -27,10 +36,15 @@ export function AppShell({ children, maxWidth = 'default' }: AppShellProps) {
             </span>
           </Link>
 
-          <span className="inline-flex items-center gap-2 rounded-full border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-[12px] font-medium text-heading shadow-xs">
-            <Sparkles size={13} strokeWidth={1.8} className="text-fg-brand" />
-            AI QA Agent
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="hidden items-center gap-2 rounded-full border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-[12px] font-medium text-heading shadow-xs sm:inline-flex">
+              <Sparkles size={13} strokeWidth={1.8} className="text-fg-brand" />
+              {user?.fullName ?? 'AI QA Agent'}
+            </span>
+            <button type="button" onClick={handleLogout} className="btn btn-secondary px-3 py-1.5 text-[12px]">
+              Dang xuat
+            </button>
+          </div>
         </div>
       </nav>
 

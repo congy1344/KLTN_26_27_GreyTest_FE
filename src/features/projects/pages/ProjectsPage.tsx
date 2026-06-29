@@ -16,8 +16,8 @@ export function ProjectsPage() {
             Quản lý project kiểm thử
           </h1>
           <p className="mt-3 text-base leading-relaxed text-body">
-            Nhập source code Java Spring Boot để GreyTest phân tích cấu trúc,
-            loại test có sẵn khỏi context và chuẩn bị dữ liệu cho pipeline AI.
+            Nhap source code Java Spring Boot de GreyTest phan tich cau truc,
+            tach production analysis voi existing tests va chuan bi du lieu cho pipeline AI.
           </p>
         </div>
       </header>

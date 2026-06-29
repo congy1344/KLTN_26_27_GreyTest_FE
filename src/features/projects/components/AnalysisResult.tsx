@@ -36,7 +36,7 @@ export function AnalysisResult({ data }: AnalysisResultProps) {
                 Đã phát hiện {data.existingTestFiles} file test có sẵn
               </p>
               <p className="mt-0.5 text-xs leading-relaxed text-body">
-                Các file trong src/test/java được giữ nguyên nhưng không đưa vào phân tích hoặc context sinh test.
+                Existing tests khong tinh vao production analysis, nhung duoc luu lam context de AI cai thien hoac bo sung unit test.
               </p>
             </div>
           </div>

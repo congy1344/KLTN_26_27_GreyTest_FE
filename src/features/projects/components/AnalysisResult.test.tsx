@@ -7,7 +7,7 @@ import { AnalysisResult } from './AnalysisResult';
 import type { AnalysisResult as AnalysisResultType } from '../types';
 
 describe('AnalysisResult', () => {
-  it('reports existing tests excluded from analysis', () => {
+  it('reports existing tests stored as context but excluded from production analysis', () => {
     const result: AnalysisResultType = {
       projectId: 1,
       projectName: 'petclinic',
@@ -24,6 +24,6 @@ describe('AnalysisResult', () => {
     render(<AnalysisResult data={result} />);
 
     expect(screen.getByText('Đã phát hiện 17 file test có sẵn')).toBeInTheDocument();
-    expect(screen.getByText(/không đưa vào phân tích hoặc context sinh test/)).toBeInTheDocument();
+    expect(screen.getByText(/Existing tests khong tinh vao production analysis/)).toBeInTheDocument();
   });
 });

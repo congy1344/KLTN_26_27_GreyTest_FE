@@ -21,6 +21,7 @@ export interface Project {
   sourceUrl: string | null;
   status: ProjectStatus;
   createdAt: string;
+  ownerUserId: number | null;
   sourceAvailable: boolean;
 }
 
