@@ -6,9 +6,21 @@ export async function fetchBusinessRules(projectId: number): Promise<BusinessRul
   return data;
 }
 
-export async function createBusinessRule(projectId: number, description: string): Promise<BusinessRule> {
-  const { data } = await apiClient.post<BusinessRule>(`/projects/${projectId}/business-rules`, { description });
+export async function createBusinessRule(projectId: number, methodId: number, description: string): Promise<BusinessRule> {
+  const { data } = await apiClient.post<BusinessRule>(`/projects/${projectId}/business-rules`, { methodId, description });
   return data;
+}
+
+export async function updateBusinessRule(rule: BusinessRule, description: string): Promise<BusinessRule> {
+  const { data } = await apiClient.put<BusinessRule>(`/business-rules/${rule.id}`, {
+    methodId: rule.methodId,
+    description,
+  });
+  return data;
+}
+
+export async function deleteBusinessRule(ruleId: number): Promise<void> {
+  await apiClient.delete(`/business-rules/${ruleId}`);
 }
 
 export async function generateBusinessRules(projectId: number): Promise<BusinessRule[]> {
