@@ -39,6 +39,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
   const [editDescription, setEditDescription] = useState('');
   const [collapsedAll, setCollapsedAll] = useState(false);
+  const [generationMessage, setGenerationMessage] = useState<string | null>(null);
 
   const { data: rules = [], isLoading, error } = useBusinessRules(projectId);
   const { data: analysis } = useAnalysis(projectId);
@@ -96,6 +97,16 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
     });
   };
 
+  const handleGenerate = () => {
+    generateMutation.mutate(undefined, {
+      onSuccess: (generated) => {
+        setGenerationMessage(generated.length === 0
+          ? 'Khong con Service method chua co Business Rule.'
+          : `AI da sinh ${generated.length} Business Rule moi.`);
+      },
+    });
+  };
+
   const handleStartEdit = (rule: BusinessRule) => {
     setEditingRuleId(rule.id);
     setEditDescription(rule.description);
@@ -144,7 +155,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn btn-secondary" disabled={pending} onClick={() => generateMutation.mutate()}>
+          <button className="btn btn-secondary" disabled={pending} onClick={handleGenerate}>
             {generateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
             AI sinh BR
           </button>
@@ -173,6 +184,11 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
       </div>
 
       <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+        {generationMessage && (
+          <div className="mb-4 rounded-default border border-border-brand-subtle bg-brand-softer p-3 text-xs font-medium text-fg-brand-strong">
+            {generationMessage}
+          </div>
+        )}
         {collapsedAll ? (
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>

@@ -185,11 +185,11 @@ export function ClassTree({ classes }: ClassTreeProps) {
 
                                   {method.throwsList.length > 0 && (
                                     <div className="flex flex-wrap items-center gap-1.5">
-                                      <span className="text-[10px] font-medium text-body-subtle">Throws:</span>
+                                      <span className="text-[10px] font-medium text-body-subtle">Khai báo throws:</span>
                                       {method.throwsList.map((t) => (
                                         <span
                                           key={t}
-                                          className="rounded border border-border-danger-subtle bg-danger-soft px-1.5 py-0.5 font-mono text-[10px] text-fg-danger-strong"
+                                          className="rounded border border-border-default bg-neutral-secondary-medium px-1.5 py-0.5 font-mono text-[10px] text-body"
                                         >
                                           {t}
                                         </span>

@@ -1,34 +1,51 @@
+import { useState } from 'react';
 import { AnalysisStats } from './AnalysisStats';
 import { ClassTree } from './ClassTree';
 import type { AnalysisResult as AnalysisResultType } from '../types';
-import { GitFork, ArrowRight, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { GitFork, ArrowRight, ShieldCheck, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface AnalysisResultProps {
   data: AnalysisResultType;
 }
 
 export function AnalysisResult({ data }: AnalysisResultProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
   return (
     <div className="space-y-8 animate-fade-in">
       <section>
-        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div className={`${isExpanded ? 'mb-4' : ''} flex items-center justify-between gap-4`}>
           <div>
             <h3 className="text-sm font-semibold text-heading">Tổng quan phân tích</h3>
             <p className="mt-1 text-xs text-body-subtle">
               Các chỉ số được trích xuất từ production source.
             </p>
           </div>
-          <span className="text-xs font-mono text-body-subtle">Project #{data.projectId}</span>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="hidden text-xs font-mono text-body-subtle sm:inline">Project #{data.projectId}</span>
+            <button
+              type="button"
+              onClick={() => setIsExpanded((value) => !value)}
+              aria-expanded={isExpanded}
+              aria-label={isExpanded ? 'Thu gọn phần phân tích' : 'Mở rộng phần phân tích'}
+              title={isExpanded ? 'Thu gọn phần phân tích' : 'Mở rộng phần phân tích'}
+              className="btn-ghost"
+            >
+              {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
+          </div>
         </div>
 
-        <AnalysisStats
-          totalClasses={data.totalClasses}
-          totalMethods={data.totalMethods}
-          totalEndpoints={data.totalEndpoints}
-          totalRelations={data.totalRelations}
-        />
+        {isExpanded && (
+          <>
+            <AnalysisStats
+              totalClasses={data.totalClasses}
+              totalMethods={data.totalMethods}
+              totalEndpoints={data.totalEndpoints}
+              totalRelations={data.totalRelations}
+            />
 
-        {data.existingTestFiles > 0 && (
+            {data.existingTestFiles > 0 && (
           <div className="mt-4 flex items-start gap-3 rounded-base border border-border-brand-subtle bg-brand-softer p-4 shadow-xs">
             <ShieldCheck size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-fg-brand-strong" />
             <div>
@@ -40,9 +57,9 @@ export function AnalysisResult({ data }: AnalysisResultProps) {
               </p>
             </div>
           </div>
-        )}
+            )}
 
-        {(data.failedParseFiles ?? 0) > 0 && (
+            {(data.failedParseFiles ?? 0) > 0 && (
           <div className="mt-4 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4 shadow-xs">
             <AlertTriangle size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-warning-strong" />
             <div>
@@ -64,10 +81,12 @@ export function AnalysisResult({ data }: AnalysisResultProps) {
               )}
             </div>
           </div>
+            )}
+          </>
         )}
       </section>
 
-      {data.relations.length > 0 && (
+      {isExpanded && data.relations.length > 0 && (
         <section>
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-heading">Quan hệ Service và Repository</h3>
@@ -91,13 +110,13 @@ export function AnalysisResult({ data }: AnalysisResultProps) {
         </section>
       )}
 
-      <section>
+      {isExpanded && <section>
         <div className="mb-4">
           <h3 className="text-sm font-semibold text-heading">Cấu trúc source code</h3>
           <p className="mt-1 text-xs text-body-subtle">Mở từng class và method để xem endpoint, signature và source.</p>
         </div>
         <ClassTree classes={data.classes} />
-      </section>
+      </section>}
     </div>
   );
 }
