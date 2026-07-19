@@ -100,7 +100,7 @@ export function TestPlansPanel({ projectId, projectStatus }: TestPlansPanelProps
       <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-sm font-semibold text-heading">Test Plans</h3>
-          <p className="mt-1 text-xs text-body-subtle">Sinh Test Plan từ Business Rule đã duyệt.</p>
+          <p className="mt-1 text-xs text-body-subtle">Sinh Test Plan theo method/feature từ Business Rule đã duyệt.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -131,7 +131,7 @@ export function TestPlansPanel({ projectId, projectStatus }: TestPlansPanelProps
               onChange={(event) => setBusinessRuleId(event.target.value)}
               disabled={pending || approvedRules.length === 0}
             >
-              <option value="">Chọn Business Rule</option>
+              <option value="">Chọn anchor Business Rule</option>
               {approvedRules.map((rule) => (
                 <option key={rule.id} value={rule.id}>
                   {rule.ruleCode}
@@ -197,7 +197,7 @@ export function TestPlansPanel({ projectId, projectStatus }: TestPlansPanelProps
                   <ClipboardList size={14} className="text-body-subtle" />
                   <span className="font-mono text-xs font-semibold text-heading">{plan.planCode}</span>
                   <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
-                    BR #{plan.businessRuleId}
+                    Anchor BR #{plan.businessRuleId}
                   </span>
                   <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
                     {plan.testType}

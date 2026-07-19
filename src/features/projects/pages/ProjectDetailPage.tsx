@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Scan, Loader2, GitBranch, Archive, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Scan, Loader2, GitBranch, Archive, AlertCircle, ArrowRight } from 'lucide-react';
 import { useProject, useAnalysis, useAnalyzeProject } from '../hooks/useProjects';
 import { StatusBadge } from '../components/StatusBadge';
 import { AnalysisResult } from '../components/AnalysisResult';
@@ -7,7 +7,8 @@ import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { AppShell } from '../../../shared/components/AppShell';
 import { BusinessRulesPanel } from '../../business-rules/components/BusinessRulesPanel';
-import { TestPlansPanel } from '../../test-plans/components/TestPlansPanel';
+import { ProjectWorkflowTabs } from '../components/ProjectWorkflowTabs';
+import { canOpenTestCases, canOpenTestPlans, canOpenUnitTests } from '../utils/project-workflow';
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,9 @@ export function ProjectDetailPage() {
 
   const canAnalyze = (project?.status === 'UPLOADED' || project?.status === 'ANALYZED') && project.sourceAvailable;
   const hasAnalysis = project && project.status !== 'UPLOADED';
+  const testPlansEnabled = project ? canOpenTestPlans(project.status) : false;
+  const testCasesEnabled = project ? canOpenTestCases(project.status) : false;
+  const unitTestsEnabled = project ? canOpenUnitTests(project.status) : false;
 
   const handleAnalyze = () => {
     if (!projectId) return;
@@ -146,6 +150,16 @@ export function ProjectDetailPage() {
         </div>
       </header>
 
+      {hasAnalysis && (
+        <ProjectWorkflowTabs
+          projectId={projectId}
+          active="analysis"
+          testPlansEnabled={testPlansEnabled}
+          testCasesEnabled={testCasesEnabled}
+          unitTestsEnabled={unitTestsEnabled}
+        />
+      )}
+
       {analyzeMutation.isPending && (
         <div className="mb-6 animate-fade-in">
           <div className="flex items-center gap-3 rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-sm">
@@ -184,7 +198,26 @@ export function ProjectDetailPage() {
       {hasAnalysis && (
         <>
           <BusinessRulesPanel projectId={projectId} />
-          <TestPlansPanel projectId={projectId} projectStatus={project.status} />
+          <div className="mt-6 rounded-base border border-border-brand-subtle bg-brand-softer p-4 shadow-sm animate-fade-in">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-heading">Bước tiếp theo: Test Plan</p>
+                <p className="mt-1 text-xs leading-relaxed text-body-subtle">
+                  Sau khi duyệt Business Rule, chuyển sang màn Test Plan để sinh và review kế hoạch test.
+                </p>
+              </div>
+              {testPlansEnabled ? (
+                <Link to={`/projects/${projectId}/test-plans`} className="btn btn-brand shrink-0">
+                  Mở Test Plan
+                  <ArrowRight size={14} strokeWidth={1.8} />
+                </Link>
+              ) : (
+                <button className="btn btn-secondary shrink-0" disabled>
+                  Cần duyệt BR
+                </button>
+              )}
+            </div>
+          </div>
         </>
       )}
     </AppShell>

@@ -19,6 +19,11 @@ export async function updateBusinessRule(rule: BusinessRule, description: string
   return data;
 }
 
+export async function acceptBusinessRuleSuggestion(ruleId: number): Promise<BusinessRule> {
+  const { data } = await apiClient.post<BusinessRule>(`/business-rules/${ruleId}/accept-suggestion`);
+  return data;
+}
+
 export async function deleteBusinessRule(ruleId: number): Promise<void> {
   await apiClient.delete(`/business-rules/${ruleId}`);
 }

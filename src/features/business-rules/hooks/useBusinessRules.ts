@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  acceptBusinessRuleSuggestion,
   approveBusinessRules,
   createBusinessRule,
   deleteBusinessRule,
@@ -43,6 +44,17 @@ export function useUpdateBusinessRule(projectId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ rule, description }: { rule: BusinessRule; description: string }) => updateBusinessRule(rule, description),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) });
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+    },
+  });
+}
+
+export function useAcceptBusinessRuleSuggestion(projectId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ruleId: number) => acceptBusinessRuleSuggestion(ruleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: rulesKey(projectId) });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });

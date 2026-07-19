@@ -8,6 +8,7 @@ export interface BusinessRule {
   ruleCode: string;
   description: string;
   reviewNote: string | null;
+  suggestedDescription: string | null;
   source: RuleSource;
   status: ReviewStatus;
   isModified: boolean;

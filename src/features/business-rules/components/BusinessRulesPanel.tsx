@@ -16,6 +16,7 @@ import {
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { useAnalysis } from '../../projects/hooks/useProjects';
 import {
+  useAcceptBusinessRuleSuggestion,
   useApproveBusinessRules,
   useBusinessRules,
   useCreateBusinessRules,
@@ -54,6 +55,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
   const reviewMutation = useReviewBusinessRules(projectId);
   const approveMutation = useApproveBusinessRules(projectId);
   const updateMutation = useUpdateBusinessRule(projectId);
+  const acceptSuggestionMutation = useAcceptBusinessRuleSuggestion(projectId);
   const deleteMutation = useDeleteBusinessRule(projectId);
   const pending =
     createMutation.isPending ||
@@ -61,6 +63,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
     reviewMutation.isPending ||
     approveMutation.isPending ||
     updateMutation.isPending ||
+    acceptSuggestionMutation.isPending ||
     deleteMutation.isPending;
   const mutationError =
     createMutation.error ??
@@ -68,16 +71,19 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
     reviewMutation.error ??
     approveMutation.error ??
     updateMutation.error ??
+    acceptSuggestionMutation.error ??
     deleteMutation.error;
 
   const draftRules = splitBusinessRuleText(description);
+  const dirtyRuleCount = rules.filter((rule) => rule.isModified).length;
   const reviewByRuleId = useMemo(() => {
     return new Map(reviewResult?.reviewedRules.map((review) => [review.ruleId, review]) ?? []);
   }, [reviewResult]);
-  const unresolvedSuggestionCount =
-    reviewResult?.reviewedRules.filter((review) => {
-      return review.suggestedDescription?.trim() && !dismissedSuggestionIds.has(review.ruleId);
-    }).length ?? 0;
+  const unresolvedSuggestionCount = rules.filter((rule) => {
+    const reviewSuggestion = reviewByRuleId.get(rule.id)?.suggestedDescription;
+    return (rule.suggestedDescription?.trim() || reviewSuggestion?.trim())
+      && !dismissedSuggestionIds.has(rule.id);
+  }).length;
 
   const handleCreate = (event: FormEvent) => {
     event.preventDefault();
@@ -120,6 +126,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
         onSuccess: () => {
           setEditingRuleId(null);
           setEditDescription('');
+          setDismissedSuggestionIds((current) => new Set(current).add(rule.id));
         },
       },
     );
@@ -130,9 +137,9 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
     deleteMutation.mutate(rule.id);
   };
 
-  const handleUseSuggestion = (rule: BusinessRule, suggestedDescription: string) => {
-    updateMutation.mutate(
-      { rule, description: suggestedDescription },
+  const handleUseSuggestion = (rule: BusinessRule) => {
+    acceptSuggestionMutation.mutate(
+      rule.id,
       {
         onSuccess: () => {
           setDismissedSuggestionIds((current) => new Set(current).add(rule.id));
@@ -151,7 +158,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
         <div>
           <h3 className="text-sm font-semibold text-heading">Business Rules</h3>
           <p className="mt-1 text-xs text-body-subtle">
-            Nhap moi dong mot BR, cho AI review tat ca, roi chon giu ban goc hoac dung goi y AI.
+            AI sinh BR tu source code; AI review chi bat khi ban them hoac sua rule.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -159,9 +166,9 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
             {generateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
             AI sinh BR
           </button>
-          <button className="btn btn-secondary" disabled={pending || rules.length === 0} onClick={handleReview}>
+          <button className="btn btn-secondary" disabled={pending || dirtyRuleCount === 0} onClick={handleReview}>
             {reviewMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            AI review all
+            AI review thay doi{dirtyRuleCount > 0 ? ` (${dirtyRuleCount})` : ''}
           </button>
           <button
             className="btn btn-secondary"
@@ -173,9 +180,13 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
           </button>
           <button
             className="btn btn-brand"
-            disabled={pending || rules.length === 0 || unresolvedSuggestionCount > 0}
+            disabled={pending || rules.length === 0 || dirtyRuleCount > 0 || unresolvedSuggestionCount > 0}
             onClick={() => approveMutation.mutate()}
-            title={unresolvedSuggestionCount > 0 ? 'Can chon giu rule goc hoac dung goi y AI truoc' : undefined}
+            title={dirtyRuleCount > 0
+              ? 'Can AI review cac rule ban da them hoac sua truoc'
+              : unresolvedSuggestionCount > 0
+                ? 'Can chon giu rule goc hoac dung goi y AI truoc'
+                : undefined}
           >
             {approveMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
             Approve tat ca
@@ -200,6 +211,11 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
             {unresolvedSuggestionCount > 0 && (
               <span className="rounded-full bg-warning-soft px-3 py-1 text-xs font-semibold text-fg-warning">
                 {unresolvedSuggestionCount} goi y chua chon
+              </span>
+            )}
+            {dirtyRuleCount > 0 && (
+              <span className="rounded-full bg-warning-soft px-3 py-1 text-xs font-semibold text-fg-warning">
+                {dirtyRuleCount} rule can AI review
               </span>
             )}
           </div>
@@ -254,7 +270,8 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
           <div className="space-y-2">
             {rules.map((rule) => {
               const review = reviewByRuleId.get(rule.id);
-              const suggestedDescription = review?.suggestedDescription?.trim();
+              const suggestedDescription = rule.suggestedDescription?.trim()
+                || review?.suggestedDescription?.trim();
               const showSuggestion = suggestedDescription && !dismissedSuggestionIds.has(rule.id);
               const editing = editingRuleId === rule.id;
 
@@ -337,9 +354,9 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
                     <p className="mt-2 text-xs leading-relaxed text-body-subtle">{rule.reviewNote}</p>
                   )}
 
-                  {review && (
+                  {(review || showSuggestion) && (
                     <div className="mt-3 rounded-default border border-border-warning-subtle bg-warning-soft p-3 text-xs text-fg-warning">
-                      <p className="font-semibold">{review.verdict}: {review.reason}</p>
+                      {review && <p className="font-semibold">{review.verdict}: {review.reason}</p>}
                       {showSuggestion && (
                         <div className="mt-2 space-y-2">
                           <p className="leading-relaxed text-heading">{suggestedDescription}</p>
@@ -357,7 +374,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
                               type="button"
                               className="btn btn-brand px-3 py-2 text-xs"
                               disabled={pending}
-                              onClick={() => handleUseSuggestion(rule, suggestedDescription)}
+                              onClick={() => handleUseSuggestion(rule)}
                             >
                               <Sparkles size={13} />
                               Dung goi y AI
