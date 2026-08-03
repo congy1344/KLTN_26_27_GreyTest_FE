@@ -7,7 +7,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Project } from '../../projects/types';
 import { useProject } from '../../projects/hooks/useProjects';
-import { TestCasesPage } from './TestCasesPage';
+import { CoveragePage } from './CoveragePage';
 
 vi.mock('../../projects/hooks/useProjects', () => ({
   useProject: vi.fn(),
@@ -17,8 +17,8 @@ vi.mock('../../../shared/components/AppShell', () => ({
   AppShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('../components/TestCasesPanel', () => ({
-  TestCasesPanel: () => <div>Test Cases Panel</div>,
+vi.mock('../components/CoveragePanel', () => ({
+  CoveragePanel: () => <div>Coverage Panel</div>,
 }));
 
 afterEach(() => {
@@ -26,7 +26,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('TestCasesPage', () => {
+describe('CoveragePage', () => {
   function renderPage(status: Project['status']) {
     vi.mocked(useProject).mockReturnValue({
       data: project(status),
@@ -35,24 +35,24 @@ describe('TestCasesPage', () => {
     } as ReturnType<typeof useProject>);
 
     render(
-      <MemoryRouter initialEntries={['/projects/105/test-cases']}>
+      <MemoryRouter initialEntries={['/projects/105/coverage']}>
         <Routes>
-          <Route path="/projects/:id/test-cases" element={<TestCasesPage />} />
-          <Route path="/projects/:id/test-plans" element={<div>Test Plan Page</div>} />
+          <Route path="/projects/:id/coverage" element={<CoveragePage />} />
+          <Route path="/projects/:id/unit-tests" element={<div>Unit Test Page</div>} />
         </Routes>
       </MemoryRouter>,
     );
   }
 
-  it('allows test cases once test plans are approved', () => {
-    renderPage('PLAN_APPROVED');
-    expect(screen.getByText('Test Cases Panel')).toBeInTheDocument();
+  it('allows coverage once unit tests are generated', () => {
+    renderPage('TEST_GENERATED');
+    expect(screen.getByText('Coverage Panel')).toBeInTheDocument();
   });
 
-  it('redirects to test plans while they are still under review', () => {
-    renderPage('PLAN_PENDING_REVIEW');
-    expect(screen.getByText('Test Plan Page')).toBeInTheDocument();
-    expect(screen.queryByText('Test Cases Panel')).not.toBeInTheDocument();
+  it('redirects to unit tests while cases are still under review', () => {
+    renderPage('CASE_PENDING_REVIEW');
+    expect(screen.getByText('Unit Test Page')).toBeInTheDocument();
+    expect(screen.queryByText('Coverage Panel')).not.toBeInTheDocument();
   });
 });
 

@@ -1,394 +1,354 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
-import {
-  Bot,
-  CheckCircle2,
-  ClipboardCheck,
-  Database,
-  FileText,
-  ListFilter,
-  Pencil,
-  Save,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { FormEvent, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Bot, CheckCircle2, ClipboardCheck, Database, FileText, ListFilter, Loader2, Pencil, PlusCircle, Save, Trash2, X } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
+import { EmptyState } from '../../../shared/components/EmptyState';
+import { InlineAlert } from '../../../shared/components/InlineAlert';
+import { LoadingState } from '../../../shared/components/LoadingState';
+import { MetricCard } from '../../../shared/components/MetricCard';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { SourceTrace } from '../../../shared/components/SourceTrace';
+import { useBusinessRules } from '../../business-rules/hooks/useBusinessRules';
+import type { ProjectStatus } from '../../projects/types';
+import { useAnalysis } from '../../projects/hooks/useProjects';
+import { buildRuleSourceIndex } from '../../projects/utils/source-trace';
 import { useTestPlans } from '../../test-plans/hooks/useTestPlans';
-import type { TestPlan, TestType } from '../../test-plans/types';
+import type { TestPlan } from '../../test-plans/types';
+import { useUnitTests } from '../../unit-tests/hooks/useUnitTests';
+import { useApproveTestCases, useCreateTestCase, useDeleteTestCase, useGenerateTestCases, useTestCases, useUpdateTestCase } from '../hooks/useTestCases';
+import type { Priority, TestCase, TestType } from '../types';
+import { useLanguage } from '../../../shared/i18n/language';
 
 const TEST_TYPES: TestType[] = ['HAPPY_PATH', 'BOUNDARY', 'EXCEPTION', 'EDGE'];
-const PRIORITIES = ['HIGH', 'MEDIUM', 'LOW'] as const;
+const PRIORITIES: Priority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
-type Priority = (typeof PRIORITIES)[number];
-type CaseStatus = 'DRAFT' | 'APPROVED';
-
-interface DraftTestCase {
-  id: number;
-  testId: string;
-  planId: number;
-  planCode: string;
-  testType: TestType;
-  description: string;
-  preconditions: string;
-  testData: string;
-  expectedResult: string;
-  priority: Priority;
-  traceSource: string;
-  status: CaseStatus;
-}
-
-export function TestCasesPanel({ projectId }: { projectId: number }) {
-  const { data: plans = [], isLoading, error } = useTestPlans(projectId);
-  const approvedPlans = useMemo(() => plans.filter((plan) => plan.status === 'APPROVED'), [plans]);
+export function TestCasesPanel({ projectId, projectStatus: _projectStatus }: { projectId: number; projectStatus?: ProjectStatus }) {
+  const navigate = useNavigate();
+  const plans = useTestPlans(projectId);
+  const rules = useBusinessRules(projectId);
+  const cases = useTestCases(projectId);
+  const units = useUnitTests(projectId);
+  const analysis = useAnalysis(projectId);
+  const generate = useGenerateTestCases(projectId);
+  const approve = useApproveTestCases(projectId);
+  const create = useCreateTestCase(projectId);
+  const updateCase = useUpdateTestCase(projectId);
+  const removeCase = useDeleteTestCase(projectId);
   const [planId, setPlanId] = useState('');
-  const [cases, setCases] = useState<DraftTestCase[]>([]);
+  const { t } = useLanguage();
+
+  // Form nhập case thủ công
+  const [formPlanId, setFormPlanId] = useState('');
+  const [formType, setFormType] = useState<TestType>('HAPPY_PATH');
+  const [formPriority, setFormPriority] = useState<Priority>('MEDIUM');
+  const [formDescription, setFormDescription] = useState('');
+  const [formPreconditions, setFormPreconditions] = useState('');
+  const [formExpected, setFormExpected] = useState('');
+  const [formTestData, setFormTestData] = useState('');
+  const [formError, setFormError] = useState('');
+
+  // Sửa inline
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<DraftTestCase | null>(null);
-  const nextCaseIdRef = useRef(1);
+  const [editType, setEditType] = useState<TestType>('HAPPY_PATH');
+  const [editPriority, setEditPriority] = useState<Priority>('MEDIUM');
+  const [editDescription, setEditDescription] = useState('');
+  const [editPreconditions, setEditPreconditions] = useState('');
+  const [editExpected, setEditExpected] = useState('');
+  const [planToRegenerate, setPlanToRegenerate] = useState<TestPlan | null>(null);
+  const [caseToDelete, setCaseToDelete] = useState<TestCase | null>(null);
 
-  const selectedPlan = approvedPlans.find((plan) => String(plan.id) === planId);
-  const visibleCases = useMemo(
-    () => (selectedPlan ? cases.filter((item) => item.planId === selectedPlan.id) : cases),
-    [cases, selectedPlan],
+  const approvedPlans = useMemo(() => (plans.data ?? []).filter((p) => p.status === 'APPROVED'), [plans.data]);
+  const sourceTraceByRule = useMemo(
+    () => buildRuleSourceIndex(analysis.data, rules.data ?? []),
+    [analysis.data, rules.data],
   );
-  const draftCount = cases.filter((item) => item.status === 'DRAFT').length;
-  const approvedCount = cases.filter((item) => item.status === 'APPROVED').length;
-  const visibleDraftCount = visibleCases.filter((item) => item.status === 'DRAFT').length;
-  const planReady = approvedPlans.length > 0;
-  const generationScope = selectedPlan ? selectedPlan.planCode : `${approvedPlans.length} plan đã duyệt`;
+  const plansNeedingCases = useMemo(() => approvedPlans.filter((plan) =>
+    plan.isModified || !(cases.data ?? []).some((testCase) => testCase.testPlanId === plan.id)),
+  [approvedPlans, cases.data]);
+  const visible = useMemo(() => planId ? (cases.data ?? []).filter((c) => String(c.testPlanId) === planId) : (cases.data ?? []), [cases.data, planId]);
+  const pending = (cases.data ?? []).filter((c) => c.status === 'PENDING_REVIEW').length;
+  const approved = (cases.data ?? []).filter((c) => c.status === 'APPROVED').length;
+  const error = plans.error ?? cases.error ?? units.error ?? analysis.error
+    ?? generate.error ?? approve.error ?? create.error ?? updateCase.error ?? removeCase.error;
+  const busy = generate.isPending || approve.isPending || create.isPending || updateCase.isPending || removeCase.isPending;
 
-  useEffect(() => {
-    setPlanId('');
-    setCases([]);
-    setEditingId(null);
-    setEditForm(null);
-    nextCaseIdRef.current = 1;
-  }, [projectId]);
+  // traceSource tự sinh theo format "BR-xxx -> TP-xxx" từ plan được chọn
+  const traceSourceFor = (testPlanId: number) => {
+    const plan = (plans.data ?? []).find((p) => p.id === testPlanId);
+    if (!plan) return '';
+    const ruleIds = plan.coveredRuleIds?.length ? plan.coveredRuleIds : [plan.businessRuleId];
+    const ruleLabels = ruleIds.map((ruleId) => {
+      const rule = (rules.data ?? []).find((item) => item.id === ruleId);
+      if (!rule) return `BR#${ruleId}`;
+      return `${rule.ruleCode}${rule.sourceBranchId ? ` [${rule.sourceBranchId}]` : ''}`;
+    });
+    return `${ruleLabels.join(', ')} -> ${plan.planCode}`;
+  };
+
+  const handleCreate = (event: FormEvent) => {
+    event.preventDefault();
+    if (!formPlanId || !formDescription.trim() || !formPreconditions.trim() || !formExpected.trim()) return;
+    let testData: Record<string, unknown> = {};
+    if (formTestData.trim()) {
+      try {
+        testData = JSON.parse(formTestData);
+      } catch {
+        setFormError(t('Test data phải là JSON hợp lệ (hoặc để trống).', 'Test data must be valid JSON (or empty).'));
+        return;
+      }
+    }
+    setFormError('');
+    create.mutate(
+      {
+        testPlanId: Number(formPlanId),
+        testType: formType,
+        priority: formPriority,
+        description: formDescription.trim(),
+        preconditions: formPreconditions.trim(),
+        expectedResult: formExpected.trim(),
+        testData,
+        traceSource: traceSourceFor(Number(formPlanId)),
+      },
+      { onSuccess: () => { setFormDescription(''); setFormPreconditions(''); setFormExpected(''); setFormTestData(''); } },
+    );
+  };
+
+  const handleStartEdit = (item: TestCase) => {
+    setEditingId(item.id);
+    setEditType(item.testType);
+    setEditPriority(item.priority);
+    setEditDescription(item.description);
+    setEditPreconditions(item.preconditions ?? '');
+    setEditExpected(item.expectedResult);
+  };
+
+  const handleSaveEdit = (item: TestCase) => {
+    if (!editDescription.trim() || !editPreconditions.trim() || !editExpected.trim()) return;
+    updateCase.mutate({
+      caseId: item.id,
+      input: {
+        testType: editType,
+        priority: editPriority,
+        description: editDescription.trim(),
+        preconditions: editPreconditions.trim(),
+        expectedResult: editExpected.trim(),
+        testData: item.testData ?? {},
+        traceSource: item.traceSource,
+      },
+    }, { onSuccess: () => setEditingId(null) });
+  };
+
+  const handleDelete = (item: TestCase) => {
+    setCaseToDelete(item);
+  };
 
   const handleGenerate = () => {
-    const generationPlans = selectedPlan ? [selectedPlan] : approvedPlans;
-    if (generationPlans.length === 0) return;
-
-    setCases((current) => {
-      const additions = generationPlans.map((plan) => {
-        const nextCaseId = nextCaseIdRef.current;
-        nextCaseIdRef.current += 1;
-        return buildDraftCase(plan, buildSuggestedCase(plan, nextCaseId), nextCaseId);
-      });
-      return [...current, ...additions];
-    });
-  };
-
-  const handleApprove = () => {
-    const targetPlanId = selectedPlan?.id;
-    setCases((current) => current.map((item) => (
-      !targetPlanId || item.planId === targetPlanId ? { ...item, status: 'APPROVED' } : item
-    )));
-  };
-
-  const handleSaveEdit = () => {
-    if (!editForm || !editForm.description.trim() || !editForm.expectedResult.trim()) return;
-    setCases((current) => current.map((item) => (
-      item.id === editForm.id ? { ...editForm, status: item.status } : item
-    )));
-    setEditingId(null);
-    setEditForm(null);
+    generate.mutate(undefined);
   };
 
   return (
     <section className="mt-8 animate-fade-in">
       <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-heading">Test Cases</h3>
-          <p className="mt-1 text-xs text-body-subtle">Review output AI theo Test Plan đã duyệt trước khi sinh Unit Test.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button className="btn btn-secondary" disabled={!planReady || isLoading} onClick={handleGenerate}>
-            <Bot size={14} />
-            AI sinh Case
-          </button>
-          <button className="btn btn-brand" disabled={visibleDraftCount === 0} onClick={handleApprove}>
-            <CheckCircle2 size={14} />
-            Approve
-          </button>
-        </div>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-3">
-        <Metric icon={ClipboardCheck} label="Approved Plans" value={approvedPlans.length} tone="brand" />
-        <Metric icon={FileText} label="Draft Cases" value={draftCount} />
-        <Metric icon={Database} label="Approved Cases" value={approvedCount} />
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(340px,1.05fr)]">
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
-          {error && (
-            <div className="mb-4 rounded-default border border-border-danger-subtle bg-danger-soft p-3 text-sm font-medium text-fg-danger-strong">
-              {getErrorMessage(error)}
-            </div>
+        <div><h3 className="text-sm font-semibold text-heading">Test Cases</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh từ Test Plan đã approve và lưu trực tiếp về backend.', 'AI generates Test Cases from approved Test Plans and persists them in the backend.')}</p></div>
+        <div className="flex gap-2">
+          {cases.isSuccess && (cases.data ?? []).length === 0 && (
+            <button className="btn btn-secondary" disabled={busy || approvedPlans.length === 0} onClick={handleGenerate}>
+              {generate.isPending ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} {t('AI sinh Case', 'Generate with AI')}
+            </button>
           )}
-
-          <div className="flex items-center gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-default bg-brand-softer text-fg-brand-strong">
-                <ListFilter size={16} strokeWidth={1.8} />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-heading">Phạm vi sinh case</p>
-                <p className="mt-0.5 truncate text-xs text-body-subtle">{generationScope}</p>
-              </div>
-            </div>
-          </div>
-
-          <select
-            aria-label="Loc Test Plan"
-            className="form-input mt-4"
-            value={planId}
-            onChange={(event) => {
-              setPlanId(event.target.value);
-              setEditingId(null);
-              setEditForm(null);
-            }}
-            disabled={!planReady || isLoading}
+          <button
+            className="btn btn-brand"
+            disabled={busy || pending === 0}
+            onClick={() => approve.mutate(undefined, {
+              onSuccess: () => navigate(`/projects/${projectId}/unit-tests`, {
+                state: { workflowNotice: t('Đã duyệt Test Case. Chuyển sang bước Unit Test.', 'Test Cases approved. Continue with Unit Tests.') },
+              }),
+            })}
           >
-            <option value="">Tất cả Test Plan đã duyệt</option>
-            {approvedPlans.map((plan) => (
-              <option key={plan.id} value={plan.id}>
-                {plan.planCode} - {plan.title}
-              </option>
-            ))}
-          </select>
+            <CheckCircle2 size={14} /> Approve
+          </button>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <MetricCard icon={ClipboardCheck} label={t('Test Plan đã approve', 'Approved Plans')} value={approvedPlans.length} />
+        <MetricCard icon={FileText} label={t('Test Case pending', 'Pending Cases')} value={pending} />
+        <MetricCard icon={Database} label={t('Test Case đã approve', 'Approved Cases')} value={approved} />
+      </div>
 
-          <div className="mt-4 grid gap-2 text-sm">
-            <ContextRow label="Selected Plan" value={selectedPlan?.planCode ?? 'Tất cả'} />
-            <ContextRow label="Type" value={selectedPlan?.testType ?? 'Mixed'} />
-            <ContextRow label="Business Rule" value={selectedPlan ? `BR #${selectedPlan.businessRuleId}` : 'Theo từng plan'} />
-            <ContextRow label="Cases in scope" value={String(visibleCases.length)} />
+      {(cases.data ?? []).length > 0 && plansNeedingCases.length > 0 && (
+        <div className="mt-4 rounded-base border border-border-warning-subtle bg-warning-soft p-4">
+          <h4 className="text-sm font-semibold text-fg-warning">
+            {t('Test Plan cần cập nhật Test Case', 'Test Plans requiring updated Test Cases')}
+          </h4>
+          <p className="mt-1 text-xs text-body-subtle">
+            {t('Chỉ Test Case của plan được chọn sẽ bị thay thế; các plan khác được giữ nguyên.', 'Only cases of the selected plan will be replaced; other plans remain unchanged.')}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {plansNeedingCases.map((plan) => (
+              <button
+                key={plan.id}
+                type="button"
+                className="btn btn-secondary"
+                disabled={busy || !units.isSuccess}
+                onClick={() => setPlanToRegenerate(plan)}
+              >
+                <Bot size={14} />
+                {t(`Sinh lại Case · ${plan.planCode}`, `Regenerate Cases · ${plan.planCode}`)}
+              </button>
+            ))}
           </div>
         </div>
+      )}
 
-        <aside className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-default bg-neutral-secondary-medium text-body-subtle">
-              <ClipboardCheck size={15} strokeWidth={1.8} />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-heading">Review checklist</p>
-              <p className="mt-0.5 truncate text-xs text-body-subtle">Đủ trường để trace sang Unit Test.</p>
-            </div>
+      <div id="manual-case-form" className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+        <div className="flex items-center gap-3"><PlusCircle size={16} className="text-fg-brand-strong" /><span className="text-sm font-semibold text-heading">{t('Thêm Test Case thủ công', 'Add a Test Case manually')}</span></div>
+        <form onSubmit={handleCreate} className="mt-4 grid gap-3">
+          <div className="grid gap-3 md:grid-cols-3">
+            <select className="form-input" aria-label={t('Chọn Test Plan', 'Select Test Plan')} value={formPlanId} onChange={(e) => setFormPlanId(e.target.value)} disabled={busy || approvedPlans.length === 0}>
+              <option value="">{t('Chọn Test Plan', 'Select Test Plan')}</option>
+              {approvedPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.planCode} - {plan.title}</option>)}
+            </select>
+            <select className="form-input" aria-label="Test type" value={formType} onChange={(e) => setFormType(e.target.value as TestType)} disabled={busy}>
+              {TEST_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+            </select>
+            <select className="form-input" aria-label="Priority" value={formPriority} onChange={(e) => setFormPriority(e.target.value as Priority)} disabled={busy}>
+              {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {['Description', 'Preconditions', 'Test data', 'Expected result', 'Priority', 'Trace source'].map((item) => (
-              <div key={item} className="flex items-center gap-2 rounded-default bg-neutral-secondary-soft px-3 py-2 text-sm text-body">
-                <CheckCircle2 size={13} className="text-fg-success-strong" />
-                <span className="truncate">{item}</span>
-              </div>
-            ))}
+          <input className="form-input" placeholder={t('Mô tả scenario', 'Scenario description')} value={formDescription} onChange={(e) => setFormDescription(e.target.value)} disabled={busy} />
+          <div className="grid gap-3 md:grid-cols-2">
+            <textarea className="form-input min-h-[72px] resize-y" placeholder={t('Preconditions (setup, mock...)', 'Preconditions (setup, mocks...)')} value={formPreconditions} onChange={(e) => setFormPreconditions(e.target.value)} disabled={busy} />
+            <textarea className="form-input min-h-[72px] resize-y" placeholder={t('Expected result', 'Expected result')} value={formExpected} onChange={(e) => setFormExpected(e.target.value)} disabled={busy} />
           </div>
-        </aside>
+          <textarea className="form-input min-h-[56px] resize-y font-mono text-xs" placeholder={t('Test data JSON (tùy chọn), vd: {"input": {"name": "A"}}', 'Test data JSON (optional), e.g. {"input": {"name": "A"}}')} value={formTestData} onChange={(e) => setFormTestData(e.target.value)} disabled={busy} />
+          {formError && <InlineAlert tone="danger">{formError}</InlineAlert>}
+          <button className="btn btn-secondary w-fit" disabled={busy || !formPlanId || !formDescription.trim() || !formPreconditions.trim() || !formExpected.trim()}>
+            {create.isPending ? <Loader2 size={14} className="animate-spin" /> : <PlusCircle size={14} />}
+            {t('Thêm Case', 'Add Case')}
+          </button>
+        </form>
+      </div>
+
+      <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+        {error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
+        <div className="flex items-center gap-3"><ListFilter size={16} className="text-fg-brand-strong" /><span className="text-sm font-semibold text-heading">{t('Lọc danh sách theo Test Plan', 'Filter list by Test Plan')}</span></div>
+        <select aria-label={t('Lọc Test Plan', 'Filter by Test Plan')} className="form-input mt-4" value={planId} onChange={(e) => setPlanId(e.target.value)} disabled={plans.isLoading}>
+          <option value="">{t('Tất cả Test Plan đã approve', 'All approved Test Plans')}</option>
+          {approvedPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.planCode} - {plan.title}</option>)}
+        </select>
       </div>
 
       <div className="mt-4 overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft shadow-sm">
-        <div className="hidden bg-neutral-secondary-soft px-3 py-2 text-[11px] font-semibold uppercase text-body-subtle md:grid md:grid-cols-[96px_120px_minmax(0,1fr)_96px_132px]">
-          <span>Case</span>
-          <span>Plan</span>
-          <span>Description</span>
-          <span>Priority</span>
-          <span>Status</span>
-        </div>
-        {isLoading ? (
-          <p className="px-3 py-4 text-sm text-body-subtle">Đang tải Test Plan...</p>
-        ) : visibleCases.length === 0 ? (
-          <p className="px-3 py-4 text-sm text-body-subtle">
-            {approvedPlans.length === 0 ? 'Chưa có Test Plan đã duyệt.' : 'Chưa có Test Case trong phạm vi này.'}
-          </p>
-        ) : (
-          visibleCases.map((item) => (
-            <article key={item.id} className="border-t border-border-default px-3 py-3 first:border-t-0 md:first:border-t">
-              {editingId === item.id && editForm ? (
-                <EditCaseForm
-                  item={editForm}
-                  onChange={setEditForm}
-                  onCancel={() => {
-                    setEditingId(null);
-                    setEditForm(null);
-                  }}
-                  onSave={handleSaveEdit}
-                />
+        {cases.isLoading ? <LoadingState label={t('Đang tải Test Case...', 'Loading Test Cases...')} minHeight="min-h-[160px]" /> : visible.length === 0 ? <EmptyState icon={FileText} title={t('Chưa có Test Case', 'No Test Cases yet')} hint={t('Bấm "AI sinh Case" hoặc thêm thủ công ở form phía trên.', 'Select "Generate with AI" or add one manually using the form above.')} minHeight="min-h-[200px]" /> : visible.map((item) => {
+          const editing = editingId === item.id;
+          const sourcePlan = (plans.data ?? []).find((plan) => plan.id === item.testPlanId);
+          const coveredRules = (sourcePlan?.coveredRuleIds?.length
+            ? sourcePlan.coveredRuleIds
+            : sourcePlan ? [sourcePlan.businessRuleId] : [])
+            .map((ruleId) => (rules.data ?? []).find((rule) => rule.id === ruleId))
+            .filter((rule) => rule != null);
+          return (
+            <article key={item.id} className="border-t border-border-default px-3 py-3 transition-colors first:border-t-0 hover:bg-neutral-secondary-soft/40">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-xs font-semibold text-heading">{item.caseCode}</span>
+                <span className="font-mono text-xs text-body-subtle">
+                  {coveredRules.map((rule) => `${rule.ruleCode}${rule.sourceBranchId ? ` [${rule.sourceBranchId}]` : ''}`).join(', ')}
+                  {sourcePlan ? ` -> ${sourcePlan.planCode}` : ''}
+                </span>
+                <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">{item.testType}</span>
+                <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">{item.priority}</span>
+                {item.isModified && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-fg-warning">{t('Đã sửa', 'Modified')}</span>}
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${item.status === 'APPROVED' ? 'bg-success-soft text-fg-success-strong' : 'bg-warning-soft text-fg-warning'}`}>{item.status === 'PENDING_REVIEW' ? 'DRAFT' : item.status}</span>
+                <span className="ml-auto flex gap-1">
+                  {editing ? (
+                    <>
+                      <button type="button" className="btn btn-secondary px-3 py-2" aria-label={t(`Lưu ${item.caseCode}`, `Save ${item.caseCode}`)} disabled={busy || !editDescription.trim() || !editPreconditions.trim() || !editExpected.trim()} onClick={() => handleSaveEdit(item)}><Save size={14} /></button>
+                      <button type="button" className="btn btn-secondary px-3 py-2" aria-label={t(`Hủy ${item.caseCode}`, `Cancel ${item.caseCode}`)} disabled={busy} onClick={() => setEditingId(null)}><X size={14} /></button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" className="btn btn-secondary px-3 py-2" aria-label={t(`Sửa ${item.caseCode}`, `Edit ${item.caseCode}`)} disabled={busy} onClick={() => handleStartEdit(item)}><Pencil size={14} /></button>
+                      <button type="button" className="btn-ghost-danger px-3 py-2" aria-label={t(`Xóa ${item.caseCode}`, `Delete ${item.caseCode}`)} disabled={busy} onClick={() => handleDelete(item)}><Trash2 size={14} /></button>
+                    </>
+                  )}
+                </span>
+              </div>
+              {editing ? (
+                <div className="mt-2 space-y-2">
+                  <input className="form-input" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <textarea className="form-input min-h-[64px] resize-y" value={editPreconditions} onChange={(e) => setEditPreconditions(e.target.value)} />
+                    <textarea className="form-input min-h-[64px] resize-y" value={editExpected} onChange={(e) => setEditExpected(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <select className="form-input" value={editType} onChange={(e) => setEditType(e.target.value as TestType)}>
+                      {TEST_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                    <select className="form-input" value={editPriority} onChange={(e) => setEditPriority(e.target.value as Priority)}>
+                      {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
               ) : (
-                <CaseRow
-                  item={item}
-                  onDelete={() => setCases((current) => current.filter((caseItem) => caseItem.id !== item.id))}
-                  onEdit={() => {
-                    setEditingId(item.id);
-                    setEditForm(item);
-                  }}
-                />
+                <div className="mt-1.5 min-w-0">
+                  <p className="text-sm font-medium text-heading">{item.description}</p>
+                  <p className="mt-1 text-xs text-body-subtle">{item.expectedResult}</p>
+                  <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                    {coveredRules.map((rule) => (
+                      <SourceTrace key={rule.id} value={sourceTraceByRule.get(rule.id)} compact />
+                    ))}
+                  </div>
+                </div>
               )}
             </article>
-          ))
-        )}
+          );
+        })}
       </div>
+      <ConfirmDialog
+        open={planToRegenerate != null}
+        title={t('Sinh lại Test Case của plan này?', 'Regenerate cases for this plan?')}
+        description={planToRegenerate
+          ? (() => {
+              const targetCases = (cases.data ?? []).filter((item) => item.testPlanId === planToRegenerate.id);
+              const targetCaseIds = new Set(targetCases.map((item) => item.id));
+              const targetUnits = (units.data ?? []).filter((item) => targetCaseIds.has(item.testCaseId));
+              return t(
+                `${planToRegenerate.planCode} sẽ thay thế ${targetCases.length} Test Case và xóa ${targetUnits.length} Unit Test liên quan. Dữ liệu của plan khác được giữ nguyên.`,
+                `${planToRegenerate.planCode} will replace ${targetCases.length} Test Cases and delete ${targetUnits.length} related Unit Tests. Other plans remain unchanged.`,
+              );
+            })()
+          : ''}
+        confirmLabel={t('Sinh lại', 'Regenerate')}
+        cancelLabel={t('Hủy', 'Cancel')}
+        pending={generate.isPending}
+        onCancel={() => setPlanToRegenerate(null)}
+        onConfirm={() => {
+          if (!planToRegenerate) return;
+          const targetPlanId = planToRegenerate.id;
+          setPlanToRegenerate(null);
+          generate.mutate(targetPlanId);
+        }}
+      />
+      <ConfirmDialog
+        open={caseToDelete != null}
+        title={t('Xóa Test Case?', 'Delete Test Case?')}
+        description={caseToDelete
+          ? t(
+              `${caseToDelete.caseCode} và Unit Test liên quan sẽ bị xóa.`,
+              `${caseToDelete.caseCode} and its related Unit Test will be deleted.`,
+            )
+          : ''}
+        confirmLabel={t('Xóa case', 'Delete case')}
+        cancelLabel={t('Hủy', 'Cancel')}
+        pending={removeCase.isPending}
+        onCancel={() => setCaseToDelete(null)}
+        onConfirm={() => {
+          if (!caseToDelete) return;
+          const caseId = caseToDelete.id;
+          setCaseToDelete(null);
+          removeCase.mutate(caseId);
+        }}
+      />
     </section>
-  );
-}
-
-function buildDraftCase(
-  plan: TestPlan,
-  input: Omit<DraftTestCase, 'id' | 'testId' | 'planId' | 'planCode' | 'status'>,
-  nextCaseId: number,
-): DraftTestCase {
-  return {
-    ...input,
-    id: nextCaseId,
-    testId: `TC-${String(nextCaseId).padStart(3, '0')}`,
-    planId: plan.id,
-    planCode: plan.planCode,
-    status: 'DRAFT',
-  };
-}
-
-function buildSuggestedCase(plan: TestPlan, nextIndex: number): Omit<DraftTestCase, 'id' | 'testId' | 'planId' | 'planCode' | 'status'> {
-  return {
-    testType: plan.testType,
-    priority: plan.testType === 'EXCEPTION' ? 'HIGH' : 'MEDIUM',
-    description: `${plan.title} - scenario ${nextIndex}`,
-    preconditions: 'Business Rule và Test Plan đã được duyệt.',
-    testData: plan.testType === 'EXCEPTION' ? '{"invalidInput": true}' : '{"validInput": true}',
-    expectedResult: 'Kết quả thỏa mãn mục tiêu của Test Plan.',
-    traceSource: `BR #${plan.businessRuleId} -> ${plan.planCode}`,
-  };
-}
-
-function Metric({ icon: Icon, label, value, tone }: {
-  icon: LucideIcon;
-  label: string;
-  value: number;
-  tone?: 'brand';
-}) {
-  return (
-    <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
-      <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-default ${
-        tone === 'brand' ? 'bg-brand-softer text-fg-brand-strong' : 'bg-neutral-secondary-medium text-body-subtle'
-      }`}>
-        <Icon size={16} strokeWidth={1.8} />
-      </div>
-      <p className="text-xs font-semibold uppercase text-body-subtle">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-heading">{value}</p>
-    </div>
-  );
-}
-
-function ContextRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2 rounded-default bg-neutral-secondary-soft px-3 py-2">
-      <dt className="text-body-subtle">{label}</dt>
-      <dd className="truncate font-medium text-heading">{value}</dd>
-    </div>
-  );
-}
-
-function CaseRow({ item, onDelete, onEdit }: { item: DraftTestCase; onDelete: () => void; onEdit: () => void }) {
-  return (
-    <div className="grid gap-3 text-sm md:grid-cols-[96px_120px_minmax(0,1fr)_96px_132px] md:items-center">
-      <span className="font-mono text-xs font-semibold text-heading">{item.testId}</span>
-      <span className="font-mono text-xs font-semibold text-body-subtle">{item.planCode}</span>
-      <span className="min-w-0">
-        <span className="block truncate font-medium text-heading">{item.description}</span>
-        <span className="mt-1 block truncate text-xs text-body-subtle">{item.expectedResult}</span>
-      </span>
-      <span className="text-xs font-semibold text-body">{item.priority}</span>
-      <span className="flex items-center justify-between gap-2">
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-          item.status === 'APPROVED'
-            ? 'bg-success-soft text-fg-success-strong'
-            : 'bg-warning-soft text-fg-warning'
-        }`}>
-          {item.status}
-        </span>
-        <span className="flex shrink-0 gap-1">
-          <button type="button" className="btn btn-secondary px-2 py-2" aria-label={`Sua ${item.testId}`} onClick={onEdit}>
-            <Pencil size={13} />
-          </button>
-          <button type="button" className="btn-ghost-danger px-2 py-2" aria-label={`Xoa ${item.testId}`} onClick={onDelete}>
-            <Trash2 size={13} />
-          </button>
-        </span>
-      </span>
-    </div>
-  );
-}
-
-function EditCaseForm({ item, onCancel, onChange, onSave }: {
-  item: DraftTestCase;
-  onCancel: () => void;
-  onChange: (item: DraftTestCase) => void;
-  onSave: () => void;
-}) {
-  return (
-    <div className="grid gap-2 lg:grid-cols-2">
-      <input
-        aria-label="Edit description"
-        className="form-input lg:col-span-2"
-        value={item.description}
-        onChange={(event) => onChange({ ...item, description: event.target.value })}
-      />
-      <select
-        aria-label="Edit test type"
-        className="form-input"
-        value={item.testType}
-        onChange={(event) => onChange({ ...item, testType: event.target.value as TestType })}
-      >
-        {TEST_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-      </select>
-      <select
-        aria-label="Edit priority"
-        className="form-input"
-        value={item.priority}
-        onChange={(event) => onChange({ ...item, priority: event.target.value as Priority })}
-      >
-        {PRIORITIES.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
-      </select>
-      <textarea
-        aria-label="Edit preconditions"
-        className="form-input min-h-[72px] resize-y"
-        value={item.preconditions}
-        onChange={(event) => onChange({ ...item, preconditions: event.target.value })}
-      />
-      <textarea
-        aria-label="Edit test data"
-        className="form-input min-h-[72px] resize-y"
-        value={item.testData}
-        onChange={(event) => onChange({ ...item, testData: event.target.value })}
-      />
-      <textarea
-        aria-label="Edit expected result"
-        className="form-input min-h-[72px] resize-y lg:col-span-2"
-        value={item.expectedResult}
-        onChange={(event) => onChange({ ...item, expectedResult: event.target.value })}
-      />
-      <input
-        aria-label="Edit trace source"
-        className="form-input lg:col-span-2"
-        value={item.traceSource}
-        onChange={(event) => onChange({ ...item, traceSource: event.target.value })}
-      />
-      <div className="flex gap-2 lg:col-span-2">
-        <button
-          type="button"
-          aria-label="Luu thay doi"
-          className="btn btn-brand"
-          disabled={!item.description.trim() || !item.expectedResult.trim()}
-          onClick={onSave}
-        >
-          <Save size={14} />
-          Lưu
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>
-          <X size={14} />
-          Hủy
-        </button>
-      </div>
-    </div>
   );
 }

@@ -5,11 +5,11 @@ import { ErrorState } from '../../../shared/components/ErrorState';
 import { ProjectWorkflowTabs } from '../../projects/components/ProjectWorkflowTabs';
 import { ProjectPageHeader } from '../../projects/components/ProjectPageHeader';
 import { useProject } from '../../projects/hooks/useProjects';
-import { canOpenTestCases } from '../../projects/utils/project-workflow';
-import { TestCasesPanel } from '../components/TestCasesPanel';
+import { canOpenReport } from '../../projects/utils/project-workflow';
+import { ReportPanel } from '../components/ReportPanel';
 import { useLanguage } from '../../../shared/i18n/language';
 
-export function TestCasesPage() {
+export function ReportPage() {
   const { id } = useParams<{ id: string }>();
   const projectId = Number(id);
   const { data: project, isLoading, error } = useProject(projectId);
@@ -31,24 +31,24 @@ export function TestCasesPage() {
     );
   }
 
-  if (!canOpenTestCases(project.status)) {
-    return <Navigate to={`/projects/${projectId}/test-plans`} replace />;
+  if (!canOpenReport(project.status)) {
+    return <Navigate to={`/projects/${projectId}/coverage`} replace />;
   }
 
   return (
     <AppShell maxWidth="wide">
       <ProjectPageHeader
         project={project}
-        titlePrefix="Test Case"
-        subtitle={t('Chuẩn bị test data từ các Test Plan đã approve.', 'Prepare test data from approved Test Plans.')}
-        backTo={`/projects/${projectId}/test-plans`}
-        backLabel="Test Plan"
+        titlePrefix="Report"
+        subtitle={t('Xuất Report dạng JSON hoặc Markdown cho kết quả GreyTest.', 'Export GreyTest results as JSON or Markdown.')}
+        backTo={`/projects/${projectId}/traceability`}
+        backLabel="Traceability"
       />
 
-      <ProjectWorkflowTabs projectId={projectId} active="test-cases" status={project.status} />
-      <TestCasesPanel projectId={projectId} projectStatus={project.status} />
+      <ProjectWorkflowTabs projectId={projectId} active="report" status={project.status} />
+      <ReportPanel projectId={projectId} />
     </AppShell>
   );
 }
 
-export default TestCasesPage;
+export default ReportPage;

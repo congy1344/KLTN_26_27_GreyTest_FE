@@ -7,7 +7,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Project } from '../../projects/types';
 import { useProject } from '../../projects/hooks/useProjects';
-import { TestCasesPage } from './TestCasesPage';
+import { ReportPage } from './ReportPage';
 
 vi.mock('../../projects/hooks/useProjects', () => ({
   useProject: vi.fn(),
@@ -17,8 +17,8 @@ vi.mock('../../../shared/components/AppShell', () => ({
   AppShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('../components/TestCasesPanel', () => ({
-  TestCasesPanel: () => <div>Test Cases Panel</div>,
+vi.mock('../components/ReportPanel', () => ({
+  ReportPanel: () => <div>Report Panel</div>,
 }));
 
 afterEach(() => {
@@ -26,7 +26,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('TestCasesPage', () => {
+describe('ReportPage', () => {
   function renderPage(status: Project['status']) {
     vi.mocked(useProject).mockReturnValue({
       data: project(status),
@@ -35,24 +35,26 @@ describe('TestCasesPage', () => {
     } as ReturnType<typeof useProject>);
 
     render(
-      <MemoryRouter initialEntries={['/projects/105/test-cases']}>
+      <MemoryRouter initialEntries={['/projects/105/report']}>
         <Routes>
-          <Route path="/projects/:id/test-cases" element={<TestCasesPage />} />
-          <Route path="/projects/:id/test-plans" element={<div>Test Plan Page</div>} />
+          <Route path="/projects/:id/report" element={<ReportPage />} />
+          <Route path="/projects/:id/coverage" element={<div>Coverage Page</div>} />
         </Routes>
       </MemoryRouter>,
     );
   }
 
-  it('allows test cases once test plans are approved', () => {
-    renderPage('PLAN_APPROVED');
-    expect(screen.getByText('Test Cases Panel')).toBeInTheDocument();
+  it('allows report once coverage is analyzed', () => {
+    renderPage('COVERAGE_ANALYZED');
+    expect(screen.getByText('Report Panel')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Traceability' })).toHaveAttribute('href', '/projects/105/traceability');
+    expect(screen.queryByText('Mở Traceability')).not.toBeInTheDocument();
   });
 
-  it('redirects to test plans while they are still under review', () => {
-    renderPage('PLAN_PENDING_REVIEW');
-    expect(screen.getByText('Test Plan Page')).toBeInTheDocument();
-    expect(screen.queryByText('Test Cases Panel')).not.toBeInTheDocument();
+  it('redirects to coverage while it has not been analyzed', () => {
+    renderPage('TEST_GENERATED');
+    expect(screen.getByText('Coverage Page')).toBeInTheDocument();
+    expect(screen.queryByText('Report Panel')).not.toBeInTheDocument();
   });
 });
 

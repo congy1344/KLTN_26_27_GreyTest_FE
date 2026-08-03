@@ -1,132 +1,124 @@
 // @vitest-environment jsdom
-
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TestPlan } from '../../test-plans/types';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestCasesPanel } from './TestCasesPanel';
 
 const mocks = vi.hoisted(() => ({
-  plans: [] as TestPlan[],
+  generate: vi.fn(),
+  approve: vi.fn(),
+  create: vi.fn(),
+  casesData: [] as unknown[],
+  unitsData: [] as unknown[],
+  unitsSuccess: true,
+  unitsError: null as Error | null,
+  planModified: false,
+}));
+vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({ data: [{ id: 1, businessRuleId: 7, coveredRuleIds: [7], planCode: 'TP-001', title: 'Valid email', status: 'APPROVED', isModified: mocks.planModified }], isLoading: false, error: null }) }));
+vi.mock('../../business-rules/hooks/useBusinessRules', () => ({ useBusinessRules: () => ({ data: [{ id: 7, methodId: 11, ruleCode: 'BR-007', sourceBranchId: 'IF-1-TRUE', status: 'APPROVED' }], error: null }) }));
+vi.mock('../../unit-tests/hooks/useUnitTests', () => ({ useUnitTests: () => ({
+  data: mocks.unitsData,
   isLoading: false,
-  error: null as Error | null,
+  isSuccess: mocks.unitsSuccess,
+  error: mocks.unitsError,
+}) }));
+vi.mock('../../projects/hooks/useProjects', () => ({
+  useAnalysis: () => ({ data: { classes: [{
+    id: 10,
+    className: 'UserService',
+    filePath: 'src/main/java/demo/UserService.java',
+    methods: [{
+      id: 11,
+      methodName: 'createUser',
+      lineStart: 20,
+      lineEnd: 30,
+      branches: [{ branchId: 'IF-1-TRUE', kind: 'IF', outcome: 'TRUE', condition: 'email != null', lineStart: 22, lineEnd: 22 }],
+    }],
+  }] }, isLoading: false, error: null }),
+}));
+vi.mock('../hooks/useTestCases', () => ({
+  useTestCases: () => ({ data: mocks.casesData, isLoading: false, isSuccess: true, error: null }),
+  useGenerateTestCases: () => ({ mutate: mocks.generate, isPending: false, error: null }),
+  useApproveTestCases: () => ({ mutate: mocks.approve, isPending: false, error: null }),
+  useCreateTestCase: () => ({ mutate: mocks.create, isPending: false, error: null }),
+  useUpdateTestCase: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+  useDeleteTestCase: () => ({ mutate: vi.fn(), isPending: false, error: null }),
 }));
 
-vi.mock('../../test-plans/hooks/useTestPlans', () => ({
-  useTestPlans: () => ({
-    data: mocks.plans,
-    isLoading: mocks.isLoading,
-    error: mocks.error,
-  }),
-}));
-
-describe('TestCasesPanel', () => {
-  beforeEach(() => {
-    mocks.plans = [plan()];
-    mocks.isLoading = false;
-    mocks.error = null;
-  });
-
-  afterEach(() => {
-    cleanup();
-    vi.clearAllMocks();
-  });
-
-  it('removes the manual create flow and generates drafts for approved plans', () => {
-    mocks.plans = [
-      plan(),
-      plan({
-        id: 11,
-        businessRuleId: 8,
-        planCode: 'PLAN-002',
-        title: 'Duplicate email is rejected',
-        testType: 'EXCEPTION',
-      }),
-    ];
-
-    render(<TestCasesPanel projectId={105} />);
-
-    expect(screen.queryByRole('button', { name: /Them Case|Thêm Case/ })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'AI sinh Case' }));
-
-    expect(screen.getByText('TC-001')).toBeInTheDocument();
-    expect(screen.getByText('TC-002')).toBeInTheDocument();
-    expect(screen.getAllByText('DRAFT')).toHaveLength(2);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-
-    expect(screen.queryByText('DRAFT')).not.toBeInTheDocument();
-    expect(screen.getAllByText('APPROVED')).toHaveLength(2);
-  });
-
-  it('generates a draft only for the selected approved plan', () => {
-    mocks.plans = [
-      plan(),
-      plan({
-        id: 11,
-        businessRuleId: 8,
-        planCode: 'PLAN-002',
-        title: 'Duplicate email is rejected',
-        testType: 'EXCEPTION',
-      }),
-    ];
-
-    render(<TestCasesPanel projectId={105} />);
-
-    expect(screen.getByRole('button', { name: 'AI sinh Case' })).toBeEnabled();
-
-    fireEvent.change(screen.getByLabelText('Loc Test Plan'), { target: { value: '10' } });
-    fireEvent.click(screen.getByRole('button', { name: 'AI sinh Case' }));
-
-    expect(screen.getByText('TC-001')).toBeInTheDocument();
-    expect(screen.queryByText('TC-002')).not.toBeInTheDocument();
-    expect(screen.getAllByText('PLAN-001').length).toBeGreaterThan(0);
-  });
-
-  it('keeps approval status when saving an edit after approval', () => {
-    render(<TestCasesPanel projectId={105} />);
-
-    generateCase();
-    fireEvent.click(screen.getByRole('button', { name: 'Sua TC-001' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    fireEvent.change(screen.getByLabelText('Edit description'), { target: { value: 'Kiem tra email moi' } });
-    fireEvent.change(screen.getByLabelText('Edit test data'), { target: { value: '{"email":"new@test.com"}' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Luu thay doi' }));
-
-    expect(screen.queryByText('DRAFT')).not.toBeInTheDocument();
-    expect(screen.getByText('APPROVED')).toBeInTheDocument();
-    expect(screen.getByText('Kiem tra email moi')).toBeInTheDocument();
-  });
-
-  it('clears local drafts when the project changes', () => {
-    const { rerender } = render(<TestCasesPanel projectId={105} />);
-
-    generateCase();
-    expect(screen.getByText('TC-001')).toBeInTheDocument();
-
-    rerender(<TestCasesPanel projectId={106} />);
-
-    expect(screen.queryByText('TC-001')).not.toBeInTheDocument();
-  });
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+  mocks.casesData = [];
+  mocks.unitsData = [];
+  mocks.unitsSuccess = true;
+  mocks.unitsError = null;
+  mocks.planModified = false;
 });
 
-function generateCase() {
-  fireEvent.click(screen.getByRole('button', { name: 'AI sinh Case' }));
+function sampleCase(id: number) {
+  return { id, testPlanId: 1, caseCode: `TC-00${id}`, testType: 'HAPPY_PATH', description: 'mo ta', preconditions: 'setup', testData: {}, expectedResult: 'ket qua', priority: 'HIGH', traceSource: 'BR-007 -> TP-001', status: 'APPROVED', isModified: false, createdAt: null };
 }
 
-function plan(overrides: Partial<TestPlan> = {}): TestPlan {
-  return {
-    id: 10,
-    projectId: 105,
-    businessRuleId: 7,
-    planCode: 'PLAN-001',
-    title: 'Valid email registration',
-    description: 'User can register with a valid email.',
-    testType: 'HAPPY_PATH',
-    status: 'APPROVED',
-    isModified: false,
-    createdAt: '2026-07-19T00:00:00Z',
-    ...overrides,
-  };
-}
+describe('TestCasesPanel', () => {
+  it('calls backend mutations instead of creating local fake cases', () => {
+    render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'AI sinh Case' }));
+    expect(mocks.generate).toHaveBeenCalledOnce();
+    expect(screen.getByText(/lưu trực tiếp về backend/)).toBeInTheDocument();
+    expect(screen.getByText('Test Plan đã approve')).toBeVisible();
+  });
+
+  it('regenerates only the modified plan after confirmation', () => {
+    mocks.casesData = [sampleCase(1), sampleCase(2)];
+    mocks.unitsData = [{ id: 9, testCaseId: 1 }];
+    mocks.planModified = true;
+
+    render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="COVERAGE_ANALYZED" /></MemoryRouter>);
+
+    expect(screen.getAllByText('UserService.createUser')).not.toHaveLength(0);
+    expect(screen.getAllByText('IF-1-TRUE TRUE')).not.toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'AI sinh Case' })).not.toBeInTheDocument();
+    const generateButton = screen.getByRole('button', { name: 'Sinh lại Case · TP-001' });
+    expect(generateButton).toBeEnabled();
+    fireEvent.click(generateButton);
+
+    const dialog = screen.getByRole('dialog', { name: /Sinh lại Test Case của plan này/ });
+    expect(dialog).toHaveTextContent('2 Test Case');
+    expect(dialog).toHaveTextContent('1 Unit Test');
+    expect(dialog).toHaveTextContent('Dữ liệu của plan khác được giữ nguyên');
+    expect(mocks.generate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Sinh lại' }));
+    expect(mocks.generate).toHaveBeenCalledWith(1);
+  });
+
+  it('blocks regeneration when related Unit Test data cannot be loaded', () => {
+    mocks.casesData = [sampleCase(1)];
+    mocks.planModified = true;
+    mocks.unitsSuccess = false;
+    mocks.unitsError = new Error('Unit Test query failed');
+
+    render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="COVERAGE_ANALYZED" /></MemoryRouter>);
+
+    expect(screen.getByRole('button', { name: 'Sinh lại Case · TP-001' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Có lỗi xảy ra');
+  });
+
+  it('creates a manual test case with auto trace source', () => {
+    render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
+
+    fireEvent.change(screen.getByLabelText('Chọn Test Plan'), { target: { value: '1' } });
+    fireEvent.change(screen.getByPlaceholderText(/Mô tả scenario/), { target: { value: 'Tao user hop le' } });
+    fireEvent.change(screen.getByPlaceholderText(/Preconditions/), { target: { value: 'Mock repository' } });
+    fireEvent.change(screen.getByPlaceholderText(/Expected result/), { target: { value: 'Tra ve user co ID' } });
+    fireEvent.click(screen.getByRole('button', { name: /Thêm Case/ }));
+
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.create.mock.calls[0][0]).toMatchObject({
+      testPlanId: 1,
+      description: 'Tao user hop le',
+      traceSource: 'BR-007 [IF-1-TRUE] -> TP-001',
+      testData: {},
+    });
+  });
+});

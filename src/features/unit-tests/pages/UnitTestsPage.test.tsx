@@ -27,24 +27,41 @@ afterEach(() => {
 });
 
 describe('UnitTestsPage', () => {
-  it('allows unit tests while workflow locks are temporarily disabled', () => {
+  function renderPage(status: Project['status'], workflowNotice?: string) {
     vi.mocked(useProject).mockReturnValue({
-      data: project('CASE_PENDING_REVIEW'),
+      data: project(status),
       isLoading: false,
       error: null,
     } as ReturnType<typeof useProject>);
 
     render(
-      <MemoryRouter initialEntries={['/projects/105/unit-tests']}>
+      <MemoryRouter initialEntries={[{
+        pathname: '/projects/105/unit-tests',
+        state: workflowNotice ? { workflowNotice } : null,
+      }]}>
         <Routes>
           <Route path="/projects/:id/unit-tests" element={<UnitTestsPage />} />
           <Route path="/projects/:id/test-cases" element={<div>Test Case Page</div>} />
         </Routes>
       </MemoryRouter>,
     );
+  }
 
+  it('allows unit tests once test cases are approved', () => {
+    renderPage('CASE_APPROVED');
     expect(screen.getByText('Unit Tests Panel')).toBeInTheDocument();
-    expect(screen.queryByText('Test Case Page')).not.toBeInTheDocument();
+  });
+
+  it('redirects to test cases while they are still under review', () => {
+    renderPage('CASE_PENDING_REVIEW');
+    expect(screen.getByText('Test Case Page')).toBeInTheDocument();
+    expect(screen.queryByText('Unit Tests Panel')).not.toBeInTheDocument();
+  });
+
+  it('shows the workflow transition notice on the destination page', () => {
+    renderPage('CASE_APPROVED', 'Đã duyệt Test Case. Chuyển sang bước Unit Test.');
+
+    expect(screen.getByText('Đã duyệt Test Case. Chuyển sang bước Unit Test.')).toBeInTheDocument();
   });
 });
 
