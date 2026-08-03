@@ -6,8 +6,13 @@ export async function fetchBusinessRules(projectId: number): Promise<BusinessRul
   return data;
 }
 
-export async function createBusinessRule(projectId: number, methodId: number, description: string): Promise<BusinessRule> {
-  const { data } = await apiClient.post<BusinessRule>(`/projects/${projectId}/business-rules`, { methodId, description });
+export async function createBusinessRule(
+  projectId: number,
+  methodId: number,
+  description: string,
+  sourceBranchId: string | null,
+): Promise<BusinessRule> {
+  const { data } = await apiClient.post<BusinessRule>(`/projects/${projectId}/business-rules`, { methodId, description, sourceBranchId });
   return data;
 }
 

@@ -14,6 +14,7 @@ export interface BusinessRule {
   isModified: boolean;
   createdAt: string;
   updatedAt: string;
+  sourceBranchId?: string | null;
 }
 
 export interface ReviewedBusinessRule {

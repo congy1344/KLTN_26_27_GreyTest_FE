@@ -4,6 +4,7 @@ import {
   cloneGithub,
   deleteProject,
   fetchAnalysis,
+  fetchExistingTests,
   fetchProject,
   fetchProjects,
   uploadZip,
@@ -55,14 +56,19 @@ export function useAnalysis(projectId: number, enabled = true) {
   });
 }
 
+export function useExistingTests(projectId: number, enabled = true) {
+  return useQuery({
+    queryKey: ['existing-tests', projectId],
+    queryFn: () => fetchExistingTests(projectId),
+    enabled: projectId > 0 && enabled,
+  });
+}
+
 export function useAnalyzeProject() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: analyzeProject,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['project', data.projectId] });
-      queryClient.invalidateQueries({ queryKey: ['analysis', data.projectId] });
-      queryClient.invalidateQueries({ queryKey: PROJECTS_KEY });
-    },
+    // Re-analyze xóa toàn bộ BR/Plan/Case/Unit Test/coverage → làm mới mọi cache
+    onSuccess: () => queryClient.invalidateQueries(),
   });
 }

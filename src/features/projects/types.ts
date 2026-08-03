@@ -49,6 +49,15 @@ export interface RelevantAnnotationInfo {
   attributes: string | null;
 }
 
+export interface SourceBranchInfo {
+  branchId: string;
+  kind: string;
+  outcome: 'TRUE' | 'FALSE';
+  condition: string;
+  lineStart: number;
+  lineEnd: number;
+}
+
 export interface JavaMethodInfo {
   id: number;
   methodName: string;
@@ -61,6 +70,7 @@ export interface JavaMethodInfo {
   lineEnd: number;
   annotations?: RelevantAnnotationInfo[];
   endpoints: EndpointInfo[];
+  branches?: SourceBranchInfo[];
 }
 
 export interface JavaClassInfo {
@@ -70,6 +80,7 @@ export interface JavaClassInfo {
   qualifiedName: string;
   classType: string;
   filePath: string;
+  sourceCode?: string | null;
   annotations?: RelevantAnnotationInfo[];
   methods: JavaMethodInfo[];
 }
@@ -111,4 +122,27 @@ export interface AnalysisResult {
   classes: JavaClassInfo[];
   relations: ServiceRelation[];
   controllerServiceRelations?: ControllerServiceRelation[];
+}
+
+export interface ExistingTestMethodInfo {
+  name: string;
+  annotations: string[];
+  assertions: string[];
+  mocks: string[];
+  lineStart: number;
+  lineEnd: number;
+}
+
+export interface ExistingTestInfo {
+  id: number;
+  projectId: number;
+  filePath: string;
+  packageName: string;
+  testClassName: string;
+  relatedClassId: number | null;
+  relatedMethodId: number | null;
+  testMethods: ExistingTestMethodInfo[];
+  imports: string[];
+  sourceCode: string;
+  createdAt: string | null;
 }

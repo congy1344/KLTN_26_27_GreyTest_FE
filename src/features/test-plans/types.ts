@@ -12,6 +12,7 @@ export interface TestPlan {
   status: ReviewStatus;
   isModified: boolean;
   createdAt: string | null;
+  coveredRuleIds?: number[];
 }
 
 export interface CreateTestPlanInput {

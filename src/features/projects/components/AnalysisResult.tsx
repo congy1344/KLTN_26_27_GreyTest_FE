@@ -1,24 +1,27 @@
 import { useState } from 'react';
 import { AnalysisStats } from './AnalysisStats';
 import { ClassTree } from './ClassTree';
-import type { AnalysisResult as AnalysisResultType } from '../types';
-import { GitFork, ArrowRight, ShieldCheck, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import type { AnalysisResult as AnalysisResultType, ExistingTestInfo } from '../types';
+import { ShieldCheck, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { useLanguage } from '../../../shared/i18n/language';
 
 interface AnalysisResultProps {
   data: AnalysisResultType;
+  existingTests?: ExistingTestInfo[];
 }
 
-export function AnalysisResult({ data }: AnalysisResultProps) {
+export function AnalysisResult({ data, existingTests = [] }: AnalysisResultProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const { t } = useLanguage();
 
   return (
     <div className="space-y-8 animate-fade-in">
       <section>
         <div className={`${isExpanded ? 'mb-4' : ''} flex items-center justify-between gap-4`}>
           <div>
-            <h3 className="text-sm font-semibold text-heading">Tổng quan phân tích</h3>
+            <h3 className="text-sm font-semibold text-heading">{t('Tổng quan analysis', 'Analysis overview')}</h3>
             <p className="mt-1 text-xs text-body-subtle">
-              Các chỉ số được trích xuất từ production source.
+              {t('Các chỉ số được trích xuất từ production source.', 'Metrics extracted from production source.')}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -27,8 +30,8 @@ export function AnalysisResult({ data }: AnalysisResultProps) {
               type="button"
               onClick={() => setIsExpanded((value) => !value)}
               aria-expanded={isExpanded}
-              aria-label={isExpanded ? 'Thu gọn phần phân tích' : 'Mở rộng phần phân tích'}
-              title={isExpanded ? 'Thu gọn phần phân tích' : 'Mở rộng phần phân tích'}
+              aria-label={isExpanded ? t('Thu gọn analysis', 'Collapse analysis') : t('Mở rộng analysis', 'Expand analysis')}
+              title={isExpanded ? t('Thu gọn analysis', 'Collapse analysis') : t('Mở rộng analysis', 'Expand analysis')}
               className="btn-ghost"
             >
               {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -42,7 +45,6 @@ export function AnalysisResult({ data }: AnalysisResultProps) {
               totalClasses={data.totalClasses}
               totalMethods={data.totalMethods}
               totalEndpoints={data.totalEndpoints}
-              totalRelations={data.totalRelations}
             />
 
             {data.existingTestFiles > 0 && (
@@ -50,10 +52,10 @@ export function AnalysisResult({ data }: AnalysisResultProps) {
             <ShieldCheck size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-fg-brand-strong" />
             <div>
               <p className="text-sm font-semibold text-fg-brand-strong">
-                Đã phát hiện {data.existingTestFiles} file test có sẵn
+                {t(`Đã phát hiện ${data.existingTestFiles} file test có sẵn`, `Found ${data.existingTestFiles} existing test files`)}
               </p>
               <p className="mt-0.5 text-xs leading-relaxed text-body">
-                Existing tests khong tinh vao production analysis, nhung duoc luu lam context de AI cai thien hoac bo sung unit test.
+                {t('Existing tests không tính vào production analysis nhưng được lưu làm context để AI cải thiện hoặc bổ sung Unit Test.', 'Existing tests are excluded from production analysis but retained as context for improving or supplementing Unit Tests.')}
               </p>
             </div>
           </div>
@@ -64,11 +66,10 @@ export function AnalysisResult({ data }: AnalysisResultProps) {
             <AlertTriangle size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-warning-strong" />
             <div>
               <p className="text-sm font-semibold text-warning-strong">
-                {data.failedParseFiles} file production Java khong parse duoc
+                {t(`${data.failedParseFiles} file production Java không parse được`, `${data.failedParseFiles} production Java files could not be parsed`)}
               </p>
               <p className="mt-0.5 text-xs leading-relaxed text-body">
-                Nhung file nay duoc bo qua khoi static analysis context nen he thong se khong sinh test truc tiep cho
-                class/method nam trong do.
+                {t('Các file này bị bỏ qua khỏi static analysis context nên hệ thống không sinh test trực tiếp cho class/method bên trong.', 'These files are excluded from the static analysis context, so tests will not be generated directly for their classes or methods.')}
               </p>
               {(data.failedParseFilePaths?.length ?? 0) > 0 && (
                 <ul className="mt-2 space-y-1">
@@ -86,36 +87,12 @@ export function AnalysisResult({ data }: AnalysisResultProps) {
         )}
       </section>
 
-      {isExpanded && data.relations.length > 0 && (
-        <section>
-          <div className="mb-4">
-            <h3 className="text-sm font-semibold text-heading">Quan hệ Service và Repository</h3>
-            <p className="mt-1 text-xs text-body-subtle">Các field dependency resolve được trong service.</p>
-          </div>
-          <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
-            <div className="space-y-2">
-              {data.relations.map((rel) => (
-                <div
-                  key={rel.id}
-                  className="flex flex-wrap items-center gap-2.5 rounded-default bg-neutral-secondary-soft px-3 py-2"
-                >
-                  <GitFork size={13} strokeWidth={1.6} className="shrink-0 text-fg-brand" />
-                  <span className="font-mono text-sm font-medium text-heading">{rel.serviceClassName}</span>
-                  <ArrowRight size={12} className="shrink-0 text-body-subtle" />
-                  <span className="font-mono text-sm text-body">{rel.repositoryClassName}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
       {isExpanded && <section>
         <div className="mb-4">
-          <h3 className="text-sm font-semibold text-heading">Cấu trúc source code</h3>
-          <p className="mt-1 text-xs text-body-subtle">Mở từng class và method để xem endpoint, signature và source.</p>
+          <h3 className="text-sm font-semibold text-heading">{t('Cấu trúc source code', 'Source code structure')}</h3>
+          <p className="mt-1 text-xs text-body-subtle">{t('Mở từng class và method để xem endpoint, signature và source.', 'Open a class or method to inspect its endpoint, signature, and source.')}</p>
         </div>
-        <ClassTree classes={data.classes} />
+        <ClassTree classes={data.classes} existingTests={existingTests} />
       </section>}
     </div>
   );

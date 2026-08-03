@@ -1,14 +1,21 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Scan, Loader2, GitBranch, Archive, AlertCircle, ArrowRight } from 'lucide-react';
-import { useProject, useAnalysis, useAnalyzeProject } from '../hooks/useProjects';
+import { ArrowLeft, Scan, Loader2, GitBranch, Archive } from 'lucide-react';
+import { useProject, useAnalysis, useAnalyzeProject, useExistingTests } from '../hooks/useProjects';
 import { StatusBadge } from '../components/StatusBadge';
 import { AnalysisResult } from '../components/AnalysisResult';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { AppShell } from '../../../shared/components/AppShell';
+import { ErrorState } from '../../../shared/components/ErrorState';
 import { BusinessRulesPanel } from '../../business-rules/components/BusinessRulesPanel';
+import { useBusinessRules } from '../../business-rules/hooks/useBusinessRules';
+import { useTestPlans } from '../../test-plans/hooks/useTestPlans';
+import { useTestCases } from '../../test-cases/hooks/useTestCases';
+import { useUnitTests } from '../../unit-tests/hooks/useUnitTests';
 import { ProjectWorkflowTabs } from '../components/ProjectWorkflowTabs';
-import { canOpenTestCases, canOpenTestPlans, canOpenUnitTests } from '../utils/project-workflow';
+import { useLanguage } from '../../../shared/i18n/language';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,16 +28,33 @@ export function ProjectDetailPage() {
     isLoading: analysisLoading,
     error: analysisError,
   } = useAnalysis(projectId, shouldLoadAnalysis);
+  const { data: existingTests = [] } = useExistingTests(projectId, shouldLoadAnalysis);
   const analyzeMutation = useAnalyzeProject();
+  const { t } = useLanguage();
+  const [showReanalyzeConfirm, setShowReanalyzeConfirm] = useState(false);
 
-  const canAnalyze = (project?.status === 'UPLOADED' || project?.status === 'ANALYZED') && project.sourceAvailable;
+  // Regenerate từ pha đầu: cho phân tích lại ở mọi status miễn còn source
+  const canAnalyze = project?.sourceAvailable ?? false;
   const hasAnalysis = project && project.status !== 'UPLOADED';
-  const testPlansEnabled = project ? canOpenTestPlans(project.status) : false;
-  const testCasesEnabled = project ? canOpenTestCases(project.status) : false;
-  const unitTestsEnabled = project ? canOpenUnitTests(project.status) : false;
+  // Đã có artifact pipeline → phân tích lại là thao tác phá hủy, cần confirm kèm số liệu
+  const hasPipelineData = project !== undefined && !['UPLOADED', 'ANALYZED', 'FAILED'].includes(project.status);
+  const rulesQuery = useBusinessRules(hasPipelineData ? projectId : 0);
+  const plansQuery = useTestPlans(hasPipelineData ? projectId : 0);
+  const casesQuery = useTestCases(hasPipelineData ? projectId : 0);
+  const unitsQuery = useUnitTests(hasPipelineData ? projectId : 0);
+  const pipelineCounts = [
+    `${rulesQuery.data?.length ?? 0} Business Rule`,
+    `${plansQuery.data?.length ?? 0} Test Plan`,
+    `${casesQuery.data?.length ?? 0} Test Case`,
+    `${unitsQuery.data?.length ?? 0} Unit Test`,
+  ].join(', ');
 
   const handleAnalyze = () => {
     if (!projectId) return;
+    if (hasPipelineData) {
+      setShowReanalyzeConfirm(true);
+      return;
+    }
     analyzeMutation.mutate(projectId);
   };
 
@@ -45,17 +69,7 @@ export function ProjectDetailPage() {
   if (projectError || !project) {
     return (
       <AppShell maxWidth="wide">
-        <div className="flex min-h-[360px] flex-col items-center justify-center rounded-base border border-border-default bg-neutral-primary-soft p-10 text-center shadow-sm animate-fade-in">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-default bg-danger-soft text-fg-danger-strong">
-            <AlertCircle size={20} strokeWidth={1.8} />
-          </div>
-          <p className="text-sm font-semibold text-fg-danger-strong">
-            {projectError ? getErrorMessage(projectError) : 'Không tìm thấy project'}
-          </p>
-          <Link to="/projects" className="mt-4 text-sm font-medium text-fg-brand hover:text-fg-brand-strong">
-            Quay lại danh sách
-          </Link>
-        </div>
+        <ErrorState error={projectError ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
       </AppShell>
     );
   }
@@ -68,7 +82,7 @@ export function ProjectDetailPage() {
           className="inline-flex items-center gap-1.5 text-sm font-medium text-body transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-heading"
         >
           <ArrowLeft size={14} strokeWidth={1.8} />
-          Danh sách project
+          {t('Danh sách project', 'Projects')}
         </Link>
       </div>
 
@@ -118,12 +132,12 @@ export function ProjectDetailPage() {
                   {analyzeMutation.isPending ? (
                     <>
                       <Loader2 size={14} strokeWidth={1.8} className="animate-spin" />
-                      Đang phân tích
+                      {t('Đang phân tích', 'Analyzing')}
                     </>
                   ) : (
                     <>
                       <Scan size={14} strokeWidth={1.8} />
-                      {project.status === 'ANALYZED' ? 'Phân tích lại' : 'Phân tích source code'}
+                      {project.status !== 'UPLOADED' ? t('Phân tích lại', 'Analyze again') : t('Phân tích source code', 'Analyze source code')}
                     </>
                   )}
                 </button>
@@ -134,8 +148,7 @@ export function ProjectDetailPage() {
           {!project.sourceAvailable && (
             <div className="mt-4 rounded-default border border-border-warning-subtle bg-warning-soft p-3 animate-fade-in">
               <p className="text-sm font-medium text-fg-warning">
-                Source của project này không còn trong storage. Bạn vẫn xem được kết quả đã lưu,
-                nhưng cần upload ZIP hoặc clone GitHub lại nếu muốn phân tích lại.
+                {t('Source của project này không còn trong storage. Bạn vẫn xem được kết quả đã lưu nhưng cần upload ZIP hoặc clone GitHub lại nếu muốn phân tích lại.', 'This project source is no longer available in storage. Saved results remain visible, but you must upload the ZIP or clone the GitHub repository again to reanalyze it.')}
               </p>
             </div>
           )}
@@ -151,13 +164,7 @@ export function ProjectDetailPage() {
       </header>
 
       {hasAnalysis && (
-        <ProjectWorkflowTabs
-          projectId={projectId}
-          active="analysis"
-          testPlansEnabled={testPlansEnabled}
-          testCasesEnabled={testCasesEnabled}
-          unitTestsEnabled={unitTestsEnabled}
-        />
+        <ProjectWorkflowTabs projectId={projectId} active="analysis" status={project.status} />
       )}
 
       {analyzeMutation.isPending && (
@@ -165,19 +172,19 @@ export function ProjectDetailPage() {
           <div className="flex items-center gap-3 rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-sm">
             <Loader2 size={18} strokeWidth={1.8} className="animate-spin text-fg-brand" />
             <div>
-              <p className="text-sm font-semibold text-heading">Đang phân tích source code</p>
-              <p className="mt-0.5 text-xs text-body-subtle">JavaParser đang quét các file .java trong project.</p>
+              <p className="text-sm font-semibold text-heading">{t('Đang phân tích source code', 'Analyzing source code')}</p>
+              <p className="mt-0.5 text-xs text-body-subtle">{t('JavaParser đang quét các file .java trong project.', 'JavaParser is scanning the project Java files.')}</p>
             </div>
           </div>
         </div>
       )}
 
       {analyzeMutation.isSuccess && analyzeMutation.data && (
-        <AnalysisResult data={analyzeMutation.data} />
+        <AnalysisResult data={analyzeMutation.data} existingTests={existingTests} />
       )}
 
       {!analyzeMutation.isSuccess && hasAnalysis && !analysisLoading && analysis && (
-        <AnalysisResult data={analysis} />
+        <AnalysisResult data={analysis} existingTests={existingTests} />
       )}
 
       {!analyzeMutation.isSuccess && hasAnalysis && analysisLoading && (
@@ -187,7 +194,7 @@ export function ProjectDetailPage() {
       {!analyzeMutation.isSuccess && hasAnalysis && analysisError && (
         <div className="rounded-base border border-border-danger-subtle bg-danger-soft p-4 animate-fade-in">
           <p className="text-sm font-semibold text-fg-danger-strong">
-            Không thể tải kết quả phân tích
+            {t('Không thể tải kết quả analysis', 'Unable to load analysis results')}
           </p>
           <p className="mt-1 text-xs text-fg-danger-strong">
             {getErrorMessage(analysisError)}
@@ -195,31 +202,23 @@ export function ProjectDetailPage() {
         </div>
       )}
 
-      {hasAnalysis && (
-        <>
-          <BusinessRulesPanel projectId={projectId} />
-          <div className="mt-6 rounded-base border border-border-brand-subtle bg-brand-softer p-4 shadow-sm animate-fade-in">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-heading">Bước tiếp theo: Test Plan</p>
-                <p className="mt-1 text-xs leading-relaxed text-body-subtle">
-                  Sau khi duyệt Business Rule, chuyển sang màn Test Plan để sinh và review kế hoạch test.
-                </p>
-              </div>
-              {testPlansEnabled ? (
-                <Link to={`/projects/${projectId}/test-plans`} className="btn btn-brand shrink-0">
-                  Mở Test Plan
-                  <ArrowRight size={14} strokeWidth={1.8} />
-                </Link>
-              ) : (
-                <button className="btn btn-secondary shrink-0" disabled>
-                  Cần duyệt BR
-                </button>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+      {hasAnalysis && <BusinessRulesPanel projectId={projectId} />}
+      <ConfirmDialog
+        open={showReanalyzeConfirm}
+        title={t('Phân tích lại project?', 'Reanalyze project?')}
+        description={t(
+          `Hệ thống sẽ xóa ${pipelineCounts} và toàn bộ lịch sử coverage trước khi phân tích lại. Thao tác này không thể hoàn tác.`,
+          `The system will delete ${pipelineCounts} and the complete coverage history before reanalysis. This action cannot be undone.`,
+        )}
+        confirmLabel={t('Phân tích lại', 'Reanalyze')}
+        cancelLabel={t('Hủy', 'Cancel')}
+        pending={analyzeMutation.isPending}
+        onCancel={() => setShowReanalyzeConfirm(false)}
+        onConfirm={() => {
+          setShowReanalyzeConfirm(false);
+          analyzeMutation.mutate(projectId);
+        }}
+      />
     </AppShell>
   );
 }

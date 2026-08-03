@@ -27,9 +27,9 @@ afterEach(() => {
 });
 
 describe('TestPlansPage', () => {
-  it('allows test plans while workflow locks are temporarily disabled', () => {
+  function renderPage(status: Project['status']) {
     vi.mocked(useProject).mockReturnValue({
-      data: project('BR_PENDING_REVIEW'),
+      data: project(status),
       isLoading: false,
       error: null,
     } as ReturnType<typeof useProject>);
@@ -42,9 +42,17 @@ describe('TestPlansPage', () => {
         </Routes>
       </MemoryRouter>,
     );
+  }
 
+  it('allows test plans once business rules are approved', () => {
+    renderPage('BR_APPROVED');
     expect(screen.getByText('Test Plans Panel')).toBeInTheDocument();
-    expect(screen.queryByText('Analysis Page')).not.toBeInTheDocument();
+  });
+
+  it('redirects to analysis while business rules are still under review', () => {
+    renderPage('BR_PENDING_REVIEW');
+    expect(screen.getByText('Analysis Page')).toBeInTheDocument();
+    expect(screen.queryByText('Test Plans Panel')).not.toBeInTheDocument();
   });
 });
 

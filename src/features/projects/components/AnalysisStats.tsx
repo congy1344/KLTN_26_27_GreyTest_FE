@@ -1,29 +1,26 @@
-import { Box, Code2, Globe, GitFork } from 'lucide-react';
+import { Box, Code2, Globe } from 'lucide-react';
 
 interface AnalysisStatsProps {
   totalClasses: number;
   totalMethods: number;
   totalEndpoints: number;
-  totalRelations: number;
 }
 
 const STATS = [
   { key: 'classes', label: 'Classes', icon: Box, accentBg: 'bg-brand-softer', accentBorder: 'border-border-brand-subtle', accentText: 'text-fg-brand-strong' },
   { key: 'methods', label: 'Methods', icon: Code2, accentBg: 'bg-success-soft', accentBorder: 'border-border-success-subtle', accentText: 'text-fg-success-strong' },
   { key: 'endpoints', label: 'REST Endpoints', icon: Globe, accentBg: 'bg-warning-soft', accentBorder: 'border-border-warning-subtle', accentText: 'text-fg-warning' },
-  { key: 'relations', label: 'Service to Repo', icon: GitFork, accentBg: 'bg-brand-softer', accentBorder: 'border-border-brand-subtle', accentText: 'text-fg-brand-strong' },
 ] as const;
 
-export function AnalysisStats({ totalClasses, totalMethods, totalEndpoints, totalRelations }: AnalysisStatsProps) {
+export function AnalysisStats({ totalClasses, totalMethods, totalEndpoints }: AnalysisStatsProps) {
   const values: Record<string, number> = {
     classes: totalClasses,
     methods: totalMethods,
     endpoints: totalEndpoints,
-    relations: totalRelations,
   };
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       {STATS.map((stat, i) => {
         const Icon = stat.icon;
         return (

@@ -14,8 +14,10 @@ function plansKey(projectId: number) {
 }
 
 function invalidateProject(queryClient: ReturnType<typeof useQueryClient>, projectId: number) {
-  queryClient.invalidateQueries({ queryKey: plansKey(projectId) });
-  queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: plansKey(projectId) }),
+    queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+  ]);
 }
 
 export function useTestPlans(projectId: number) {
@@ -38,7 +40,8 @@ export function useGenerateTestPlans(projectId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => generateTestPlans(projectId),
-    onSuccess: () => invalidateProject(queryClient, projectId),
+    // Sinh lại plan xóa case/unit test cũ theo cascade → làm mới mọi cache
+    onSuccess: () => queryClient.invalidateQueries(),
   });
 }
 
@@ -58,10 +61,11 @@ export function useUpdateTestPlan(projectId: number) {
   });
 }
 
-export function useDeleteTestPlan(projectId: number) {
+export function useDeleteTestPlan(_projectId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (planId: number) => deleteTestPlan(planId),
-    onSuccess: () => invalidateProject(queryClient, projectId),
+    // Xóa plan cascade xóa case/unit test → làm mới mọi cache
+    onSuccess: () => queryClient.invalidateQueries(),
   });
 }

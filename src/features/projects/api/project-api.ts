@@ -1,5 +1,5 @@
 import { apiClient } from '../../../shared/api/api-client';
-import type { AnalysisResult, Project } from '../types';
+import type { AnalysisResult, ExistingTestInfo, Project } from '../types';
 
 export async function fetchProjects(): Promise<Project[]> {
   const { data } = await apiClient.get<Project[]>('/projects');
@@ -34,5 +34,10 @@ export async function analyzeProject(id: number): Promise<AnalysisResult> {
 
 export async function fetchAnalysis(id: number): Promise<AnalysisResult> {
   const { data } = await apiClient.get<AnalysisResult>(`/projects/${id}/analysis`);
+  return data;
+}
+
+export async function fetchExistingTests(id: number): Promise<ExistingTestInfo[]> {
+  const { data } = await apiClient.get<ExistingTestInfo[]>(`/projects/${id}/existing-tests`);
   return data;
 }

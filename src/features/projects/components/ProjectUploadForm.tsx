@@ -1,30 +1,50 @@
-import { useRef, useState } from 'react';
-import { Upload, GitBranch, File as FileIcon, ArrowRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Upload, GitBranch, File as FileIcon, ArrowRight, Loader2 } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { useCloneGithub, useUploadProject } from '../hooks/useProjects';
 import { GlassCard } from '../../../shared/components/GlassCard';
+import { InlineAlert } from '../../../shared/components/InlineAlert';
+import { useLanguage } from '../../../shared/i18n/language';
 
 export function ProjectUploadForm() {
   const [file, setFile] = useState<File | null>(null);
   const [githubUrl, setGithubUrl] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadProject();
   const clone = useCloneGithub();
+  const { t } = useLanguage();
 
   const error = upload.error ?? clone.error;
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = setTimeout(() => setSuccessMessage(''), 3000);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   function submitZip(e: React.FormEvent) {
     e.preventDefault();
     if (file) {
-      upload.mutate(file, { onSuccess: () => setFile(null) });
+      upload.mutate(file, {
+        onSuccess: () => {
+          setFile(null);
+          setSuccessMessage(t('Upload thành công. Bấm Phân tích trong danh sách để bắt đầu.', 'Upload successful. Select Analyze in the list to begin.'));
+        },
+      });
     }
   }
 
   function submitGithub(e: React.FormEvent) {
     e.preventDefault();
     if (githubUrl.trim()) {
-      clone.mutate(githubUrl.trim(), { onSuccess: () => setGithubUrl('') });
+      clone.mutate(githubUrl.trim(), {
+        onSuccess: () => {
+          setGithubUrl('');
+          setSuccessMessage(t('Clone thành công. Bấm Phân tích trong danh sách để bắt đầu.', 'Clone successful. Select Analyze in the list to begin.'));
+        },
+      });
     }
   }
 
@@ -58,7 +78,7 @@ export function ProjectUploadForm() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-heading">Upload ZIP</h3>
-                <p className="text-xs text-body-subtle">Tự động phân tích sau khi tải lên</p>
+                <p className="text-xs text-body-subtle">{t('Tải source để phân tích sau', 'Upload source for later analysis')}</p>
               </div>
             </div>
 
@@ -97,9 +117,9 @@ export function ProjectUploadForm() {
                     strokeWidth={1.6}
                   />
                   <p className="text-xs font-medium">
-                    Kéo thả file <span className="text-fg-brand">.zip</span> vào đây
+                    {t('Kéo thả file', 'Drag and drop a')} <span className="text-fg-brand">.zip</span> {t('vào đây', 'file here')}
                   </p>
-                  <p className="mt-1 text-[11px] text-body-subtle">hoặc click để chọn</p>
+                  <p className="mt-1 text-[11px] text-body-subtle">{t('hoặc click để chọn', 'or click to choose')}</p>
                 </>
               )}
             </div>
@@ -112,12 +132,12 @@ export function ProjectUploadForm() {
             >
               {upload.isPending ? (
                 <>
-                  <span className="h-3.5 w-3.5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                  Đang tải lên và phân tích
+                  <Loader2 size={14} className="animate-spin" />
+                  {t('Đang tải lên', 'Uploading')}
                 </>
               ) : (
                 <>
-                  Tải lên
+                  {t('Tải lên', 'Upload')}
                   <ArrowRight size={14} strokeWidth={1.8} />
                 </>
               )}
@@ -133,7 +153,7 @@ export function ProjectUploadForm() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-heading">GitHub Repository</h3>
-                <p className="text-xs text-body-subtle">Clone repo public để phân tích</p>
+                <p className="text-xs text-body-subtle">{t('Clone repo public để phân tích', 'Clone a public repository for analysis')}</p>
               </div>
             </div>
 
@@ -151,7 +171,7 @@ export function ProjectUploadForm() {
                 disabled={clone.isPending}
               />
               <p className="mt-2 text-[11px] leading-relaxed text-body-subtle">
-                Hỗ trợ repository public. Backend sẽ clone và phân tích ngay sau khi nhận URL.
+                {t('Hỗ trợ repository public. Sau khi clone, bấm Phân tích trong danh sách project.', 'Public repositories are supported. After cloning, select Analyze in the project list.')}
               </p>
             </div>
 
@@ -163,8 +183,8 @@ export function ProjectUploadForm() {
             >
               {clone.isPending ? (
                 <>
-                  <span className="h-3.5 w-3.5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                  Đang clone và phân tích
+                  <Loader2 size={14} className="animate-spin" />
+                  {t('Đang clone', 'Cloning')}
                 </>
               ) : (
                 <>
@@ -183,6 +203,7 @@ export function ProjectUploadForm() {
           <p className="font-medium">{getErrorMessage(error)}</p>
         </div>
       )}
+      {successMessage && <InlineAlert tone="success">{successMessage}</InlineAlert>}
     </div>
   );
 }

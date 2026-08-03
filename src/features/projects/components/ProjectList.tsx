@@ -1,71 +1,84 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, GitBranch, Archive, FolderOpen } from 'lucide-react';
-import { getErrorMessage } from '../../../shared/api/api-client';
-import { useDeleteProject, useProjects } from '../hooks/useProjects';
+import { Trash2, GitBranch, Archive, FolderOpen, Scan, Loader2 } from 'lucide-react';
+import { useAnalyzeProject, useDeleteProject, useProjects } from '../hooks/useProjects';
 import { StatusBadge } from './StatusBadge';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
+import { EmptyState } from '../../../shared/components/EmptyState';
+import { ErrorState } from '../../../shared/components/ErrorState';
+import { useLanguage, type Language } from '../../../shared/i18n/language';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { InlineAlert } from '../../../shared/components/InlineAlert';
+import { getErrorMessage } from '../../../shared/api/api-client';
+import { parseApiDate } from '../../../shared/utils/date-time';
+import type { Project } from '../types';
+import { getProjectResumePath } from '../utils/project-workflow';
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, language: Language): string {
   const now = new Date();
-  const date = new Date(dateStr);
+  const date = parseApiDate(dateStr);
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  if (seconds < 60) return 'vừa xong';
+  const relative = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
+  if (seconds < 60) return relative.format(-seconds, 'second');
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} phút trước`;
+  if (minutes < 60) return relative.format(-minutes, 'minute');
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} giờ trước`;
+  if (hours < 24) return relative.format(-hours, 'hour');
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} ngày trước`;
+  if (days < 30) return relative.format(-days, 'day');
   const months = Math.floor(days / 30);
-  return `${months} tháng trước`;
+  return relative.format(-months, 'month');
 }
 
 export function ProjectList() {
   const { data: projects, isLoading, error } = useProjects();
   const remove = useDeleteProject();
+  const analyze = useAnalyzeProject();
   const navigate = useNavigate();
+  const { language, t } = useLanguage();
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const sortedProjects = [...(projects ?? [])].sort(
-    (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    (left, right) => parseApiDate(right.createdAt).getTime() - parseApiDate(left.createdAt).getTime(),
   );
 
   if (isLoading) return <SkeletonLoader count={3} />;
 
   if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-base border border-border-default bg-neutral-primary-soft p-8 text-center shadow-sm animate-fade-in">
-        <div className="mb-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-default bg-danger-soft text-fg-danger-strong">
-          <FolderOpen size={20} strokeWidth={1.8} />
-        </div>
-        <p className="mb-1 text-sm font-semibold text-fg-danger-strong">{getErrorMessage(error)}</p>
-        <p className="text-xs text-body-subtle">Không thể tải danh sách project</p>
-      </div>
-    );
+    return <ErrorState error={error} />;
   }
 
   if (!sortedProjects.length) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-base border border-border-default bg-neutral-primary-soft p-12 text-center shadow-sm animate-fade-in">
-        <div className="mb-4 flex h-14 w-14 shrink-0 items-center justify-center rounded-default bg-neutral-secondary-medium text-body-subtle">
-          <FolderOpen size={24} strokeWidth={1.6} />
-        </div>
-        <p className="mb-1.5 text-sm font-semibold text-heading">Chưa có project nào</p>
-        <p className="max-w-[280px] text-xs leading-relaxed text-body-subtle">
-          Upload file ZIP hoặc clone từ GitHub để bắt đầu phân tích tự động.
-        </p>
+      <div className="rounded-base border border-border-default bg-neutral-primary-soft shadow-sm">
+        <EmptyState
+          icon={FolderOpen}
+          title={t('Chưa có project nào', 'No projects yet')}
+          hint={t('Upload file ZIP hoặc clone từ GitHub, sau đó bấm Phân tích.', 'Upload a ZIP file or clone from GitHub, then select Analyze.')}
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
+      {remove.error && <InlineAlert tone="danger">{getErrorMessage(remove.error)}</InlineAlert>}
       {sortedProjects.map((p, i) => {
         const isGithub = p.sourceType === 'GITHUB';
         return (
         <div
           key={p.id}
-          onClick={() => navigate(`/projects/${p.id}`)}
-          className={`flex cursor-pointer items-center justify-between gap-4 rounded-base border bg-neutral-primary-soft px-5 py-4 shadow-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:border-border-default-strong hover:shadow-md animate-fade-in-up ${
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate(getProjectResumePath(p.id, p.status))}
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              navigate(getProjectResumePath(p.id, p.status));
+            }
+          }}
+          className={`flex cursor-pointer items-center justify-between gap-4 rounded-base border bg-neutral-primary-soft px-5 py-4 shadow-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:border-border-default-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand animate-fade-in-up ${
             isGithub ? 'border-border-brand-subtle' : 'border-border-default'
           }`}
           style={{ animationDelay: `${i * 0.06}s` }}
@@ -90,18 +103,35 @@ export function ProjectList() {
                   {isGithub ? 'GitHub' : 'ZIP'}
                 </span>
                 <span className="h-1 w-1 rounded-full bg-neutral-quaternary" />
-                <span className="text-[11px] text-body-subtle">{timeAgo(p.createdAt)}</span>
+                <span className="text-[11px] text-body-subtle">{timeAgo(p.createdAt, language)}</span>
               </div>
             </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
             <StatusBadge status={p.status} />
+            {p.status === 'UPLOADED' && p.sourceAvailable && (
+              <button
+                onClick={(e) => { e.stopPropagation(); analyze.mutate(p.id); }}
+                disabled={analyze.isPending}
+                className="btn btn-secondary"
+                title={t('Phân tích project', 'Analyze project')}
+                id={`btn-analyze-project-${p.id}`}
+              >
+                {analyze.isPending && analyze.variables === p.id
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : <Scan size={14} />}
+                <span className="hidden sm:inline">{t('Phân tích', 'Analyze')}</span>
+              </button>
+            )}
             <button
-              onClick={(e) => { e.stopPropagation(); remove.mutate(p.id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setProjectToDelete(p);
+              }}
               disabled={remove.isPending}
               className="btn-ghost-danger"
-              title="Xóa project"
+              title={t('Xóa project', 'Delete project')}
               id={`btn-delete-project-${p.id}`}
             >
               <Trash2 size={14} strokeWidth={1.6} />
@@ -110,6 +140,26 @@ export function ProjectList() {
         </div>
         );
       })}
+      <ConfirmDialog
+        open={projectToDelete != null}
+        title={t('Xóa project?', 'Delete project?')}
+        description={projectToDelete
+          ? t(
+              `Project “${projectToDelete.name}” và toàn bộ kết quả phân tích sẽ bị xóa. Thao tác này không thể hoàn tác.`,
+              `Project “${projectToDelete.name}” and all analysis results will be deleted. This action cannot be undone.`,
+            )
+          : ''}
+        confirmLabel={t('Xóa project', 'Delete project')}
+        cancelLabel={t('Hủy', 'Cancel')}
+        pending={remove.isPending}
+        onCancel={() => setProjectToDelete(null)}
+        onConfirm={() => {
+          if (!projectToDelete) return;
+          const projectId = projectToDelete.id;
+          setProjectToDelete(null);
+          remove.mutate(projectId);
+        }}
+      />
     </div>
   );
 }

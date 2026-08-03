@@ -26,10 +26,14 @@ export function useBusinessRules(projectId: number) {
 export function useCreateBusinessRules(projectId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ methodId, descriptions }: { methodId: number; descriptions: string[] }) => {
+    mutationFn: async ({ methodId, descriptions, sourceBranchId }: {
+      methodId: number;
+      descriptions: string[];
+      sourceBranchId: string | null;
+    }) => {
       const created = [];
       for (const description of descriptions) {
-        created.push(await createBusinessRule(projectId, methodId, description));
+        created.push(await createBusinessRule(projectId, methodId, description, sourceBranchId));
       }
       return created;
     },
@@ -62,14 +66,12 @@ export function useAcceptBusinessRuleSuggestion(projectId: number) {
   });
 }
 
-export function useDeleteBusinessRule(projectId: number) {
+export function useDeleteBusinessRule(_projectId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (ruleId: number) => deleteBusinessRule(ruleId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) });
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-    },
+    // Xóa BR cascade xóa Plan/Case/Unit Test → làm mới mọi cache
+    onSuccess: () => queryClient.invalidateQueries(),
   });
 }
 
@@ -99,9 +101,9 @@ export function useApproveBusinessRules(projectId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => approveBusinessRules(projectId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) });
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-    },
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) }),
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+    ]),
   });
 }

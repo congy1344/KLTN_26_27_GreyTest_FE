@@ -26,7 +26,7 @@ describe('AnalysisResult', () => {
     render(<AnalysisResult data={result} />);
 
     expect(screen.getByText('Đã phát hiện 17 file test có sẵn')).toBeInTheDocument();
-    expect(screen.getByText(/Existing tests khong tinh vao production analysis/)).toBeInTheDocument();
+    expect(screen.getByText(/Existing tests không tính vào production analysis/)).toBeInTheDocument();
   });
 
   it('collapses and expands the analysis content', () => {
@@ -44,10 +44,10 @@ describe('AnalysisResult', () => {
     };
 
     render(<AnalysisResult data={result} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Thu gọn phần phân tích' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thu gọn analysis' }));
     expect(screen.queryByText('Classes')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mở rộng phần phân tích' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mở rộng analysis' }));
     expect(screen.getByText('Classes')).toBeInTheDocument();
   });
 });

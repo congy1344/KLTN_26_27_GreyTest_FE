@@ -1,6 +1,8 @@
 import { Beaker, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCurrentUser, useLogout } from '../../features/auth/hooks/useAuth';
+import { useLanguage } from '../i18n/language';
+import { LanguageToggle } from './LanguageToggle';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -12,6 +14,7 @@ export function AppShell({ children, maxWidth = 'default' }: AppShellProps) {
   const navigate = useNavigate();
   const { data: user } = useCurrentUser();
   const logout = useLogout();
+  const { t } = useLanguage();
 
   const handleLogout = () => {
     logout();
@@ -37,12 +40,13 @@ export function AppShell({ children, maxWidth = 'default' }: AppShellProps) {
           </Link>
 
           <div className="flex items-center gap-2">
+            <LanguageToggle />
             <span className="hidden items-center gap-2 rounded-full border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-[12px] font-medium text-heading shadow-xs sm:inline-flex">
               <Sparkles size={13} strokeWidth={1.8} className="text-fg-brand" />
               {user?.fullName ?? 'AI QA Agent'}
             </span>
             <button type="button" onClick={handleLogout} className="btn btn-secondary px-3 py-1.5 text-[12px]">
-              Dang xuat
+              {t('Đăng xuất', 'Log out')}
             </button>
           </div>
         </div>
@@ -54,7 +58,7 @@ export function AppShell({ children, maxWidth = 'default' }: AppShellProps) {
 
       <footer className="mt-16 border-t border-border-default-subtle bg-neutral-primary-soft/80">
         <div className={`mx-auto flex ${widthClass} flex-col gap-2 px-4 py-6 text-[12px] text-body-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6`}>
-          <span>GreyTest · Đồ án tốt nghiệp KTPM</span>
+          <span>{t('GreyTest · Đồ án tốt nghiệp KTPM', 'GreyTest · Software Engineering capstone')}</span>
           <span className="font-mono">Grey-box AI QA System</span>
         </div>
       </footer>
