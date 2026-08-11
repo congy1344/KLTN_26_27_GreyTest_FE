@@ -20,7 +20,8 @@ import { LoadingState } from '../../../shared/components/LoadingState';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
 import { useAnalysis } from '../../projects/hooks/useProjects';
-import { buildRuleSourceIndex } from '../../projects/utils/source-trace';
+import type { SourceBranchInfo } from '../../projects/types';
+import { buildRuleSourceIndex, sourceDecisionId } from '../../projects/utils/source-trace';
 import { useTestPlans } from '../../test-plans/hooks/useTestPlans';
 import {
   useAcceptBusinessRuleSuggestion,
@@ -35,9 +36,21 @@ import {
 import type { BusinessRule, BusinessRuleReview } from '../types';
 import { splitBusinessRuleText } from '../utils/business-rule-text';
 import { useLanguage } from '../../../shared/i18n/language';
+import { displaySourcePath } from '../../../shared/utils/source-path';
 
 interface BusinessRulesPanelProps {
   projectId: number;
+}
+
+
+function sourceDecisions(branches: SourceBranchInfo[]) {
+  const seen = new Set<string>();
+  return branches.flatMap((branch) => {
+    const decisionId = sourceDecisionId(branch.branchId);
+    if (!decisionId || seen.has(decisionId)) return [];
+    seen.add(decisionId);
+    return [{ ...branch, decisionId }];
+  });
 }
 
 export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
@@ -85,12 +98,14 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
   const serviceMethods = useMemo(() => serviceGroups.flatMap((javaClass) =>
     javaClass.methods.map((method) => ({
       id: method.id,
-      label: `${javaClass.filePath} | ${javaClass.className}.${method.methodName} (L${method.lineStart})`,
+      filePath: javaClass.filePath,
+      label: `${displaySourcePath(javaClass.filePath)} | ${javaClass.className}.${method.methodName} (L${method.lineStart})`,
     }))), [serviceGroups]);
   const selectedMethod = serviceGroups
     .flatMap((javaClass) => javaClass.methods)
     .find((method) => method.id === Number(methodId));
   const selectedBranches = selectedMethod?.branches ?? [];
+  const selectedDecisions = sourceDecisions(selectedBranches);
   const knownMethodIds = useMemo(
     () => new Set(serviceMethods.map((method) => method.id)),
     [serviceMethods],
@@ -100,10 +115,13 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
     () => buildRuleSourceIndex(analysis, rules),
     [analysis, rules],
   );
-  const uncoveredBranchCount = serviceGroups.reduce((total, javaClass) => total
+  const uncoveredDecisionCount = serviceGroups.reduce((total, javaClass) => total
     + javaClass.methods.reduce((methodTotal, method) => {
-      const covered = new Set(method.rules.map((rule) => rule.sourceBranchId).filter(Boolean));
-      return methodTotal + (method.branches ?? []).filter((branch) => !covered.has(branch.branchId)).length;
+      const covered = new Set(method.rules
+        .map((rule) => sourceDecisionId(rule.sourceBranchId))
+        .filter(Boolean));
+      return methodTotal + sourceDecisions(method.branches ?? [])
+        .filter((decision) => !covered.has(decision.decisionId)).length;
     }, 0), 0);
   const createMutation = useCreateBusinessRules(projectId);
   const generateMutation = useGenerateBusinessRules(projectId);
@@ -130,6 +148,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
     deleteMutation.error;
 
   const draftRules = splitBusinessRuleText(description);
+  const invalidDecisionRuleCount = Boolean(sourceBranchId) && draftRules.length !== 1;
   const dirtyRuleCount = rules.filter((rule) => rule.isModified).length;
   const reviewByRuleId = useMemo(() => {
     return new Map(reviewResult?.reviewedRules.map((review) => [review.ruleId, review]) ?? []);
@@ -352,14 +371,14 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
           </button>
           <button
             className="btn btn-brand"
-            disabled={pending || rules.length === 0 || uncoveredBranchCount > 0}
+            disabled={pending || rules.length === 0 || uncoveredDecisionCount > 0}
             onClick={() => approveMutation.mutate(undefined, {
               onSuccess: () => navigate(`/projects/${projectId}/test-plans`, {
                 state: { workflowNotice: t('Đã duyệt Business Rule. Chuyển sang bước Test Plan.', 'Business Rules approved. Continue with Test Plans.') },
               }),
             })}
-            title={uncoveredBranchCount > 0
-              ? t(`Còn ${uncoveredBranchCount} nhánh source chưa có BR`, `${uncoveredBranchCount} source branches are not mapped to BRs`)
+            title={uncoveredDecisionCount > 0
+              ? t(`Còn ${uncoveredDecisionCount} quyết định source chưa có BR`, `${uncoveredDecisionCount} source decisions are not mapped to BRs`)
               : undefined}
           >
             {approveMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
@@ -385,18 +404,20 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
               }}
             >
               <option value="">{t('Chọn Service method', 'Select a Service method')}</option>
-              {serviceMethods.map((method) => <option key={method.id} value={method.id}>{method.label}</option>)}
+              {serviceMethods.map((method) => (
+                <option key={method.id} value={method.id} title={method.filePath}>{method.label}</option>
+              ))}
             </select>
-            {selectedBranches.length > 0 && (
+            {selectedDecisions.length > 0 && (
               <select
                 className="form-input"
                 value={sourceBranchId}
                 onChange={(event) => setSourceBranchId(event.target.value)}
               >
-                <option value="">{t('Chọn nhánh source', 'Select a source branch')}</option>
-                {selectedBranches.map((branch) => (
-                  <option key={branch.branchId} value={branch.branchId}>
-                    {branch.branchId}: if ({branch.condition}) = {branch.outcome}
+                <option value="">{t('Chọn quyết định source', 'Select a source decision')}</option>
+                {selectedDecisions.map((decision) => (
+                  <option key={decision.decisionId} value={decision.decisionId}>
+                    {decision.decisionId}: {decision.kind.toLowerCase()} ({decision.condition})
                   </option>
                 ))}
               </select>
@@ -407,9 +428,14 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
+            {invalidDecisionRuleCount && (
+              <p className="text-xs font-medium text-fg-warning">
+                {t('M\u1ed7i quy\u1ebft \u0111\u1ecbnh source ch\u1ec9 \u0111\u01b0\u1ee3c li\u00ean k\u1ebft v\u1edbi m\u1ed9t Business Rule.', 'Each source decision can only be linked to one Business Rule.')}
+              </p>
+            )}
           </div>
           <button className="btn btn-secondary self-start" disabled={pending || !methodId || draftRules.length === 0
-              || (selectedBranches.length > 0 && !sourceBranchId)}>
+              || (selectedDecisions.length > 0 && !sourceBranchId) || invalidDecisionRuleCount}>
             {createMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <MessageSquarePlus size={14} />}
             {draftRules.length > 1 ? t(`Thêm ${draftRules.length} BR`, `Add ${draftRules.length} BRs`) : t('Thêm BR', 'Add BR')}
           </button>
@@ -447,7 +473,9 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
                     <FileCode2 size={16} className="mt-0.5 shrink-0 text-fg-brand-strong" />
                     <div className="min-w-0">
                       <span className="text-[10px] font-semibold text-fg-brand-strong">File</span>
-                      <p className="break-all font-mono text-xs font-semibold text-heading">{fileGroup.filePath}</p>
+                      <p className="break-all font-mono text-xs font-semibold text-heading" title={fileGroup.filePath}>
+                        {displaySourcePath(fileGroup.filePath)}
+                      </p>
                     </div>
                     <span className="ml-auto shrink-0 rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
                       {fileGroup.services.reduce((total, service) =>
@@ -496,22 +524,25 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
                           </summary>
 
                           <div className="ml-3 border-l border-border-brand-subtle pb-4 pl-3 sm:ml-5 sm:pl-5">
-                            {(method.branches ?? []).length > 0 && (
+                            {sourceDecisions(method.branches ?? []).length > 0 && (
                               <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
                                 <span className="font-semibold text-heading">
-                                  {t('Bao phủ nhánh source', 'Source branch coverage')}:
+                                  {t('Liên kết quyết định source', 'Source decision trace')}:
                                   {' '}
-                                  {new Set(method.rules.map((rule) => rule.sourceBranchId).filter(Boolean)).size}/{method.branches!.length}
+                                  {new Set(method.rules
+                                    .map((rule) => sourceDecisionId(rule.sourceBranchId))
+                                    .filter(Boolean)).size}/{sourceDecisions(method.branches ?? []).length}
                                 </span>
-                                {method.branches!.map((branch) => {
-                                  const covered = method.rules.some((rule) => rule.sourceBranchId === branch.branchId);
+                                {sourceDecisions(method.branches ?? []).map((decision) => {
+                                  const covered = method.rules.some((rule) =>
+                                    sourceDecisionId(rule.sourceBranchId) === decision.decisionId);
                                   return (
                                     <span
-                                      key={branch.branchId}
-                                      title={`if (${branch.condition})`}
+                                      key={decision.decisionId}
+                                      title={`${decision.kind.toLowerCase()} (${decision.condition})`}
                                       className={`font-mono text-[11px] font-semibold ${covered ? 'text-fg-success-strong' : 'text-fg-warning'}`}
                                     >
-                                      {branch.branchId} {covered ? '✓' : t('thiếu', 'missing')}
+                                      {decision.decisionId} {covered ? '✓' : t('thiếu', 'missing')}
                                     </span>
                                   );
                                 })}

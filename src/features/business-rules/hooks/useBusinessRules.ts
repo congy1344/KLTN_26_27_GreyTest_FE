@@ -31,6 +31,9 @@ export function useCreateBusinessRules(projectId: number) {
       descriptions: string[];
       sourceBranchId: string | null;
     }) => {
+      if (sourceBranchId && descriptions.length !== 1) {
+        throw new Error('Mỗi quyết định source chỉ được liên kết với một Business Rule.');
+      }
       const created = [];
       for (const description of descriptions) {
         created.push(await createBusinessRule(projectId, methodId, description, sourceBranchId));

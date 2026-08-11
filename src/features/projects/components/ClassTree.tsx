@@ -4,6 +4,7 @@ import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { FileCode2, Folder } from 'lucide-react';
 import type { ExistingTestInfo, JavaClassInfo, JavaMethodInfo } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
+import { displaySourcePath } from '../../../shared/utils/source-path';
 
 interface ClassTreeProps {
   classes: JavaClassInfo[];
@@ -64,7 +65,9 @@ function classDetail(javaClass: JavaClassInfo, emptyMessage: string) {
     <div className="space-y-3">
       <div className="space-y-1">
         <div className="font-mono text-xs text-body-subtle">{javaClass.qualifiedName}</div>
-        <div className="font-mono text-[11px] text-body-subtle">{javaClass.filePath}</div>
+        <div className="font-mono text-[11px] text-body-subtle" title={javaClass.filePath}>
+          {displaySourcePath(javaClass.filePath)}
+        </div>
       </div>
       {sourceCode ? (
         <pre className={CODE_BLOCK_CLASS}>

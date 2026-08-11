@@ -52,7 +52,7 @@ export interface RelevantAnnotationInfo {
 export interface SourceBranchInfo {
   branchId: string;
   kind: string;
-  outcome: 'TRUE' | 'FALSE';
+  outcome: string;
   condition: string;
   lineStart: number;
   lineEnd: number;

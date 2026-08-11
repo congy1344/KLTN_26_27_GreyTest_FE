@@ -59,6 +59,7 @@ describe('CoveragePanel', () => {
 
     render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
 
+    expect(screen.getByText('JaCoCo Branch Coverage')).toBeInTheDocument();
     expect(screen.getByText(/Upload jacoco.xml để phân tích coverage/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Upload/ })).toBeDisabled();
   });
@@ -68,6 +69,7 @@ describe('CoveragePanel', () => {
 
     render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
 
+    expect(screen.getByText('JaCoCo Branch Coverage')).toBeInTheDocument();
     expect(screen.getByText('80%')).toBeInTheDocument();
     expect(screen.getByText('75%')).toBeInTheDocument();
     expect(screen.getByText('92%')).toBeInTheDocument();

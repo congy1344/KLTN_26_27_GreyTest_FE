@@ -1,6 +1,18 @@
 import type { BusinessRule } from '../../business-rules/types';
 import type { AnalysisResult, SourceBranchInfo } from '../types';
 
+export function sourceDecisionId(branchId: string | null | undefined) {
+  if (!branchId) return null;
+  const outcomeSeparator = branchId.indexOf('::');
+  return outcomeSeparator < 0
+    ? branchId.replace(/-(TRUE|FALSE)$/, '')
+    : branchId.slice(0, outcomeSeparator);
+}
+
+export interface SourceTraceBranch extends Omit<SourceBranchInfo, 'outcome'> {
+  outcome: SourceBranchInfo['outcome'] | null;
+}
+
 export interface SourceTrace {
   filePath: string;
   className: string;
@@ -8,7 +20,7 @@ export interface SourceTrace {
   methodName: string;
   lineStart: number;
   lineEnd: number;
-  branch: SourceBranchInfo | null;
+  branch: SourceTraceBranch | null;
 }
 
 export function buildRuleSourceIndex(
@@ -36,7 +48,15 @@ export function buildRuleSourceIndex(
     const { branches, ...method } = source;
     return [[rule.id, {
       ...method,
-      branch: branches.find((branch) => branch.branchId === rule.sourceBranchId) ?? null,
+      branch: branches.find((branch) => branch.branchId === rule.sourceBranchId)
+        ?? (() => {
+          if (!rule.sourceBranchId) return null;
+          const decisionBranch = branches.find((branch) =>
+            sourceDecisionId(branch.branchId) === sourceDecisionId(rule.sourceBranchId));
+          return decisionBranch
+            ? { ...decisionBranch, branchId: rule.sourceBranchId, outcome: null }
+            : null;
+        })(),
     }] as const];
   }));
 }

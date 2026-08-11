@@ -88,8 +88,8 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED' }
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-        <MetricCard icon={BarChart3} label="Overall Line Coverage" value={report ? `${report.lineCoverage}%` : '-'} tone="brand" hint={deltaHint(report?.lineCoverage, report?.previousLineCoverage, t)} />
-        <MetricCard icon={GitBranch} label="Overall Branch Coverage" value={report ? `${report.branchCoverage}%` : '-'} hint={deltaHint(report?.branchCoverage, report?.previousBranchCoverage, t)} />
+        <MetricCard icon={BarChart3} label="JaCoCo Line Coverage" value={report ? `${report.lineCoverage}%` : '-'} tone="brand" hint={deltaHint(report?.lineCoverage, report?.previousLineCoverage, t)} />
+        <MetricCard icon={GitBranch} label="JaCoCo Branch Coverage" value={report ? `${report.branchCoverage}%` : '-'} hint={deltaHint(report?.branchCoverage, report?.previousBranchCoverage, t)} />
         <MetricCard icon={ShieldCheck} label="Requirement Coverage" value={report ? `${report.requirementCoverage}%` : '-'} hint={deltaHint(report?.requirementCoverage, report?.previousRequirementCoverage, t)} />
         <MetricCard icon={AlertTriangle} label="Refinable Service Gaps" value={refinableGapCount} />
       </div>
@@ -145,8 +145,8 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED' }
 
           <div className="mt-4 grid gap-2 text-sm">
             <ContextRow label={t('File đã chọn', 'Selected file')} value={fileName || t('Chưa chọn file', 'No file selected')} />
-            <ContextRow label="Line gate" value=">= 80%" />
-            <ContextRow label="Branch gate" value=">= 70%" />
+            <ContextRow label="JaCoCo line gate" value=">= 80%" />
+            <ContextRow label="JaCoCo branch gate" value=">= 70%" />
           </div>
         </div>
 

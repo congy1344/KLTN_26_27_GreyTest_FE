@@ -16,6 +16,7 @@ import { downloadUnitTestsZip } from '../api/unit-test-api';
 import { useGenerateUnitTests, useUnitTestFiles, useUnitTests } from '../hooks/useUnitTests';
 import type { UnitTestFile } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
+import { displaySourcePath } from '../../../shared/utils/source-path';
 
 export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
   const navigate = useNavigate();
@@ -195,7 +196,9 @@ function UnitTestFileView({ file, highlightMethod }: { file: UnitTestFile; highl
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-heading">{file.testClassName}</p>
-          <p className="truncate font-mono text-xs text-body-subtle">{file.filePath}</p>
+          <p className="truncate font-mono text-xs text-body-subtle" title={file.filePath}>
+            {displaySourcePath(file.filePath)}
+          </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
               {t(`${file.testCount} @Test method`, `${file.testCount} @Test methods`)}

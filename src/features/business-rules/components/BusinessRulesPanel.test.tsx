@@ -58,6 +58,7 @@ describe('BusinessRulesPanel', () => {
   afterEach(cleanup);
 
   beforeEach(() => {
+    mocks.rules.splice(1);
     mocks.rules[0].isModified = false;
     mocks.rules[0].reviewNote = null;
     mocks.rules[0].suggestedDescription = null;
@@ -134,8 +135,57 @@ describe('BusinessRulesPanel', () => {
     expect(fileNode).not.toHaveAttribute('open');
   });
 
-  it('shows covered and missing source branches', () => {
-    mocks.rules[0].sourceBranchId = 'IF-1-TRUE';
+  it('groups TRUE and FALSE outcomes under one covered source decision', () => {
+    mocks.rules[0].sourceBranchId = 'IF-1';
+    mocks.rules.push({
+      ...mocks.rules[0],
+      id: 2,
+      ruleCode: 'BR-002',
+      description: 'Region determines the tax rate.',
+      sourceBranchId: 'SWITCH-1',
+    });
+    mocks.classes = [{
+      id: 10,
+      packageName: 'demo',
+      className: 'UserService',
+      qualifiedName: 'demo.UserService',
+      classType: 'SERVICE',
+      filePath: 'module-a/src/main/java/demo/UserService.java',
+      methods: [{
+        id: 11,
+        methodName: 'createUser',
+        returnType: 'User',
+        parameters: [],
+        throwsList: [],
+        visibility: 'PUBLIC',
+        sourceCode: 'if (exists) return user;',
+        lineStart: 20,
+        lineEnd: 30,
+        endpoints: [],
+        branches: [
+          { branchId: 'IF-1-TRUE', kind: 'IF', outcome: 'TRUE', condition: 'exists', lineStart: 22, lineEnd: 22 },
+          { branchId: 'IF-1-FALSE', kind: 'IF', outcome: 'FALSE', condition: 'exists', lineStart: 22, lineEnd: 22 },
+          { branchId: 'SWITCH-1::CASE-1', kind: 'SWITCH', outcome: '"VN"', condition: 'region', lineStart: 23, lineEnd: 23 },
+          { branchId: 'SWITCH-1::DEFAULT', kind: 'SWITCH', outcome: 'DEFAULT', condition: 'region', lineStart: 23, lineEnd: 23 },
+        ],
+      }],
+    }];
+
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: '11' } });
+    expect(screen.getAllByRole('combobox')).toHaveLength(2);
+    expect(screen.getByRole('option', { name: /src\/main\/java\/demo\/UserService.java/ }))
+      .toHaveAttribute('title', 'module-a/src/main/java/demo/UserService.java');
+    expect(screen.getByRole('option', { name: /IF-1: if \(exists\)/ })).toBeVisible();
+    expect(screen.getByText(/Li\u00ean k\u1ebft quy\u1ebft \u0111\u1ecbnh source/)).toBeVisible();
+    expect(screen.getByText(/2\/2/)).toBeVisible();
+    expect(screen.getByText('SWITCH-1 ✓')).toBeVisible();
+    expect(screen.getByText('IF-1 ✓')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
+  });
+
+  it('disables creating multiple rules for one source decision', () => {
     mocks.classes = [{
       id: 10,
       packageName: 'demo',
@@ -164,14 +214,14 @@ describe('BusinessRulesPanel', () => {
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
     fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: '11' } });
-    expect(screen.getAllByRole('combobox')).toHaveLength(2);
-    expect(screen.getByRole('option', { name: /IF-1-FALSE/ })).toBeVisible();
-    expect(screen.getByText(/1\/2/)).toBeVisible();
-    expect(screen.getByText('IF-1-TRUE ✓')).toBeVisible();
-    expect(screen.getAllByText(/IF-1-FALSE/)[1]).toHaveTextContent('thiếu');
-    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeDisabled();
-  });
+    fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'IF-1' } });
+    fireEvent.change(document.querySelector('form textarea')!, {
+      target: { value: 'Rule one.\nRule two.' },
+    });
 
+    expect(screen.getByRole('button', { name: /2 BR/ })).toBeDisabled();
+    expect(screen.getByText(/M\u1ed7i quy\u1ebft \u0111\u1ecbnh source ch\u1ec9 \u0111\u01b0\u1ee3c li\u00ean k\u1ebft v\u1edbi m\u1ed9t Business Rule/)).toBeVisible();
+  });
   it('keeps AI review optional after user changes', () => {
     mocks.rules[0].isModified = true;
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
