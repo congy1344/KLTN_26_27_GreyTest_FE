@@ -8,6 +8,7 @@ import { LoadingState } from '../../../shared/components/LoadingState';
 import { MetricCard } from '../../../shared/components/MetricCard';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
+import { SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { useBusinessRules } from '../../business-rules/hooks/useBusinessRules';
 import type { ProjectStatus } from '../../projects/types';
 import { useAnalysis } from '../../projects/hooks/useProjects';
@@ -255,10 +256,10 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus }: { p
                   {coveredRules.map((rule) => `${rule.ruleCode}${rule.sourceBranchId ? ` [${rule.sourceBranchId}]` : ''}`).join(', ')}
                   {sourcePlan ? ` -> ${sourcePlan.planCode}` : ''}
                 </span>
-                <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">{item.testType}</span>
+                <SemanticBadge kind="test-type" value={item.testType} />
                 <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">{item.priority}</span>
                 {item.isModified && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-fg-warning">{t('Đã sửa', 'Modified')}</span>}
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${item.status === 'APPROVED' ? 'bg-success-soft text-fg-success-strong' : 'bg-warning-soft text-fg-warning'}`}>{item.status === 'PENDING_REVIEW' ? 'DRAFT' : item.status}</span>
+                <SemanticBadge kind="review-status" value={item.status} label={item.status === 'PENDING_REVIEW' ? 'DRAFT' : undefined} />
                 <span className="ml-auto flex gap-1">
                   {editing ? (
                     <>

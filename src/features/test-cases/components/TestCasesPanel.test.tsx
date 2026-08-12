@@ -61,6 +61,14 @@ function sampleCase(id: number) {
 }
 
 describe('TestCasesPanel', () => {
+  it('keeps the draft label while using pending review colors', () => {
+    mocks.casesData = [{ ...sampleCase(1), status: 'PENDING_REVIEW' }];
+    render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
+
+    expect(screen.getByText('DRAFT')).toHaveClass('bg-warning-soft', 'text-fg-warning');
+    expect(screen.queryByText('PENDING REVIEW')).not.toBeInTheDocument();
+  });
+
   it('calls backend mutations instead of creating local fake cases', () => {
     render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'AI sinh Case' }));

@@ -19,6 +19,7 @@ import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
+import { SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { useAnalysis } from '../../projects/hooks/useProjects';
 import type { SourceBranchInfo } from '../../projects/types';
 import { buildRuleSourceIndex, sourceDecisionId } from '../../projects/utils/source-trace';
@@ -244,9 +245,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
               <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
                 {rule.source}
               </span>
-              <span className="rounded-full bg-brand-softer px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong">
-                {rule.status}
-              </span>
+              <SemanticBadge kind="review-status" value={rule.status} />
             </div>
             {editing ? (
               <textarea

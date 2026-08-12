@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCurrentUser, useLogout } from '../../features/auth/hooks/useAuth';
 import { useLanguage } from '../i18n/language';
 import { LanguageToggle } from './LanguageToggle';
+import { ThemeToggle } from './ThemeToggle';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -40,6 +41,7 @@ export function AppShell({ children, maxWidth = 'default' }: AppShellProps) {
           </Link>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <LanguageToggle />
             <span className="hidden items-center gap-2 rounded-full border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-[12px] font-medium text-heading shadow-xs sm:inline-flex">
               <Sparkles size={13} strokeWidth={1.8} className="text-fg-brand" />

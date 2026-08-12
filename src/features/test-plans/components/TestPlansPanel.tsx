@@ -7,6 +7,7 @@ import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
+import { SemanticBadge } from '../../../shared/components/SemanticBadge';
 import type { ProjectStatus } from '../../projects/types';
 import { useAnalysis } from '../../projects/hooks/useProjects';
 import { buildRuleSourceIndex } from '../../projects/utils/source-trace';
@@ -229,12 +230,8 @@ export function TestPlansPanel({ projectId, projectStatus }: TestPlansPanelProps
                   <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
                     {coveredRules.map((rule) => rule.ruleCode).join(', ') || `BR #${plan.businessRuleId}`}
                   </span>
-                  <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
-                    {plan.testType}
-                  </span>
-                  <span className="rounded-full bg-brand-softer px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong">
-                    {plan.status}
-                  </span>
+                  <SemanticBadge kind="test-type" value={plan.testType} />
+                  <SemanticBadge kind="review-status" value={plan.status} />
                   {plan.isModified && (
                     <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-fg-warning">
                       {plan.status === 'APPROVED'

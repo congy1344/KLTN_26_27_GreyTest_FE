@@ -5,7 +5,7 @@
 @layer base {
   :root {
     --neutral-primary-soft: #ffffff;
-    --neutral-primary: #f6f8fb;
+    --neutral-primary: #eff4f8;
     --neutral-primary-medium: #ffffff;
     --neutral-primary-strong: #e9edf5;
     --neutral-secondary-soft: #f9fafc;
@@ -18,6 +18,7 @@
     --neutral-quaternary: #b7c3d1;
     --quaternary-medium: #9aa8b8;
     --gray: #7b8796;
+    --input-bg: #ffffff;
 
     --brand-softer: #eaf2ff;
     --brand-soft: #d7e7ff;
@@ -39,6 +40,9 @@
     --warning: #b7791f;
     --warning-medium: #f6dfaa;
     --warning-strong: #8a5a12;
+
+    --purple-soft: #f3e8ff;
+    --purple: #7c3aed;
 
     --dark: #111827;
     --dark-strong: #0f172a;
@@ -104,8 +108,7 @@
     --radius-full: 9999px;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
+  :root[data-theme='dark'] {
       --neutral-primary-soft: #111116;
       --neutral-primary: #0D0D12;
       --neutral-primary-medium: #1A1A21;
@@ -120,6 +123,7 @@
       --neutral-quaternary: #2C2C35;
       --quaternary-medium: #3F3F48;
       --gray: #3F3F48;
+      --input-bg: #1A1A21;
       
       --brand-softer: #0f2450;
       --brand-soft: #17346d;
@@ -141,6 +145,9 @@
       --warning: #F59E0B;
       --warning-medium: #78350F;
       --warning-strong: #D97706;
+
+      --purple-soft: #2e1065;
+      --purple: #d8b4fe;
       
       --dark: #131316;
       --dark-strong: #2C2C35;
@@ -191,7 +198,6 @@
       --border-dark-subtle: #2C2C35;
       --border-purple: #A855F7;
       --border-orange: #FB923C;
-    }
   }
 
   html {
@@ -208,6 +214,7 @@
       radial-gradient(circle at top left, rgb(37 99 235 / 0.08), transparent 34rem),
       linear-gradient(180deg, var(--neutral-primary-soft), var(--neutral-primary) 24rem);
     min-height: 100dvh;
+    transition: background-color 0.3s cubic-bezier(0.32,0.72,0,1), color 0.3s cubic-bezier(0.32,0.72,0,1);
   }
 
   /* Custom scrollbar */
@@ -236,7 +243,7 @@
     width: 100%;
     border-radius: var(--radius-default);
     border: 1px solid var(--border-default-medium);
-    background-color: var(--neutral-secondary-medium);
+    background-color: var(--input-bg);
     box-shadow: var(--shadow-xs);
     font-size: 14px;
     color: var(--heading);

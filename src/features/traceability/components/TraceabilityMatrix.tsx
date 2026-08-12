@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Search, TableProperties } from 'lucide-rea
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import { LoadingState } from '../../../shared/components/LoadingState';
+import { SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { useLanguage } from '../../../shared/i18n/language';
 import { useTraceability } from '../hooks/useTraceability';
 import type { TraceabilityRow } from '../types';
@@ -126,7 +127,7 @@ export function TraceabilityMatrix({ projectId }: { projectId: number }) {
                       <td className="border-r border-border-default/70 px-4 py-4 align-top">
                         <span className="font-mono text-xs font-semibold text-heading">{row.planCode ?? '—'}</span>
                         {row.testType && (
-                          <span className="ml-2 rounded-full bg-brand-softer px-2 py-0.5 text-[10px] font-semibold text-fg-brand-strong">{row.testType}</span>
+                          <SemanticBadge kind="test-type" value={row.testType} className="ml-2 text-[10px]" />
                         )}
                         <p className="mt-1.5 text-xs leading-relaxed text-body-subtle">
                           {row.planTitle ?? t('Chưa có Test Plan', 'No Test Plan')}

@@ -43,6 +43,9 @@ export default {
         'warning': 'var(--warning)',
         'warning-medium': 'var(--warning-medium)',
         'warning-strong': 'var(--warning-strong)',
+
+        'purple-soft': 'var(--purple-soft)',
+        'fg-purple': 'var(--purple)',
         
         'dark': 'var(--dark)',
         'dark-strong': 'var(--dark-strong)',

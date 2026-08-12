@@ -5,6 +5,7 @@ import { getErrorMessage } from '../../../shared/api/api-client';
 import { useLogin, useRegister } from '../hooks/useAuth';
 import { useLanguage } from '../../../shared/i18n/language';
 import { LanguageToggle } from '../../../shared/components/LanguageToggle';
+import { ThemeToggle } from '../../../shared/components/ThemeToggle';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -48,7 +49,10 @@ export function LoginPage() {
             <h1 className="text-xl font-bold text-heading">GreyTest</h1>
             <p className="text-xs text-body-subtle">{t('Đăng nhập để quản lý project và workflow AI QA.', 'Sign in to manage projects and the AI QA workflow.')}</p>
           </div>
-          <div className="ml-auto"><LanguageToggle /></div>
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
+            <LanguageToggle />
+          </div>
         </div>
 
         <div className="mb-5 grid grid-cols-2 rounded-default border border-border-default bg-neutral-secondary-soft p-1">
