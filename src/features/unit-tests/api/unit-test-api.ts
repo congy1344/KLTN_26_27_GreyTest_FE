@@ -1,5 +1,6 @@
 import { apiClient } from '../../../shared/api/api-client';
 import type { UnitTest, UnitTestFile } from '../types';
+import type { GenerationJobAccepted } from '../../../shared/types/generation-progress';
 
 export async function fetchUnitTests(projectId: number) {
   const { data } = await apiClient.get<UnitTest[]>(`/projects/${projectId}/unit-tests`);
@@ -12,7 +13,7 @@ export async function fetchUnitTestFiles(projectId: number) {
 }
 
 export async function generateUnitTests(projectId: number) {
-  const { data } = await apiClient.post<UnitTest[]>(`/projects/${projectId}/unit-tests/generate`);
+  const { data } = await apiClient.post<GenerationJobAccepted>(`/projects/${projectId}/unit-tests/generate`);
   return data;
 }
 

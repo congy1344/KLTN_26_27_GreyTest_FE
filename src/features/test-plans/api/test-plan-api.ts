@@ -1,5 +1,6 @@
 import { apiClient } from '../../../shared/api/api-client';
 import type { CreateTestPlanInput, TestPlan } from '../types';
+import type { GenerationJobAccepted } from '../../../shared/types/generation-progress';
 
 export async function fetchTestPlans(projectId: number): Promise<TestPlan[]> {
   const { data } = await apiClient.get<TestPlan[]>(`/projects/${projectId}/test-plans`);
@@ -11,8 +12,8 @@ export async function createTestPlan(projectId: number, input: CreateTestPlanInp
   return data;
 }
 
-export async function generateTestPlans(projectId: number): Promise<TestPlan[]> {
-  const { data } = await apiClient.post<TestPlan[]>(`/projects/${projectId}/test-plans/generate`);
+export async function generateTestPlans(projectId: number): Promise<GenerationJobAccepted> {
+  const { data } = await apiClient.post<GenerationJobAccepted>(`/projects/${projectId}/test-plans/generate`);
   return data;
 }
 

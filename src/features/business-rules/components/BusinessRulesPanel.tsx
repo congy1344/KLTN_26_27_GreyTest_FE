@@ -20,6 +20,7 @@ import { LoadingState } from '../../../shared/components/LoadingState';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
 import { SemanticBadge } from '../../../shared/components/SemanticBadge';
+import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { useAnalysis } from '../../projects/hooks/useProjects';
 import type { SourceBranchInfo } from '../../projects/types';
 import { buildRuleSourceIndex, sourceDecisionId } from '../../projects/utils/source-trace';
@@ -38,6 +39,7 @@ import type { BusinessRule, BusinessRuleReview } from '../types';
 import { splitBusinessRuleText } from '../utils/business-rule-text';
 import { useLanguage } from '../../../shared/i18n/language';
 import { displaySourcePath } from '../../../shared/utils/source-path';
+import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 
 interface BusinessRulesPanelProps {
   projectId: number;
@@ -126,6 +128,9 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
     }, 0), 0);
   const createMutation = useCreateBusinessRules(projectId);
   const generateMutation = useGenerateBusinessRules(projectId);
+  const generationProgress = useGenerationProgress(projectId, 'BUSINESS_RULE', generateMutation.isPending);
+  const generationRunning = generationProgress.projectRunning
+    ?? (generationProgress.data?.status === 'QUEUED' || generationProgress.data?.status === 'RUNNING');
   const reviewMutation = useReviewBusinessRules(projectId);
   const approveMutation = useApproveBusinessRules(projectId);
   const updateMutation = useUpdateBusinessRule(projectId);
@@ -133,7 +138,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
   const deleteMutation = useDeleteBusinessRule(projectId);
   const pending =
     createMutation.isPending ||
-    generateMutation.isPending ||
+    (generateMutation.isPending || generationRunning) ||
     reviewMutation.isPending ||
     approveMutation.isPending ||
     updateMutation.isPending ||
@@ -183,10 +188,8 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
 
   const handleGenerate = () => {
     generateMutation.mutate(undefined, {
-      onSuccess: (generated) => {
-        setGenerationMessage(generated.length === 0
-          ? t('Không phát hiện Business Rule mới từ source. Các method chưa có BR vẫn được hiển thị để kiểm tra.', 'No new Business Rules were evidenced by the source. Methods without BRs remain visible for review.')
-          : t(`AI đã sinh ${generated.length} Business Rule mới.`, `AI generated ${generated.length} new Business Rules.`));
+      onSuccess: (accepted) => {
+        setGenerationMessage(accepted.message);
       },
     });
   };
@@ -352,18 +355,25 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
 
   return (
     <section className="mt-8 animate-fade-in">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-heading">Business Rules</h3>
           <p className="mt-1 text-xs text-body-subtle">
             {t('AI review là bước tư vấn tùy chọn. Bạn có thể tự kiểm tra và approve trực tiếp.', 'AI review is optional advice. You can verify and approve directly.')}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button className="btn btn-secondary" disabled={pending} onClick={handleGenerate}>
-            {generateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
-            {t('AI sinh BR', 'Generate BRs with AI')}
-          </button>
+        <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+            <button className="btn btn-secondary" disabled={pending} onClick={handleGenerate}>
+              {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
+              {t('AI sinh BR', 'Generate BRs with AI')}
+            </button>
+            <AiGenerationProgress
+              active={generateMutation.isPending || generationRunning || generationProgress.showProgress}
+              label={t('Tiến trình AI của dự án', 'Project AI progress')}
+              progress={generationProgress.projectProgress ?? generationProgress.data}
+            />
+          </div>
           <button className="btn btn-secondary" disabled={pending || dirtyRuleCount === 0} onClick={handleReview}>
             {reviewMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             {t('AI review thay đổi', 'AI review changes')}{dirtyRuleCount > 0 ? ` (${dirtyRuleCount})` : ''}

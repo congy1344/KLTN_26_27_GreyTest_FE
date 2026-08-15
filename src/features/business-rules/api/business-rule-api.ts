@@ -1,5 +1,6 @@
 import { apiClient } from '../../../shared/api/api-client';
 import type { BusinessRule, BusinessRuleReview } from '../types';
+import type { GenerationJobAccepted } from '../../../shared/types/generation-progress';
 
 export async function fetchBusinessRules(projectId: number): Promise<BusinessRule[]> {
   const { data } = await apiClient.get<BusinessRule[]>(`/projects/${projectId}/business-rules`);
@@ -33,8 +34,8 @@ export async function deleteBusinessRule(ruleId: number): Promise<void> {
   await apiClient.delete(`/business-rules/${ruleId}`);
 }
 
-export async function generateBusinessRules(projectId: number): Promise<BusinessRule[]> {
-  const { data } = await apiClient.post<BusinessRule[]>(`/projects/${projectId}/business-rules/generate`);
+export async function generateBusinessRules(projectId: number): Promise<GenerationJobAccepted> {
+  const { data } = await apiClient.post<GenerationJobAccepted>(`/projects/${projectId}/business-rules/generate`);
   return data;
 }
 

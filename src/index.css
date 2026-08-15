@@ -237,6 +237,12 @@
 }
 
 @layer components {
+  @media (prefers-reduced-motion: reduce) {
+    .generation-progress-fill {
+      transition: none;
+    }
+  }
+
   /* Inputs */
   .form-input {
     display: block;

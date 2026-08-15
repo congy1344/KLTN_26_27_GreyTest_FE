@@ -14,7 +14,10 @@ const mocks = vi.hoisted(() => ({
   unitsSuccess: true,
   unitsError: null as Error | null,
   planModified: false,
+  generating: false,
+  progress: undefined as unknown,
 }));
+vi.mock('../../../shared/hooks/useGenerationProgress', () => ({ useGenerationProgress: () => ({ data: mocks.progress }) }));
 vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({ data: [{ id: 1, businessRuleId: 7, coveredRuleIds: [7], planCode: 'TP-001', title: 'Valid email', status: 'APPROVED', isModified: mocks.planModified }], isLoading: false, error: null }) }));
 vi.mock('../../business-rules/hooks/useBusinessRules', () => ({ useBusinessRules: () => ({ data: [{ id: 7, methodId: 11, ruleCode: 'BR-007', sourceBranchId: 'IF-1-TRUE', status: 'APPROVED' }], error: null }) }));
 vi.mock('../../unit-tests/hooks/useUnitTests', () => ({ useUnitTests: () => ({
@@ -39,7 +42,7 @@ vi.mock('../../projects/hooks/useProjects', () => ({
 }));
 vi.mock('../hooks/useTestCases', () => ({
   useTestCases: () => ({ data: mocks.casesData, isLoading: false, isSuccess: true, error: null }),
-  useGenerateTestCases: () => ({ mutate: mocks.generate, isPending: false, error: null }),
+  useGenerateTestCases: () => ({ mutate: mocks.generate, isPending: mocks.generating, error: null }),
   useApproveTestCases: () => ({ mutate: mocks.approve, isPending: false, error: null }),
   useCreateTestCase: () => ({ mutate: mocks.create, isPending: false, error: null }),
   useUpdateTestCase: () => ({ mutate: vi.fn(), isPending: false, error: null }),
@@ -54,6 +57,8 @@ afterEach(() => {
   mocks.unitsSuccess = true;
   mocks.unitsError = null;
   mocks.planModified = false;
+  mocks.generating = false;
+  mocks.progress = undefined;
 });
 
 function sampleCase(id: number) {
@@ -61,6 +66,13 @@ function sampleCase(id: number) {
 }
 
 describe('TestCasesPanel', () => {
+  it('shows generation progress while Test Cases are being generated', () => {
+    mocks.generating = true;
+    render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
+
+    expect(screen.getByRole('button', { name: 'Log tiến độ' })).toBeVisible();
+  });
+
   it('keeps the draft label while using pending review colors', () => {
     mocks.casesData = [{ ...sampleCase(1), status: 'PENDING_REVIEW' }];
     render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);

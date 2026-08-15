@@ -5,6 +5,7 @@ import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
+import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { MetricCard } from '../../../shared/components/MetricCard';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
 import { useTestCases } from '../../test-cases/hooks/useTestCases';
@@ -16,6 +17,7 @@ import { downloadUnitTestsZip } from '../api/unit-test-api';
 import { useGenerateUnitTests, useUnitTestFiles, useUnitTests } from '../hooks/useUnitTests';
 import type { UnitTestFile } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
+import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 
 export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
@@ -27,6 +29,9 @@ export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
   const tests = useUnitTests(projectId);
   const files = useUnitTestFiles(projectId);
   const generate = useGenerateUnitTests(projectId);
+  const generationProgress = useGenerationProgress(projectId, 'UNIT_TEST', generate.isPending);
+  const generationRunning = generationProgress.projectRunning
+    ?? (generationProgress.data?.status === 'QUEUED' || generationProgress.data?.status === 'RUNNING');
   const [caseId, setCaseId] = useState('');
   const [activeId, setActiveId] = useState<number | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -77,11 +82,18 @@ export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
 
   return (
     <section className="mt-8 animate-fade-in">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div><h3 className="text-sm font-semibold text-heading">Unit Tests</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh JUnit/Mockito từ Test Case đã approve và lưu về backend.', 'AI generates JUnit/Mockito tests from approved Test Cases and persists them in the backend.')}</p></div>
-        <button className="btn btn-brand" disabled={generate.isPending || approvedCases.length === 0} onClick={() => generate.mutate()}>
-          {generate.isPending ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} {t('AI sinh Unit Test', 'Generate with AI')}
-        </button>
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Unit Tests</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh JUnit/Mockito từ Test Case đã approve và lưu về backend.', 'AI generates JUnit/Mockito tests from approved Test Cases and persists them in the backend.')}</p></div>
+        <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+          <button className="btn btn-brand" disabled={generate.isPending || generationRunning || approvedCases.length === 0} onClick={() => generate.mutate()}>
+            {generate.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} {t('AI sinh Unit Test', 'Generate with AI')}
+          </button>
+          <AiGenerationProgress
+            active={generate.isPending || generationRunning || generationProgress.showProgress}
+            label={t('Tiến trình AI của dự án', 'Project AI progress')}
+            progress={generationProgress.projectProgress ?? generationProgress.data}
+          />
+        </div>
       </div>
       <div className="grid gap-3 md:grid-cols-3">
         <MetricCard icon={CheckCircle2} label={t('Test Case đã approve', 'Approved Cases')} value={approvedCases.length} />
@@ -99,7 +111,7 @@ export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
             </button>
             <button
               className="btn btn-brand shrink-0"
-              disabled={generate.isPending || (tests.data ?? []).length === 0}
+              disabled={generate.isPending || generationRunning || (tests.data ?? []).length === 0}
               onClick={() => navigate(`/projects/${projectId}/coverage`, {
                 state: { workflowNotice: t('Unit Test đã sẵn sàng. Chuyển sang bước Coverage.', 'Unit Tests are ready. Continue with Coverage.') },
               })}

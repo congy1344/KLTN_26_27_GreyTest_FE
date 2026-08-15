@@ -9,7 +9,10 @@ const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
   tests: [] as Array<Record<string, unknown>>,
   files: [] as Array<Record<string, unknown>>,
+  generating: false,
+  progress: undefined as unknown,
 }));
+vi.mock('../../../shared/hooks/useGenerationProgress', () => ({ useGenerationProgress: () => ({ data: mocks.progress }) }));
 vi.mock('../../test-cases/hooks/useTestCases', () => ({ useTestCases: () => ({ data: [{ id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'valid', status: 'APPROVED' }], error: null }) }));
 vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({ data: [{ id: 5, businessRuleId: 7, coveredRuleIds: [7], planCode: 'TP-005' }], error: null }) }));
 vi.mock('../../business-rules/hooks/useBusinessRules', () => ({ useBusinessRules: () => ({ data: [{ id: 7, methodId: 11, ruleCode: 'BR-007', sourceBranchId: 'IF-1-TRUE' }], error: null }) }));
@@ -30,7 +33,7 @@ vi.mock('../../projects/hooks/useProjects', () => ({
 vi.mock('../hooks/useUnitTests', () => ({
   useUnitTests: () => ({ data: mocks.tests, isLoading: false, error: null }),
   useUnitTestFiles: () => ({ data: mocks.files, isLoading: false, error: null }),
-  useGenerateUnitTests: () => ({ mutate: mocks.generate, isPending: false, error: null }),
+  useGenerateUnitTests: () => ({ mutate: mocks.generate, isPending: mocks.generating, error: null }),
 }));
 vi.mock('../api/unit-test-api', () => ({ downloadUnitTestsZip: vi.fn() }));
 
@@ -51,6 +54,15 @@ describe('UnitTestsPanel', () => {
     vi.clearAllMocks();
     mocks.tests = [];
     mocks.files = [];
+    mocks.generating = false;
+    mocks.progress = undefined;
+  });
+
+  it('shows generation progress while Unit Tests are being generated', () => {
+    mocks.generating = true;
+    renderPanel();
+
+    expect(screen.getByRole('button', { name: 'Log tiến độ' })).toBeVisible();
   });
 
   it('calls the backend generation endpoint', () => {

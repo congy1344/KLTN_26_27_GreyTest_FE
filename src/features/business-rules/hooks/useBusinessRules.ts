@@ -83,8 +83,7 @@ export function useGenerateBusinessRules(projectId: number) {
   return useMutation({
     mutationFn: () => generateBusinessRules(projectId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) });
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['generation-progress', projectId, 'BUSINESS_RULE'] });
     },
   });
 }

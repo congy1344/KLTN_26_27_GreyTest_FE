@@ -1,5 +1,6 @@
 import { apiClient } from '../../../shared/api/api-client';
 import type { CreateTestCaseInput, TestCase, UpdateTestCaseInput } from '../types';
+import type { GenerationJobAccepted } from '../../../shared/types/generation-progress';
 
 export async function fetchTestCases(projectId: number) {
   const { data } = await apiClient.get<TestCase[]>(`/projects/${projectId}/test-cases`);
@@ -7,7 +8,7 @@ export async function fetchTestCases(projectId: number) {
 }
 
 export async function generateTestCases(projectId: number, planId?: number) {
-  const { data } = await apiClient.post<TestCase[]>(
+  const { data } = await apiClient.post<GenerationJobAccepted>(
     `/projects/${projectId}/test-cases/generate`,
     undefined,
     { params: planId == null ? undefined : { planId } },

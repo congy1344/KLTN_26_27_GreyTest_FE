@@ -40,8 +40,9 @@ export function useGenerateTestPlans(projectId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => generateTestPlans(projectId),
-    // Sinh lại plan xóa case/unit test cũ theo cascade → làm mới mọi cache
-    onSuccess: () => queryClient.invalidateQueries(),
+    onSuccess: () => queryClient.invalidateQueries({
+      queryKey: ['generation-progress', projectId, 'TEST_PLAN'],
+    }),
   });
 }
 

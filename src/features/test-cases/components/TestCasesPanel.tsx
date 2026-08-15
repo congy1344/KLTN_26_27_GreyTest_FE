@@ -9,6 +9,7 @@ import { MetricCard } from '../../../shared/components/MetricCard';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
 import { SemanticBadge } from '../../../shared/components/SemanticBadge';
+import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { useBusinessRules } from '../../business-rules/hooks/useBusinessRules';
 import type { ProjectStatus } from '../../projects/types';
 import { useAnalysis } from '../../projects/hooks/useProjects';
@@ -19,6 +20,7 @@ import { useUnitTests } from '../../unit-tests/hooks/useUnitTests';
 import { useApproveTestCases, useCreateTestCase, useDeleteTestCase, useGenerateTestCases, useTestCases, useUpdateTestCase } from '../hooks/useTestCases';
 import type { Priority, TestCase, TestType } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
+import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 
 const TEST_TYPES: TestType[] = ['HAPPY_PATH', 'BOUNDARY', 'EXCEPTION', 'EDGE'];
 const PRIORITIES: Priority[] = ['HIGH', 'MEDIUM', 'LOW'];
@@ -31,6 +33,9 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus }: { p
   const units = useUnitTests(projectId);
   const analysis = useAnalysis(projectId);
   const generate = useGenerateTestCases(projectId);
+  const generationProgress = useGenerationProgress(projectId, 'TEST_CASE', generate.isPending);
+  const generationRunning = generationProgress.projectRunning
+    ?? (generationProgress.data?.status === 'QUEUED' || generationProgress.data?.status === 'RUNNING');
   const approve = useApproveTestCases(projectId);
   const create = useCreateTestCase(projectId);
   const updateCase = useUpdateTestCase(projectId);
@@ -71,7 +76,7 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus }: { p
   const approved = (cases.data ?? []).filter((c) => c.status === 'APPROVED').length;
   const error = plans.error ?? cases.error ?? units.error ?? analysis.error
     ?? generate.error ?? approve.error ?? create.error ?? updateCase.error ?? removeCase.error;
-  const busy = generate.isPending || approve.isPending || create.isPending || updateCase.isPending || removeCase.isPending;
+  const busy = generate.isPending || generationRunning || approve.isPending || create.isPending || updateCase.isPending || removeCase.isPending;
 
   // traceSource tự sinh theo format "BR-xxx -> TP-xxx" từ plan được chọn
   const traceSourceFor = (testPlanId: number) => {
@@ -149,14 +154,19 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus }: { p
 
   return (
     <section className="mt-8 animate-fade-in">
-      <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div><h3 className="text-sm font-semibold text-heading">Test Cases</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh từ Test Plan đã approve và lưu trực tiếp về backend.', 'AI generates Test Cases from approved Test Plans and persists them in the backend.')}</p></div>
-        <div className="flex gap-2">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Test Cases</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh từ Test Plan đã approve và lưu trực tiếp về backend.', 'AI generates Test Cases from approved Test Plans and persists them in the backend.')}</p></div>
+        <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
           {cases.isSuccess && (cases.data ?? []).length === 0 && (
             <button className="btn btn-secondary" disabled={busy || approvedPlans.length === 0} onClick={handleGenerate}>
-              {generate.isPending ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} {t('AI sinh Case', 'Generate with AI')}
+              {generate.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} {t('AI sinh Case', 'Generate with AI')}
             </button>
           )}
+          <AiGenerationProgress
+            active={generate.isPending || generationRunning || generationProgress.showProgress}
+            label={t('Tiến trình AI của dự án', 'Project AI progress')}
+            progress={generationProgress.projectProgress ?? generationProgress.data}
+          />
           <button
             className="btn btn-brand"
             disabled={busy || pending === 0}

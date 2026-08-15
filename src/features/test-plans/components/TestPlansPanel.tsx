@@ -5,9 +5,11 @@ import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
+import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
 import { SemanticBadge } from '../../../shared/components/SemanticBadge';
+import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import type { ProjectStatus } from '../../projects/types';
 import { useAnalysis } from '../../projects/hooks/useProjects';
 import { buildRuleSourceIndex } from '../../projects/utils/source-trace';
@@ -59,10 +61,13 @@ export function TestPlansPanel({ projectId, projectStatus }: TestPlansPanelProps
 
   const createMutation = useCreateTestPlan(projectId);
   const generateMutation = useGenerateTestPlans(projectId);
+  const generationProgress = useGenerationProgress(projectId, 'TEST_PLAN', generateMutation.isPending);
+  const generationRunning = generationProgress.projectRunning
+    ?? (generationProgress.data?.status === 'QUEUED' || generationProgress.data?.status === 'RUNNING');
   const approveMutation = useApproveTestPlans(projectId);
   const updateMutation = useUpdateTestPlan(projectId);
   const deleteMutation = useDeleteTestPlan(projectId);
-  const pending = createMutation.isPending || generateMutation.isPending || approveMutation.isPending
+  const pending = createMutation.isPending || generateMutation.isPending || generationRunning || approveMutation.isPending
     || updateMutation.isPending || deleteMutation.isPending;
   const mutationError = createMutation.error ?? generateMutation.error ?? approveMutation.error
     ?? updateMutation.error ?? deleteMutation.error;
@@ -125,20 +130,27 @@ export function TestPlansPanel({ projectId, projectStatus }: TestPlansPanelProps
 
   return (
     <section className="mt-8 animate-fade-in">
-      <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-heading">Test Plans</h3>
           <p className="mt-1 text-xs text-body-subtle">{t('Sinh Test Plan theo method/feature từ Business Rule đã approve.', 'Generate Test Plans by method or feature from approved Business Rules.')}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="btn btn-secondary"
-            disabled={pending || !canGenerate || approvedRules.length === 0}
-            onClick={handleGenerate}
-          >
-            {generateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
-            {t('AI sinh Plan', 'Generate with AI')}
-          </button>
+        <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+            <button
+              className="btn btn-secondary"
+              disabled={pending || !canGenerate || approvedRules.length === 0}
+              onClick={handleGenerate}
+            >
+              {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
+              {t('AI sinh Plan', 'Generate with AI')}
+            </button>
+            <AiGenerationProgress
+              active={generateMutation.isPending || generationRunning || generationProgress.showProgress}
+              label={t('Tiến trình AI của dự án', 'Project AI progress')}
+              progress={generationProgress.projectProgress ?? generationProgress.data}
+            />
+          </div>
           <button
             className="btn btn-brand"
             disabled={pending || plans.length === 0 || projectStatus !== 'PLAN_PENDING_REVIEW'}

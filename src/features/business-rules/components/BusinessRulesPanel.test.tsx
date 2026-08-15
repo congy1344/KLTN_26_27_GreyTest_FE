@@ -8,6 +8,8 @@ import { BusinessRulesPanel } from './BusinessRulesPanel';
 
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
+  generating: false,
+  progress: undefined as unknown,
   review: vi.fn(),
   update: vi.fn(),
   classes: [] as unknown[],
@@ -28,6 +30,10 @@ const mocks = vi.hoisted(() => ({
   }],
 }));
 
+vi.mock('../../../shared/hooks/useGenerationProgress', () => ({
+  useGenerationProgress: () => ({ data: mocks.progress }),
+}));
+
 vi.mock('../../projects/hooks/useProjects', () => ({
   useAnalysis: () => ({ data: { classes: mocks.classes } }),
 }));
@@ -46,7 +52,7 @@ vi.mock('../hooks/useBusinessRules', () => {
     }),
     useCreateBusinessRules: idleMutation,
     useAcceptBusinessRuleSuggestion: idleMutation,
-    useGenerateBusinessRules: () => ({ isPending: false, error: null, mutate: mocks.generate }),
+    useGenerateBusinessRules: () => ({ isPending: mocks.generating, error: null, mutate: mocks.generate }),
     useReviewBusinessRules: () => ({ isPending: false, error: null, mutate: mocks.review }),
     useApproveBusinessRules: idleMutation,
     useUpdateBusinessRule: () => ({ isPending: false, error: null, mutate: mocks.update }),
@@ -66,15 +72,32 @@ describe('BusinessRulesPanel', () => {
     mocks.review.mockReset();
     mocks.update.mockReset();
     mocks.classes = [];
+    mocks.generating = false;
+    mocks.progress = undefined;
   });
 
-  it('shows the empty-generation message without hiding the rule list', () => {
-    mocks.generate.mockImplementation((_value, options) => options.onSuccess([]));
+  it('shows generation progress next to the AI action while pending', () => {
+    mocks.generating = true;
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+
+    const generateButton = screen.getByRole('button', { name: 'AI sinh BR' });
+    const logButton = screen.getByRole('button', { name: 'Log tiến độ' });
+    expect(generateButton.parentElement).toContainElement(logButton);
+    fireEvent.click(logButton);
+    expect(screen.getByText('Chưa có tiến trình nào')).toBeVisible();
+  });
+
+  it('shows the background acceptance message without hiding the rule list', () => {
+    mocks.generate.mockImplementation((_value, options) => options.onSuccess({
+      stage: 'BUSINESS_RULE',
+      status: 'QUEUED',
+      message: 'Tác vụ AI đang chạy nền.',
+    }));
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
     fireEvent.click(screen.getByRole('button', { name: 'AI sinh BR' }));
 
-    expect(screen.getByText(/Không phát hiện Business Rule mới từ source/)).toBeVisible();
+    expect(screen.getByText('Tác vụ AI đang chạy nền.')).toBeVisible();
     expect(screen.queryByRole('button', { name: /Thu gọn|Mở tất cả/ })).not.toBeInTheDocument();
   });
 

@@ -16,12 +16,8 @@ export function useGenerateUnitTests(projectId: number) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: () => generateUnitTests(projectId),
-    onSuccess: async (data) => {
-      client.setQueryData(key(projectId), data);
-      await Promise.all([
-        client.invalidateQueries({ queryKey: filesKey(projectId) }),
-        client.invalidateQueries({ queryKey: ['project', projectId] }),
-      ]);
-    },
+    onSuccess: () => client.invalidateQueries({
+      queryKey: ['generation-progress', projectId, 'UNIT_TEST'],
+    }),
   });
 }

@@ -13,7 +13,9 @@ const api = vi.hoisted(() => ({
   approveBusinessRules: vi.fn().mockResolvedValue([]),
   approveTestPlans: vi.fn().mockResolvedValue([]),
   approveTestCases: vi.fn().mockResolvedValue([]),
-  generateUnitTests: vi.fn().mockResolvedValue([]),
+  generateUnitTests: vi.fn().mockResolvedValue({
+    stage: 'UNIT_TEST', status: 'QUEUED', message: 'Đang chạy nền.',
+  }),
 }));
 
 vi.mock('../../business-rules/api/business-rule-api', async (importOriginal) => ({
@@ -95,17 +97,16 @@ describe('approve navigation sequencing', () => {
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
   });
 
-  it('waits for the project status refresh after generating Unit Tests', async () => {
+  it('starts polling progress immediately after accepting background Unit Test generation', async () => {
     const gate = setupRefreshGate();
     const onSuccess = vi.fn();
     const { result } = renderHook(() => useGenerateUnitTests(7), { wrapper: gate.wrapper });
 
     act(() => result.current.mutate(undefined, { onSuccess }));
     await waitFor(() => expect(api.generateUnitTests).toHaveBeenCalled());
-    expect(gate.client.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['project', 7] });
-    expect(onSuccess).not.toHaveBeenCalled();
-
-    await act(async () => { gate.release(); await gate.refresh; });
+    expect(gate.client.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['generation-progress', 7, 'UNIT_TEST'],
+    });
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
   });
 });

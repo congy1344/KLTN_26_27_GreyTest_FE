@@ -12,13 +12,9 @@ export function useGenerateTestCases(projectId: number) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (planId?: number) => generateTestCases(projectId, planId),
-    // Sinh lại case xóa unit test cũ theo cascade → làm mới mọi cache.
-    onSuccess: (data, planId) => {
-      client.setQueryData(key(projectId), (current: typeof data | undefined) => planId == null
-        ? data
-        : [...(current ?? []).filter((item) => item.testPlanId !== planId), ...data]);
-      return client.invalidateQueries();
-    },
+    onSuccess: () => client.invalidateQueries({
+      queryKey: ['generation-progress', projectId, 'TEST_CASE'],
+    }),
   });
 }
 
