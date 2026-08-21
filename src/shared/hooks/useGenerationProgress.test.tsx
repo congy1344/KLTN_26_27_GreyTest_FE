@@ -29,6 +29,11 @@ const completed: GenerationProgress = {
   logs: [...running.logs, { timestamp: '2026-08-14T12:00:02Z', message: 'Hoàn tất.' }],
 };
 
+const failed: GenerationProgress = {
+  ...completed, status: 'FAILED', percent: 65,
+  logs: [...completed.logs, { timestamp: '2026-08-14T12:00:03Z', message: 'Batch cuối thất bại.' }],
+};
+
 const idle = (stage: GenerationProgressStage): GenerationProgress => ({
   stage, status: 'IDLE', percent: 0,
   completedSteps: 0, totalSteps: 0, steps: [], logs: [],
@@ -141,6 +146,34 @@ describe('useGenerationProgress', () => {
 
     await waitFor(() => expect(result.current.projectRunning).toBe(true));
     expect(result.current.projectProgress?.stage).toBe('TEST_PLAN');
+  });
+
+  it('invalidates artifact queries when a later batch fails after partial persistence', async () => {
+    let siblingFailed = false;
+    mocks.fetchProgress.mockImplementation((_projectId: number, stage: GenerationProgressStage) => {
+      if (stage !== 'TEST_PLAN') return Promise.resolve(idle(stage));
+      return Promise.resolve(siblingFailed
+        ? { ...failed, stage: 'TEST_PLAN' as const }
+        : { ...running, stage: 'TEST_PLAN' as const });
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['test-plans', 7], ['partial']);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => useGenerationProgress(7, 'BUSINESS_RULE', false),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.projectProgress?.status).toBe('RUNNING'));
+
+    siblingFailed = true;
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ['generation-progress', 7, 'TEST_PLAN'], exact: true });
+    });
+
+    await waitFor(() => expect(result.current.projectProgress?.status).toBe('FAILED'));
+    await waitFor(() => expect(client.getQueryState(['test-plans', 7])?.isInvalidated).toBe(true));
   });
 
   it('retains sibling completion and invalidates artifact queries', async () => {

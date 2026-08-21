@@ -18,7 +18,6 @@ import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
-import { SourceTrace } from '../../../shared/components/SourceTrace';
 import { SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { useAnalysis } from '../../projects/hooks/useProjects';
@@ -238,6 +237,9 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
       || review?.suggestedDescription?.trim();
     const showSuggestion = suggestedDescription && !dismissedSuggestionIds.has(rule.id);
     const editing = editingRuleId === rule.id;
+    const sourceTrace = sourceTraceByRule.get(rule.id);
+    const sourceLineStart = sourceTrace?.branch?.lineStart ?? sourceTrace?.lineStart;
+    const sourceLineEnd = sourceTrace?.branch?.lineEnd ?? sourceTrace?.lineEnd;
 
     return (
       <article key={rule.id} className="rounded-default border border-border-default bg-neutral-secondary-soft p-3">
@@ -259,9 +261,11 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
             ) : (
               <p className="text-sm leading-relaxed text-heading">{rule.description}</p>
             )}
-            <div className="mt-2">
-              <SourceTrace value={sourceTraceByRule.get(rule.id)} compact />
-            </div>
+            {sourceLineStart != null && sourceLineEnd != null && (
+              <p className="mt-2 font-mono text-[11px] font-semibold text-body-subtle">
+                {t(`Dòng nguồn L${sourceLineStart}-${sourceLineEnd}`, `Source lines L${sourceLineStart}-${sourceLineEnd}`)}
+              </p>
+            )}
           </div>
 
           <div className="flex shrink-0 gap-1">
@@ -481,7 +485,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
                   <div className="ml-2 inline-flex min-w-0 max-w-[calc(100%-1rem)] items-start gap-3 align-top">
                     <FileCode2 size={16} className="mt-0.5 shrink-0 text-fg-brand-strong" />
                     <div className="min-w-0">
-                      <span className="text-[10px] font-semibold text-fg-brand-strong">File</span>
+                      <span className="text-[10px] font-semibold text-fg-brand-strong">{t('Tệp', 'File')}</span>
                       <p className="break-all font-mono text-xs font-semibold text-heading" title={fileGroup.filePath}>
                         {displaySourcePath(fileGroup.filePath)}
                       </p>
@@ -502,7 +506,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
                           S
                         </span>
                         <div className="min-w-0">
-                          <span className="text-[10px] font-semibold text-body-subtle">Service</span>
+                          <span className="text-[10px] font-semibold text-body-subtle">{t('Dịch vụ', 'Service')}</span>
                           <h4 className="text-sm font-semibold text-heading">{javaClass.className}</h4>
                           <p className="break-all text-xs text-body-subtle">{javaClass.qualifiedName}</p>
                         </div>
@@ -518,12 +522,12 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
                                 M
                               </span>
                               <div className="min-w-0">
-                                <span className="text-[10px] font-semibold text-body-subtle">Method</span>
+                                <span className="text-[10px] font-semibold text-body-subtle">{t('Phương thức', 'Method')}</span>
                                 <p className="break-words font-mono text-xs font-semibold text-heading">
                                   {method.methodName}({method.parameters.map((parameter) => `${parameter.type} ${parameter.name}`).join(', ')})
                                 </p>
                                 <p className="mt-1 text-[11px] text-body-subtle">
-                                  {method.returnType} | Lines {method.lineStart}-{method.lineEnd}
+                                  {method.returnType} | {t(`Dòng ${method.lineStart}-${method.lineEnd}`, `Lines ${method.lineStart}-${method.lineEnd}`)}
                                 </p>
                               </div>
                               <span className="ml-auto shrink-0 rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
@@ -533,30 +537,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
                           </summary>
 
                           <div className="ml-3 border-l border-border-brand-subtle pb-4 pl-3 sm:ml-5 sm:pl-5">
-                            {sourceDecisions(method.branches ?? []).length > 0 && (
-                              <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-                                <span className="font-semibold text-heading">
-                                  {t('Liên kết quyết định source', 'Source decision trace')}:
-                                  {' '}
-                                  {new Set(method.rules
-                                    .map((rule) => sourceDecisionId(rule.sourceBranchId))
-                                    .filter(Boolean)).size}/{sourceDecisions(method.branches ?? []).length}
-                                </span>
-                                {sourceDecisions(method.branches ?? []).map((decision) => {
-                                  const covered = method.rules.some((rule) =>
-                                    sourceDecisionId(rule.sourceBranchId) === decision.decisionId);
-                                  return (
-                                    <span
-                                      key={decision.decisionId}
-                                      title={`${decision.kind.toLowerCase()} (${decision.condition})`}
-                                      className={`font-mono text-[11px] font-semibold ${covered ? 'text-fg-success-strong' : 'text-fg-warning'}`}
-                                    >
-                                      {decision.decisionId} {covered ? '✓' : t('thiếu', 'missing')}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
+
                             {method.rules.length === 0 ? (
                               <div className="rounded-default border border-dashed border-border-default px-3 py-3 text-xs text-body-subtle">
                                 {t('Chưa phát hiện Business Rule có đủ căn cứ từ source của method này.', 'No Business Rule has enough direct evidence in this method source yet.')}

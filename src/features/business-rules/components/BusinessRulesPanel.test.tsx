@@ -145,11 +145,15 @@ describe('BusinessRulesPanel', () => {
 
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
-    expect(screen.getAllByText('src/main/java/demo/UserService.java')).toHaveLength(2);
+    expect(screen.getAllByText('src/main/java/demo/UserService.java')).toHaveLength(1);
+    expect(screen.getByText('Tệp')).toBeVisible();
+    expect(screen.getAllByText('Dịch vụ')).toHaveLength(2);
+    expect(screen.getAllByText('Phương thức')).toHaveLength(2);
     expect(screen.getByText('UserService')).toBeVisible();
     expect(screen.getByText('createUser(String email)')).toBeVisible();
-    expect(screen.getByText('User | Lines 20-30')).toBeVisible();
+    expect(screen.getByText('User | Dòng 20-30')).toBeVisible();
     expect(screen.getByText('Email phai hop le.')).toBeVisible();
+    expect(screen.getByText('Dòng nguồn L20-30')).toBeVisible();
     expect(screen.getByText('AuditService')).toBeVisible();
     expect(document.querySelectorAll('details')).toHaveLength(5);
     const fileNode = document.querySelector('details');
@@ -201,10 +205,9 @@ describe('BusinessRulesPanel', () => {
     expect(screen.getByRole('option', { name: /src\/main\/java\/demo\/UserService.java/ }))
       .toHaveAttribute('title', 'module-a/src/main/java/demo/UserService.java');
     expect(screen.getByRole('option', { name: /IF-1: if \(exists\)/ })).toBeVisible();
-    expect(screen.getByText(/Li\u00ean k\u1ebft quy\u1ebft \u0111\u1ecbnh source/)).toBeVisible();
-    expect(screen.getByText(/2\/2/)).toBeVisible();
-    expect(screen.getByText('SWITCH-1 ✓')).toBeVisible();
-    expect(screen.getByText('IF-1 ✓')).toBeVisible();
+    expect(screen.queryByText(/Li\u00ean k\u1ebft quy\u1ebft \u0111\u1ecbnh source/)).not.toBeInTheDocument();
+    expect(screen.getByText('Dòng nguồn L22-22')).toBeVisible();
+    expect(screen.getByText('Dòng nguồn L23-23')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
   });
 

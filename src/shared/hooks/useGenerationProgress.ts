@@ -82,9 +82,9 @@ export function useGenerationProgress(
   }, [active, query.data?.status, query.isError, tracking]);
 
   useEffect(() => {
-    if (projectProgress?.status !== 'COMPLETED') return;
+    if (projectProgress?.status !== 'COMPLETED' && projectProgress?.status !== 'FAILED') return;
     const lastLog = projectProgress.logs[projectProgress.logs.length - 1];
-    const completionId = `${projectId}:${projectProgress.stage}:${lastLog?.timestamp ?? 'completed'}`;
+    const completionId = `${projectId}:${projectProgress.stage}:${projectProgress.status}:${lastLog?.timestamp ?? 'terminal'}`;
     if (refreshedCompletion.current === completionId) return;
     refreshedCompletion.current = completionId;
     queryClient.invalidateQueries({

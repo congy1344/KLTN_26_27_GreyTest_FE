@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Bot, CheckCircle2, Copy, Download, FileCode2, Loader2, ListFilter, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Bot, CheckCircle2, Copy, Download, FileCode2, Loader2, ListFilter, Search, ShieldCheck } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
@@ -33,12 +33,42 @@ export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
   const generationRunning = generationProgress.projectRunning
     ?? (generationProgress.data?.status === 'QUEUED' || generationProgress.data?.status === 'RUNNING');
   const [caseId, setCaseId] = useState('');
+  const [query, setQuery] = useState('');
   const [activeId, setActiveId] = useState<number | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const { t } = useLanguage();
   const approvedCases = useMemo(() => (cases.data ?? []).filter((item) => item.status === 'APPROVED'), [cases.data]);
-  const visible = useMemo(() => caseId ? (tests.data ?? []).filter((item) => String(item.testCaseId) === caseId) : (tests.data ?? []), [tests.data, caseId]);
+  const approvedCaseById = useMemo(
+    () => new Map(approvedCases.map((item) => [item.id, item])),
+    [approvedCases],
+  );
+  const generatedCaseIds = useMemo(
+    () => new Set((tests.data ?? []).map((item) => item.testCaseId)),
+    [tests.data],
+  );
+  const coveredCount = approvedCases.filter((item) => generatedCaseIds.has(item.id)).length;
+  const missingCount = approvedCases.length - coveredCount;
+  const unexpectedCount = Math.max(0, (tests.data ?? []).length - coveredCount);
+  const coverageHint = approvedCases.length === 0
+    ? t('Chưa có Test Case được approve', 'No approved Test Cases')
+    : [
+      missingCount > 0 ? t(`Thiếu ${missingCount} case`, `${missingCount} cases missing`) : '',
+      unexpectedCount > 0 ? t(`Trùng/thừa ${unexpectedCount} test`, `${unexpectedCount} duplicate/extra tests`) : '',
+    ].filter(Boolean).join(' · ') || t('Đã khớp đủ 1:1', 'Exact 1:1 match');
+  const coverageWarning = [
+    missingCount > 0 ? t(`thiếu ${missingCount} case`, `${missingCount} cases missing`) : '',
+    unexpectedCount > 0 ? t(`trùng/thừa ${unexpectedCount} test`, `${unexpectedCount} duplicate/extra tests`) : '',
+  ].filter(Boolean).join(', ');
+  const coverageReady = approvedCases.length > 0 && missingCount === 0 && unexpectedCount === 0;
+  const normalizedQuery = query.trim().toLowerCase();
+  const visible = useMemo(() => (tests.data ?? []).filter((item) => {
+    if (caseId && String(item.testCaseId) !== caseId) return false;
+    if (!normalizedQuery) return true;
+    const testCase = approvedCaseById.get(item.testCaseId);
+    return [item.testMethodName, item.testClassName, item.packageName, testCase?.caseCode, testCase?.description]
+      .some((value) => value?.toLowerCase().includes(normalizedQuery));
+  }), [tests.data, caseId, normalizedQuery, approvedCaseById]);
   const active = visible.find((item) => item.id === activeId) ?? visible[0];
   const sourceTraceByRule = useMemo(
     () => buildRuleSourceIndex(analysis.data, rules.data ?? []),
@@ -95,23 +125,27 @@ export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
           />
         </div>
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard icon={CheckCircle2} label={t('Test Case đã approve', 'Approved Cases')} value={approvedCases.length} />
         <MetricCard icon={FileCode2} label={t('Test file', 'Test Files')} value={(files.data ?? []).length} />
         <MetricCard icon={ShieldCheck} label={t('Unit test đã sinh', 'Generated Tests')} value={(tests.data ?? []).length} />
+        <MetricCard icon={ShieldCheck} label={t('Case đã có test', 'Cases Covered')} value={`${coveredCount}/${approvedCases.length}`} tone={coverageReady ? 'brand' : 'neutral'} hint={coverageHint} />
       </div>
       <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
         {error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
         {downloadError && <InlineAlert tone="danger">{downloadError}</InlineAlert>}
+        {(tests.data ?? []).length > 0 && (coverageReady
+          ? <InlineAlert tone="success">{t('Đã kiểm chứng đủ: mỗi Test Case được approve có đúng một Unit Test.', 'Verified: every approved Test Case has exactly one Unit Test.')}</InlineAlert>
+          : <InlineAlert tone="warning">{t(`Chưa nên sang Coverage: ${coverageWarning}.`, `Not ready for Coverage: ${coverageWarning}.`)}</InlineAlert>)}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3"><ListFilter size={16} className="text-fg-brand-strong" /><span className="text-sm font-semibold text-heading">{t('Lọc danh sách theo Test Case', 'Filter list by Test Case')}</span></div>
+          <div className="flex items-center gap-3"><ListFilter size={16} className="text-fg-brand-strong" /><span className="text-sm font-semibold text-heading">{t('Tìm và đối chiếu Unit Test', 'Find and verify Unit Tests')}</span></div>
           <div className="flex flex-wrap gap-2">
             <button className="btn btn-secondary shrink-0" disabled={downloading || (tests.data ?? []).length === 0} onClick={handleDownload}>
               {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} {t('Tải tất cả file (.zip)', 'Download all files (.zip)')}
             </button>
             <button
               className="btn btn-brand shrink-0"
-              disabled={generate.isPending || generationRunning || (tests.data ?? []).length === 0}
+              disabled={generate.isPending || generationRunning || !coverageReady}
               onClick={() => navigate(`/projects/${projectId}/coverage`, {
                 state: { workflowNotice: t('Unit Test đã sẵn sàng. Chuyển sang bước Coverage.', 'Unit Tests are ready. Continue with Coverage.') },
               })}
@@ -120,34 +154,51 @@ export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
             </button>
           </div>
         </div>
-        <select aria-label={t('Lọc Test Case', 'Filter by Test Case')} className="form-input mt-4" value={caseId} onChange={(e) => { setCaseId(e.target.value); setActiveId(null); }}>
-          <option value="">{t('Tất cả Test Case đã approve', 'All approved Test Cases')}</option>
-          {approvedCases.map((item) => <option key={item.id} value={item.id}>{item.caseCode} - {item.description}</option>)}
-        </select>
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)]">
+          <label className="relative block">
+            <span className="sr-only">{t('Tìm theo case, class hoặc method', 'Search by case, class, or method')}</span>
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-body-subtle" />
+            <input aria-label={t('Tìm Unit Test', 'Search Unit Tests')} className="form-input pl-9" value={query} onChange={(event) => { setQuery(event.target.value); setActiveId(null); }} placeholder={t('Tìm TC-001, UserServiceTest, method...', 'Search TC-001, UserServiceTest, method...')} />
+          </label>
+          <select aria-label={t('Lọc Test Case', 'Filter by Test Case')} className="form-input" value={caseId} onChange={(event) => { setCaseId(event.target.value); setActiveId(null); }}>
+            <option value="">{t('Tất cả Test Case đã approve', 'All approved Test Cases')}</option>
+            {approvedCases.map((item) => <option key={item.id} value={item.id}>{item.caseCode} - {item.description}</option>)}
+          </select>
+        </div>
       </div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft shadow-sm">
+      <div className="mt-4 grid items-start gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft shadow-sm xl:sticky xl:top-4">
+          <div className="flex items-center justify-between border-b border-border-default px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-body-subtle">{t('Danh sách method', 'Method index')}</p>
+            <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-xs font-semibold text-heading">{visible.length}</span>
+          </div>
           {tests.isLoading ? (
             <LoadingState label={t('Đang tải Unit Test...', 'Loading Unit Tests...')} minHeight="min-h-[160px]" />
           ) : visible.length === 0 ? (
             <EmptyState icon={FileCode2} title={t('Chưa có Unit Test', 'No Unit Tests yet')} hint={t('Approve Test Case rồi bấm "AI sinh Unit Test".', 'Approve Test Cases, then select "Generate with AI".')} minHeight="min-h-[200px]" />
-          ) : visible.map((item) => (
+          ) : visible.map((item, index) => {
+            const testCase = approvedCaseById.get(item.testCaseId);
+            return (
             <button
               key={item.id}
               type="button"
+              aria-label={`${testCase?.caseCode ?? `Case ${item.testCaseId}`} ${item.testMethodName}`}
               aria-current={active?.id === item.id ? 'true' : undefined}
-              className={`block w-full border-b border-border-default px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${active?.id === item.id ? 'bg-brand-softer' : 'hover:bg-neutral-secondary-soft/40'}`}
+              className={`block w-full border-b border-border-default px-4 py-3 text-left transition-colors last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand ${active?.id === item.id ? 'bg-brand-softer' : 'hover:bg-neutral-secondary-soft/40'}`}
               onClick={() => setActiveId(item.id)}
             >
-              <span className="block truncate font-mono text-xs font-semibold text-heading">{item.testMethodName}</span>
-              <span className="mt-1 block truncate font-mono text-[11px] text-body-subtle">
-                {traceForCase(item.testCaseId).label}
+              <span className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold tabular-nums text-body-subtle">{String(index + 1).padStart(2, '0')}</span>
+                <span className="rounded-full bg-brand-softer px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong">{testCase?.caseCode ?? `#${item.testCaseId}`}</span>
+                <span className="ml-auto text-[10px] font-semibold uppercase text-body-subtle">{item.generationType?.replace(/_/g, ' ')}</span>
               </span>
-              <span className="mt-0.5 block truncate text-xs text-body-subtle">{item.testClassName}</span>
+              <span className="mt-2 block break-all font-mono text-xs font-semibold text-heading">{item.testMethodName}</span>
+              <span className="mt-1 block truncate text-xs text-body-subtle">{item.testClassName}</span>
+              {testCase?.description && <span className="mt-1 block line-clamp-2 text-[11px] leading-relaxed text-body-subtle">{testCase.description}</span>}
             </button>
-          ))}
+          );})}
         </div>
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+        <div className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
           {!active ? (
             <div className="flex min-h-[360px] items-center justify-center text-sm text-body-subtle">{t('Chọn method để xem file test.', 'Select a method to view its test file.')}</div>
           ) : files.isLoading ? (
@@ -155,7 +206,9 @@ export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
           ) : activeFile ? (
             <div className="space-y-3">
               <div>
-                <p className="mb-2 font-mono text-xs font-semibold text-fg-brand-strong">{activeTrace?.label}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-body-subtle">{t('Traceability đang kiểm chứng', 'Traceability under review')}</p>
+                <p className="mt-1 break-words font-mono text-xs font-semibold text-fg-brand-strong">{activeTrace?.label}</p>
+                <p className="mt-1 text-xs text-body-subtle">{approvedCaseById.get(active.testCaseId)?.description}</p>
                 <div className="grid gap-2 lg:grid-cols-2">
                   {activeTrace?.sources.map((source, index) => (
                     <SourceTrace key={`${source.filePath}:${source.methodName}:${index}`} value={source} compact />
@@ -175,7 +228,7 @@ export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
 
 function UnitTestFileView({ file, highlightMethod }: { file: UnitTestFile; highlightMethod: string }) {
   const [copied, setCopied] = useState(false);
-  const codeRef = useRef<HTMLTextAreaElement>(null);
+  const highlightedLineRef = useRef<HTMLLIElement>(null);
   const { t } = useLanguage();
 
   // Tự ẩn trạng thái "Đã copy" sau 2 giây
@@ -185,17 +238,16 @@ function UnitTestFileView({ file, highlightMethod }: { file: UnitTestFile; highl
     return () => clearTimeout(timer);
   }, [copied]);
 
-  useEffect(() => {
-    const code = codeRef.current;
-    const declaration = `void ${highlightMethod}(`;
-    const declarationIndex = file.sourceCode.indexOf(declaration);
-    const methodIndex = declarationIndex >= 0
-      ? declarationIndex + 'void '.length
-      : file.sourceCode.indexOf(highlightMethod);
-    if (!code || methodIndex < 0) return;
-    code.focus({ preventScroll: true });
-    code.setSelectionRange(methodIndex, methodIndex + highlightMethod.length);
+  const codeLines = file.sourceCode.split('\n');
+  const highlightedLine = useMemo(() => {
+    const escapedMethod = highlightMethod.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const declaration = new RegExp(`\\bvoid\\s+${escapedMethod}\\s*\\(`).exec(file.sourceCode);
+    return declaration ? file.sourceCode.slice(0, declaration.index).split('\n').length - 1 : -1;
   }, [file.sourceCode, highlightMethod]);
+
+  useEffect(() => {
+    highlightedLineRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' });
+  }, [file.filePath, highlightedLine, highlightMethod]);
 
   const copy = async () => {
     if (!navigator.clipboard) return;
@@ -222,10 +274,25 @@ function UnitTestFileView({ file, highlightMethod }: { file: UnitTestFile; highl
         </div>
         <button className="btn btn-secondary px-3 py-2" onClick={copy}><Copy size={14} />{copied ? t('Đã copy', 'Copied') : 'Copy'}</button>
       </div>
-      <p className="mb-2 text-[11px] text-body-subtle">
-        {t(`File hoàn chỉnh đã gộp mọi @Test method cùng class. Method của case đang chọn: ${highlightMethod}`, `Complete file with all @Test methods of this class. Selected case method: ${highlightMethod}`)}
-      </p>
-      <textarea ref={codeRef} aria-label="Generated test code" readOnly className="form-input min-h-[360px] resize-y font-mono text-xs leading-relaxed" value={file.sourceCode} />
+      <div className="mb-2 flex items-center gap-2 text-[11px] text-body-subtle">
+        <span className="h-2 w-2 rounded-full bg-brand-strong" />
+        {t(`Dòng màu xanh là method của case đang chọn: ${highlightMethod}`, `The highlighted line is the selected case method: ${highlightMethod}`)}
+      </div>
+      <div aria-label="Generated test code" role="region" tabIndex={0} className="max-h-[620px] min-h-[360px] overflow-auto rounded-default border border-border-default bg-neutral-primary p-3 font-mono text-xs leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+        <ol className="min-w-max">
+          {codeLines.map((line, index) => (
+            <li
+              key={`${index}-${line}`}
+              aria-current={index === highlightedLine ? 'true' : undefined}
+              ref={index === highlightedLine ? highlightedLineRef : undefined}
+              className={`grid grid-cols-[3rem_minmax(0,1fr)] rounded-sm px-2 ${index === highlightedLine ? 'bg-brand-softer text-heading' : 'text-body'}`}
+            >
+              <span aria-hidden="true" className="select-none border-r border-border-default pr-3 text-right tabular-nums text-body-subtle">{index + 1}</span>
+              <code className="whitespace-pre pl-4">{line || ' '}</code>
+            </li>
+          ))}
+        </ol>
+      </div>
     </>
   );
 }

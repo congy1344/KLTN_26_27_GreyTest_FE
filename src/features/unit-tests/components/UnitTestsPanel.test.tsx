@@ -1,19 +1,20 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UnitTestsPanel } from './UnitTestsPanel';
 
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
+  cases: [{ id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'valid', status: 'APPROVED' }],
   tests: [] as Array<Record<string, unknown>>,
   files: [] as Array<Record<string, unknown>>,
   generating: false,
   progress: undefined as unknown,
 }));
 vi.mock('../../../shared/hooks/useGenerationProgress', () => ({ useGenerationProgress: () => ({ data: mocks.progress }) }));
-vi.mock('../../test-cases/hooks/useTestCases', () => ({ useTestCases: () => ({ data: [{ id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'valid', status: 'APPROVED' }], error: null }) }));
+vi.mock('../../test-cases/hooks/useTestCases', () => ({ useTestCases: () => ({ data: mocks.cases, error: null }) }));
 vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({ data: [{ id: 5, businessRuleId: 7, coveredRuleIds: [7], planCode: 'TP-005' }], error: null }) }));
 vi.mock('../../business-rules/hooks/useBusinessRules', () => ({ useBusinessRules: () => ({ data: [{ id: 7, methodId: 11, ruleCode: 'BR-007', sourceBranchId: 'IF-1-TRUE' }], error: null }) }));
 vi.mock('../../projects/hooks/useProjects', () => ({
@@ -52,6 +53,7 @@ describe('UnitTestsPanel', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    mocks.cases = [{ id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'valid', status: 'APPROVED' }];
     mocks.tests = [];
     mocks.files = [];
     mocks.generating = false;
@@ -91,7 +93,9 @@ describe('UnitTestsPanel', () => {
   });
 
   it('moves the code preview to the selected test method', () => {
-    const sourceCode = 'class UserServiceTest {\n  void firstMethod() {}\n\n  @DisplayName("secondMethod")\n  void secondMethod() {}\n}';
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    const sourceCode = 'class UserServiceTest {\n  void firstMethod() {}\n\n  @DisplayName("secondMethod")\n  void secondMethod () {}\n}';
     mocks.tests = [
       { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java' },
       { id: 12, testCaseId: 1, testMethodName: 'secondMethod', testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java' },
@@ -105,13 +109,76 @@ describe('UnitTestsPanel', () => {
     }];
 
     renderPanel();
+    scrollIntoView.mockClear();
     fireEvent.click(screen.getByRole('button', { name: /secondMethod/ }));
 
     expect(screen.getAllByText(/BR-007 \[IF-1-TRUE\].*TP-005.*TC-001/)).not.toHaveLength(0);
     expect(screen.getByText('UserService.createUser')).toBeVisible();
-    const code = screen.getByLabelText('Generated test code') as HTMLTextAreaElement;
-    const declarationIndex = sourceCode.indexOf('void secondMethod(') + 'void '.length;
-    expect(code.selectionStart).toBe(declarationIndex);
-    expect(code.selectionEnd).toBe(declarationIndex + 'secondMethod'.length);
+    const code = screen.getByRole('region', { name: 'Generated test code' });
+    expect(within(code).getByText(/void secondMethod/).closest('li')).toHaveAttribute('aria-current', 'true');
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
+  });
+
+  it('shows exact case coverage and filters by method name', () => {
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'createUserValid', testClassName: 'UserServiceTest', packageName: 'demo', filePath: 'UserServiceTest.java' },
+    ];
+
+    renderPanel();
+
+    expect(screen.getByText('1/1')).toBeVisible();
+    expect(screen.getByText(/Đã kiểm chứng đủ/)).toBeVisible();
+    const search = screen.getByRole('textbox', { name: 'Tìm Unit Test' });
+    fireEvent.change(search, { target: { value: 'missing' } });
+    expect(screen.queryByRole('button', { name: /createUserValid/ })).not.toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'createUser' } });
+    expect(screen.getByRole('button', { name: /createUserValid/ })).toBeVisible();
+  });
+
+  it('reports missing and duplicate tests at the same time', () => {
+    mocks.cases = [
+      { id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'first', status: 'APPROVED' },
+      { id: 2, testPlanId: 5, caseCode: 'TC-002', description: 'second', status: 'APPROVED' },
+    ];
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'first', testClassName: 'ServiceTest', packageName: 'demo', filePath: 'ServiceTest.java' },
+      { id: 12, testCaseId: 1, testMethodName: 'duplicate', testClassName: 'ServiceTest', packageName: 'demo', filePath: 'ServiceTest.java' },
+    ];
+
+    renderPanel();
+
+    expect(screen.getByText(/Thiếu 1 case.*Trùng\/thừa 1 test/)).toBeVisible();
+    expect(screen.getByRole('button', { name: /Tiếp tục đến Coverage/ })).toBeDisabled();
+  });
+
+  it('scrolls again when two files use the same method name and line', () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    mocks.cases = [
+      { id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'first', status: 'APPROVED' },
+      { id: 2, testPlanId: 5, caseCode: 'TC-002', description: 'second', status: 'APPROVED' },
+    ];
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'sameMethod', testClassName: 'FirstTest', packageName: 'demo', filePath: 'FirstTest.java' },
+      { id: 12, testCaseId: 2, testMethodName: 'sameMethod', testClassName: 'SecondTest', packageName: 'demo', filePath: 'SecondTest.java' },
+    ];
+    mocks.files = [
+      {
+        testClassName: 'FirstTest', filePath: 'FirstTest.java', sourceCode: 'class FirstTest {\n void sameMethod() {}\n}',
+        testCount: 1, caseCodes: ['TC-001'],
+      },
+      {
+        testClassName: 'SecondTest', filePath: 'SecondTest.java', sourceCode: 'class SecondTest {\n void sameMethod() {}\n}',
+        testCount: 1, caseCodes: ['TC-002'],
+      },
+    ];
+
+    renderPanel();
+    scrollIntoView.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: /TC-002 sameMethod/ }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
+    expect(within(screen.getByRole('region', { name: 'Generated test code' }))
+      .getByText(/class SecondTest/)).toBeVisible();
   });
 });
