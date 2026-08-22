@@ -1,4 +1,4 @@
-import { Beaker, Sparkles } from 'lucide-react';
+import { Beaker, ShieldCheck, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCurrentUser, useLogout } from '../../features/auth/hooks/useAuth';
 import { useLanguage } from '../i18n/language';
@@ -8,9 +8,18 @@ import { ThemeToggle } from './ThemeToggle';
 interface AppShellProps {
   children: React.ReactNode;
   maxWidth?: 'default' | 'wide';
+  homeTo?: string;
+  logoutTo?: string;
+  showAdminShortcut?: boolean;
 }
 
-export function AppShell({ children, maxWidth = 'default' }: AppShellProps) {
+export function AppShell({
+  children,
+  maxWidth = 'default',
+  homeTo = '/projects',
+  logoutTo = '/login',
+  showAdminShortcut = true,
+}: AppShellProps) {
   const widthClass = maxWidth === 'wide' ? 'max-w-6xl' : 'max-w-5xl';
   const navigate = useNavigate();
   const { data: user } = useCurrentUser();
@@ -19,7 +28,7 @@ export function AppShell({ children, maxWidth = 'default' }: AppShellProps) {
 
   const handleLogout = () => {
     logout();
-    navigate('/login', { replace: true });
+    navigate(logoutTo, { replace: true });
   };
 
   return (
@@ -31,7 +40,7 @@ export function AppShell({ children, maxWidth = 'default' }: AppShellProps) {
 
       <nav className="sticky top-0 z-40 border-b border-border-default-subtle bg-neutral-primary-soft/88 backdrop-blur-xl">
         <div className={`mx-auto flex h-16 ${widthClass} items-center justify-between px-4 sm:px-6`}>
-          <Link to="/projects" className="group flex items-center gap-2.5">
+          <Link to={homeTo} className="group flex items-center gap-2.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-default border border-border-brand-subtle bg-brand-softer text-fg-brand-strong shadow-xs transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-y-0.5">
               <Beaker size={16} strokeWidth={1.8} />
             </span>
@@ -41,6 +50,7 @@ export function AppShell({ children, maxWidth = 'default' }: AppShellProps) {
           </Link>
 
           <div className="flex items-center gap-2">
+            {showAdminShortcut && user?.role === 'ADMIN' && <Link to="/admin" className="btn btn-secondary px-3 py-1.5 text-[12px]"><ShieldCheck size={14} /> Admin</Link>}
             <ThemeToggle />
             <LanguageToggle />
             <span className="hidden items-center gap-2 rounded-full border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-[12px] font-medium text-heading shadow-xs sm:inline-flex">

@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { Beaker, Loader2, LogIn, UserPlus } from 'lucide-react';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Beaker, Loader2, LogIn, ShieldCheck, UserPlus } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { useLogin, useRegister } from '../hooks/useAuth';
 import { useLanguage } from '../../../shared/i18n/language';
@@ -129,6 +129,9 @@ export function LoginPage() {
         <p className="mt-5 text-center text-[11px] text-body-subtle">
           {t('GreyTest · Hệ thống AI QA Agent hướng Grey-box', 'GreyTest · Grey-box AI QA Agent system')}
         </p>
+        <Link to="/admin/login" className="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-fg-brand hover:underline">
+          <ShieldCheck size={13} /> {t('Đăng nhập dành cho Admin', 'Admin sign in')}
+        </Link>
       </section>
     </div>
   );
