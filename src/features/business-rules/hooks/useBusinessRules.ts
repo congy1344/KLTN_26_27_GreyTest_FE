@@ -11,19 +11,19 @@ import {
 } from '../api/business-rule-api';
 import type { BusinessRule } from '../types';
 
-function rulesKey(projectId: number) {
-  return ['business-rules', projectId];
+function rulesKey(projectId: number, servicePath?: string) {
+  return ['business-rules', projectId, servicePath ?? 'auto'];
 }
 
-export function useBusinessRules(projectId: number) {
+export function useBusinessRules(projectId: number, servicePath?: string) {
   return useQuery({
-    queryKey: rulesKey(projectId),
-    queryFn: () => fetchBusinessRules(projectId),
+    queryKey: rulesKey(projectId, servicePath),
+    queryFn: () => fetchBusinessRules(projectId, servicePath),
     enabled: projectId > 0,
   });
 }
 
-export function useCreateBusinessRules(projectId: number) {
+export function useCreateBusinessRules(projectId: number, servicePath?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ methodId, descriptions, sourceBranchId }: {
@@ -36,13 +36,14 @@ export function useCreateBusinessRules(projectId: number) {
       }
       const created = [];
       for (const description of descriptions) {
-        created.push(await createBusinessRule(projectId, methodId, description, sourceBranchId));
+        created.push(await createBusinessRule(projectId, methodId, description, sourceBranchId, servicePath));
       }
       return created;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) });
+      queryClient.invalidateQueries({ queryKey: rulesKey(projectId, servicePath) });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
     },
   });
 }
@@ -52,8 +53,9 @@ export function useUpdateBusinessRule(projectId: number) {
   return useMutation({
     mutationFn: ({ rule, description }: { rule: BusinessRule; description: string }) => updateBusinessRule(rule, description),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) });
+      queryClient.invalidateQueries({ queryKey: ['business-rules', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
     },
   });
 }
@@ -63,8 +65,9 @@ export function useAcceptBusinessRuleSuggestion(projectId: number) {
   return useMutation({
     mutationFn: (ruleId: number) => acceptBusinessRuleSuggestion(ruleId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) });
+      queryClient.invalidateQueries({ queryKey: ['business-rules', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
     },
   });
 }
@@ -78,34 +81,36 @@ export function useDeleteBusinessRule(_projectId: number) {
   });
 }
 
-export function useGenerateBusinessRules(projectId: number) {
+export function useGenerateBusinessRules(projectId: number, servicePath?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => generateBusinessRules(projectId),
+    mutationFn: () => generateBusinessRules(projectId, servicePath),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['generation-progress', projectId, 'BUSINESS_RULE'] });
     },
   });
 }
 
-export function useReviewBusinessRules(projectId: number) {
+export function useReviewBusinessRules(projectId: number, servicePath?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => reviewBusinessRules(projectId),
+    mutationFn: () => reviewBusinessRules(projectId, servicePath),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) });
+      queryClient.invalidateQueries({ queryKey: rulesKey(projectId, servicePath) });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
     },
   });
 }
 
-export function useApproveBusinessRules(projectId: number) {
+export function useApproveBusinessRules(projectId: number, servicePath?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => approveBusinessRules(projectId),
+    mutationFn: () => approveBusinessRules(projectId, servicePath),
     onSuccess: () => Promise.all([
-      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) }),
+      queryClient.invalidateQueries({ queryKey: rulesKey(projectId, servicePath) }),
       queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+      queryClient.invalidateQueries({ queryKey: ['project-services', projectId] }),
     ]),
   });
 }

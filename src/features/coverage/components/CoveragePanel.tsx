@@ -21,6 +21,7 @@ import { parseApiDate } from '../../../shared/utils/date-time';
 import { useCoverageReport, useStartCoverageRefinement, useUploadCoverage } from '../hooks/useCoverage';
 import type { CoverageGap } from '../types';
 import type { ProjectStatus } from '../../projects/types';
+import { projectWorkflowPath } from '../../projects/utils/project-service';
 
 // Hint chênh lệch so với vòng upload trước (chỉ có từ vòng 2)
 function deltaHint(current: number | undefined, previous: number | null | undefined, t: (vi: string, en: string) => string) {
@@ -30,14 +31,14 @@ function deltaHint(current: number | undefined, previous: number | null | undefi
   return t(`${sign}${delta}% so với vòng trước`, `${sign}${delta}% vs previous round`);
 }
 
-export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED' }: { projectId: number; projectStatus?: ProjectStatus }) {
+export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', servicePath }: { projectId: number; projectStatus?: ProjectStatus; servicePath?: string }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
-  const reportQuery = useCoverageReport(projectId);
-  const upload = useUploadCoverage(projectId);
-  const refinement = useStartCoverageRefinement(projectId);
+  const reportQuery = useCoverageReport(projectId, servicePath);
+  const upload = useUploadCoverage(projectId, servicePath);
+  const refinement = useStartCoverageRefinement(projectId, servicePath);
   const report = reportQuery.data ?? null;
   const fileName = selectedFile?.name ?? '';
   const canRefine = projectStatus === 'COVERAGE_ANALYZED' || projectStatus === 'COMPLETED';
@@ -73,7 +74,7 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED' }
           type="button"
           className="btn btn-brand shrink-0"
           disabled={!report || !canRefine}
-          onClick={() => navigate(`/projects/${projectId}/traceability`, {
+          onClick={() => navigate(projectWorkflowPath(projectId, 'traceability', servicePath), {
             state: {
               workflowNotice: t(
                 'Coverage đã được phân tích. Chuyển sang bước Traceability.',
@@ -222,7 +223,7 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED' }
                     type="button"
                     disabled={refinement.isPending || !canRefine || refinableGapCount === 0}
                     onClick={() => refinement.mutate(undefined, {
-                      onSuccess: () => navigate(`/projects/${projectId}/unit-tests`, {
+                      onSuccess: () => navigate(projectWorkflowPath(projectId, 'unit-tests', servicePath), {
                         state: {
                           workflowNotice: t(
                             `Đã sinh bổ sung Test Case và Unit Test cho vòng ${report.round + 1}.`,

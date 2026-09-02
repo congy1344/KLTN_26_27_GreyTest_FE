@@ -67,7 +67,13 @@ describe('AiGenerationProgress', () => {
     expect(screen.getByText('Sinh Test Plan - batch 1/1')).toBeVisible();
     expect(screen.getByText('Kiểm tra và lưu Test Plan')).toBeVisible();
     expect(screen.getByText('Hoàn thành')).toBeVisible();
-    expect(screen.getByText('Đang chạy')).toBeVisible();
+    expect(screen.getByText('Đang chạy')).toHaveClass('bg-brand', 'text-neutral-primary-soft');
+    expect(screen.getByRole('listitem', { current: 'step' }))
+      .toHaveClass('border-border-brand', 'bg-brand-softer', 'ring-border-brand');
+    expect(screen.getByRole('progressbar', { name: 'Kiểm tra và lưu Test Plan' }).firstElementChild)
+      .toHaveClass('bg-brand-strong');
+    expect(screen.getByRole('progressbar', { name: 'Sinh Test Plan - batch 1/1' }).firstElementChild)
+      .toHaveClass('bg-success');
     expect(screen.getByText('Đã nhận 3 Test Plan từ AI.')).toBeVisible();
   });
 

@@ -8,14 +8,20 @@ import { useProject } from '../../projects/hooks/useProjects';
 import { canOpenTestCases } from '../../projects/utils/project-workflow';
 import { TestCasesPanel } from '../components/TestCasesPanel';
 import { useLanguage } from '../../../shared/i18n/language';
+import { ProjectServiceSelector } from '../../projects/components/ProjectServiceSelector';
+import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceScope';
+import { projectWorkflowPath } from '../../projects/utils/project-service';
+
 
 export function TestCasesPage() {
   const { id } = useParams<{ id: string }>();
   const projectId = Number(id);
   const { data: project, isLoading, error } = useProject(projectId);
   const { t } = useLanguage();
+  const serviceScope = useProjectServiceScope(projectId, project?.status !== undefined && project.status !== 'UPLOADED');
+  const status = serviceScope.selected?.status ?? project?.status;
 
-  if (isLoading) {
+  if (isLoading || serviceScope.isLoading) {
     return (
       <AppShell maxWidth="wide">
         <SkeletonLoader count={4} />
@@ -23,16 +29,16 @@ export function TestCasesPage() {
     );
   }
 
-  if (error || !project) {
+  if (error || serviceScope.error || !project) {
     return (
       <AppShell maxWidth="wide">
-        <ErrorState error={error ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
+        <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
       </AppShell>
     );
   }
 
-  if (!canOpenTestCases(project.status)) {
-    return <Navigate to={`/projects/${projectId}/test-plans`} replace />;
+  if (serviceScope.selected && status && !canOpenTestCases(status)) {
+    return <Navigate to={projectWorkflowPath(projectId, 'test-plans', serviceScope.servicePath)} replace />;
   }
 
   return (
@@ -41,14 +47,19 @@ export function TestCasesPage() {
         project={project}
         titlePrefix="Test Case"
         subtitle={t('Chuẩn bị test data từ các Test Plan đã approve.', 'Prepare test data from approved Test Plans.')}
-        backTo={`/projects/${projectId}/test-plans`}
+        backTo={projectWorkflowPath(projectId, 'test-plans', serviceScope.servicePath)}
         backLabel="Test Plan"
       />
-
-      <ProjectWorkflowTabs projectId={projectId} active="test-cases" status={project.status} />
-      <TestCasesPanel projectId={projectId} projectStatus={project.status} />
+      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
+      {serviceScope.selected && status && (
+        <>
+          <ProjectWorkflowTabs projectId={projectId} active="test-cases" status={status} servicePath={serviceScope.servicePath} />
+          <TestCasesPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} projectStatus={status} servicePath={serviceScope.servicePath} />
+        </>
+      )}
     </AppShell>
   );
 }
 
 export default TestCasesPage;
+

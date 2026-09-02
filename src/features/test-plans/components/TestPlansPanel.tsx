@@ -26,15 +26,17 @@ import {
 } from '../hooks/useTestPlans';
 import type { TestPlan, TestType } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
+import { projectWorkflowPath } from '../../projects/utils/project-service';
 
 interface TestPlansPanelProps {
   projectId: number;
   projectStatus: ProjectStatus;
+  servicePath?: string;
 }
 
 const TEST_TYPES: TestType[] = ['HAPPY_PATH', 'BOUNDARY', 'EXCEPTION', 'EDGE'];
 
-export function TestPlansPanel({ projectId, projectStatus }: TestPlansPanelProps) {
+export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPlansPanelProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [businessRuleId, setBusinessRuleId] = useState('');
@@ -48,23 +50,23 @@ export function TestPlansPanel({ projectId, projectStatus }: TestPlansPanelProps
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [planToDelete, setPlanToDelete] = useState<TestPlan | null>(null);
 
-  const { data: plans = [], isLoading, error } = useTestPlans(projectId);
-  const { data: rules = [] } = useBusinessRules(projectId);
+  const { data: plans = [], isLoading, error } = useTestPlans(projectId, servicePath);
+  const { data: rules = [] } = useBusinessRules(projectId, servicePath);
   const { data: analysis } = useAnalysis(projectId);
-  const { data: allCases = [] } = useTestCases(projectId);
-  const { data: allUnits = [] } = useUnitTests(projectId);
+  const { data: allCases = [] } = useTestCases(projectId, servicePath);
+  const { data: allUnits = [] } = useUnitTests(projectId, servicePath);
   const approvedRules = rules.filter((rule) => rule.status === 'APPROVED');
   const sourceTraceByRule = useMemo(
     () => buildRuleSourceIndex(analysis, rules),
     [analysis, rules],
   );
 
-  const createMutation = useCreateTestPlan(projectId);
-  const generateMutation = useGenerateTestPlans(projectId);
+  const createMutation = useCreateTestPlan(projectId, servicePath);
+  const generateMutation = useGenerateTestPlans(projectId, servicePath);
   const generationProgress = useGenerationProgress(projectId, 'TEST_PLAN', generateMutation.isPending);
   const generationRunning = generationProgress.projectRunning
     ?? (generationProgress.data?.status === 'QUEUED' || generationProgress.data?.status === 'RUNNING');
-  const approveMutation = useApproveTestPlans(projectId);
+  const approveMutation = useApproveTestPlans(projectId, servicePath);
   const updateMutation = useUpdateTestPlan(projectId);
   const deleteMutation = useDeleteTestPlan(projectId);
   const pending = createMutation.isPending || generateMutation.isPending || generationRunning || approveMutation.isPending
@@ -155,7 +157,7 @@ export function TestPlansPanel({ projectId, projectStatus }: TestPlansPanelProps
             className="btn btn-brand"
             disabled={pending || plans.length === 0 || projectStatus !== 'PLAN_PENDING_REVIEW'}
             onClick={() => approveMutation.mutate(undefined, {
-              onSuccess: () => navigate(`/projects/${projectId}/test-cases`, {
+              onSuccess: () => navigate(projectWorkflowPath(projectId, 'test-cases', servicePath), {
                 state: { workflowNotice: t('Đã duyệt Test Plan. Chuyển sang bước Test Case.', 'Test Plans approved. Continue with Test Cases.') },
               }),
             })}

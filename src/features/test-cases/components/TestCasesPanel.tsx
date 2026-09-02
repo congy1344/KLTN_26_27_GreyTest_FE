@@ -20,24 +20,25 @@ import { useUnitTests } from '../../unit-tests/hooks/useUnitTests';
 import { useApproveTestCases, useCreateTestCase, useDeleteTestCase, useGenerateTestCases, useTestCases, useUpdateTestCase } from '../hooks/useTestCases';
 import type { Priority, TestCase, TestType } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
+import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 
 const TEST_TYPES: TestType[] = ['HAPPY_PATH', 'BOUNDARY', 'EXCEPTION', 'EDGE'];
 const PRIORITIES: Priority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
-export function TestCasesPanel({ projectId, projectStatus: _projectStatus }: { projectId: number; projectStatus?: ProjectStatus }) {
+export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servicePath }: { projectId: number; projectStatus?: ProjectStatus; servicePath?: string }) {
   const navigate = useNavigate();
-  const plans = useTestPlans(projectId);
-  const rules = useBusinessRules(projectId);
-  const cases = useTestCases(projectId);
-  const units = useUnitTests(projectId);
+  const plans = useTestPlans(projectId, servicePath);
+  const rules = useBusinessRules(projectId, servicePath);
+  const cases = useTestCases(projectId, servicePath);
+  const units = useUnitTests(projectId, servicePath);
   const analysis = useAnalysis(projectId);
-  const generate = useGenerateTestCases(projectId);
+  const generate = useGenerateTestCases(projectId, servicePath);
   const generationProgress = useGenerationProgress(projectId, 'TEST_CASE', generate.isPending);
   const generationRunning = generationProgress.projectRunning
     ?? (generationProgress.data?.status === 'QUEUED' || generationProgress.data?.status === 'RUNNING');
-  const approve = useApproveTestCases(projectId);
-  const create = useCreateTestCase(projectId);
+  const approve = useApproveTestCases(projectId, servicePath);
+  const create = useCreateTestCase(projectId, servicePath);
   const updateCase = useUpdateTestCase(projectId);
   const removeCase = useDeleteTestCase(projectId);
   const [planId, setPlanId] = useState('');
@@ -171,7 +172,7 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus }: { p
             className="btn btn-brand"
             disabled={busy || pending === 0}
             onClick={() => approve.mutate(undefined, {
-              onSuccess: () => navigate(`/projects/${projectId}/unit-tests`, {
+              onSuccess: () => navigate(projectWorkflowPath(projectId, 'unit-tests', servicePath), {
                 state: { workflowNotice: t('Đã duyệt Test Case. Chuyển sang bước Unit Test.', 'Test Cases approved. Continue with Unit Tests.') },
               }),
             })}

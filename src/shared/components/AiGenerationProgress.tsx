@@ -11,9 +11,23 @@ interface AiGenerationProgressProps {
 
 const STEP_STYLES: Record<GenerationProgressStepStatus, string> = {
   WAITING: 'bg-neutral-secondary-medium text-body-subtle',
-  RUNNING: 'bg-brand-softer text-fg-brand-strong',
+  RUNNING: 'bg-brand text-neutral-primary-soft shadow-xs',
   COMPLETED: 'bg-success-soft text-fg-success-strong',
   FAILED: 'bg-danger-soft text-fg-danger-strong',
+};
+
+const STEP_ITEM_STYLES: Record<GenerationProgressStepStatus, string> = {
+  WAITING: 'border-border-default bg-neutral-secondary-soft',
+  RUNNING: 'border-border-brand bg-brand-softer shadow-sm ring-1 ring-border-brand',
+  COMPLETED: 'border-border-default bg-neutral-secondary-soft',
+  FAILED: 'border-border-danger-subtle bg-danger-soft',
+};
+
+const STEP_FILL_STYLES: Record<GenerationProgressStepStatus, string> = {
+  WAITING: 'bg-neutral-tertiary-medium',
+  RUNNING: 'bg-brand-strong',
+  COMPLETED: 'bg-success',
+  FAILED: 'bg-danger',
 };
 
 /** Hiển thị tiến độ sinh AI trong popover không chặn thao tác trên trang. */
@@ -146,7 +160,11 @@ export function AiGenerationProgress({
 
               <ol className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1" aria-label={t('Các bước pipeline', 'Pipeline steps')}>
                 {progress.steps.length > 0 ? progress.steps.map((step) => (
-                  <li key={step.order} className="rounded-default border border-border-default bg-neutral-secondary-soft p-3">
+                  <li
+                    key={step.order}
+                    aria-current={step.status === 'RUNNING' ? 'step' : undefined}
+                    className={`rounded-default border p-3 transition-colors ${STEP_ITEM_STYLES[step.status]}`}
+                  >
                     <div className="flex items-start gap-2">
                       <StepIcon status={step.status} />
                       <div className="min-w-0 flex-1">
@@ -165,7 +183,7 @@ export function AiGenerationProgress({
                           className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-secondary-medium"
                         >
                           <span
-                            className={`block h-full rounded-full ${step.status === 'FAILED' ? 'bg-danger' : 'bg-brand'}`}
+                            className={`block h-full rounded-full transition-colors ${STEP_FILL_STYLES[step.status]}`}
                             style={{ width: `${step.percent}%` }}
                           />
                         </div>

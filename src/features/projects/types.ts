@@ -25,6 +25,12 @@ export interface Project {
   sourceAvailable: boolean;
 }
 
+export interface ProjectServiceScope {
+  servicePath: string;
+  name: string;
+  status: ProjectStatus;
+}
+
 // ─── Analysis Types ────────────────────────────────────────
 
 export interface MethodParam {

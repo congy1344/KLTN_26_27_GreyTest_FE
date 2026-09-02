@@ -44,6 +44,20 @@ describe('ProjectWorkflowTabs', () => {
     expect(screen.getByRole('link', { name: /06.*Traceability/ })).toHaveAttribute('aria-current', 'page');
   });
 
+  it('keeps the selected service in workflow links', () => {
+    render(
+      <MemoryRouter>
+        <ProjectWorkflowTabs
+          projectId={7}
+          active="test-plans"
+          status="COMPLETED"
+          servicePath="account-service"
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^04.*Unit Test/ })).toHaveAttribute('href', '/projects/7/unit-tests?servicePath=account-service');
+  });
+
   it('resumes each project at the current workflow step', () => {
     expect(getProjectResumePath(7, 'BR_PENDING_REVIEW')).toBe('/projects/7');
     expect(getProjectResumePath(7, 'PLAN_PENDING_REVIEW')).toBe('/projects/7/test-plans');

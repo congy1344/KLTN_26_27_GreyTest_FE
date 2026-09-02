@@ -6,6 +6,7 @@ import {
   fetchAnalysis,
   fetchExistingTests,
   fetchProject,
+  fetchProjectServices,
   fetchProjects,
   uploadZip,
 } from '../api/project-api';
@@ -21,6 +22,14 @@ export function useProject(id: number) {
     queryKey: ['project', id],
     queryFn: () => fetchProject(id),
     enabled: id > 0,
+  });
+}
+
+export function useProjectServices(id: number, enabled = true) {
+  return useQuery({
+    queryKey: ['project-services', id],
+    queryFn: () => fetchProjectServices(id),
+    enabled: id > 0 && enabled,
   });
 }
 

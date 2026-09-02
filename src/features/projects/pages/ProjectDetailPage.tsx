@@ -16,6 +16,8 @@ import { useUnitTests } from '../../unit-tests/hooks/useUnitTests';
 import { ProjectWorkflowTabs } from '../components/ProjectWorkflowTabs';
 import { useLanguage } from '../../../shared/i18n/language';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { ProjectServiceSelector } from '../components/ProjectServiceSelector';
+import { useProjectServiceScope } from '../hooks/useProjectServiceScope';
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +31,8 @@ export function ProjectDetailPage() {
     error: analysisError,
   } = useAnalysis(projectId, shouldLoadAnalysis);
   const { data: existingTests = [] } = useExistingTests(projectId, shouldLoadAnalysis);
+  const serviceScope = useProjectServiceScope(projectId, shouldLoadAnalysis);
+  const workflowStatus = serviceScope.selected?.status ?? project?.status;
   const analyzeMutation = useAnalyzeProject();
   const { t } = useLanguage();
   const [showReanalyzeConfirm, setShowReanalyzeConfirm] = useState(false);
@@ -38,10 +42,10 @@ export function ProjectDetailPage() {
   const hasAnalysis = project && project.status !== 'UPLOADED';
   // Đã có artifact pipeline → phân tích lại là thao tác phá hủy, cần confirm kèm số liệu
   const hasPipelineData = project !== undefined && !['UPLOADED', 'ANALYZED', 'FAILED'].includes(project.status);
-  const rulesQuery = useBusinessRules(hasPipelineData ? projectId : 0);
-  const plansQuery = useTestPlans(hasPipelineData ? projectId : 0);
-  const casesQuery = useTestCases(hasPipelineData ? projectId : 0);
-  const unitsQuery = useUnitTests(hasPipelineData ? projectId : 0);
+  const rulesQuery = useBusinessRules(hasPipelineData && serviceScope.selected ? projectId : 0, serviceScope.servicePath);
+  const plansQuery = useTestPlans(hasPipelineData && serviceScope.selected ? projectId : 0, serviceScope.servicePath);
+  const casesQuery = useTestCases(hasPipelineData && serviceScope.selected ? projectId : 0, serviceScope.servicePath);
+  const unitsQuery = useUnitTests(hasPipelineData && serviceScope.selected ? projectId : 0, serviceScope.servicePath);
   const pipelineCounts = [
     `${rulesQuery.data?.length ?? 0} Business Rule`,
     `${plansQuery.data?.length ?? 0} Test Plan`,
@@ -162,9 +166,9 @@ export function ProjectDetailPage() {
           )}
         </div>
       </header>
-
-      {hasAnalysis && (
-        <ProjectWorkflowTabs projectId={projectId} active="analysis" status={project.status} />
+      {hasAnalysis && <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
+      {hasAnalysis && serviceScope.selected && workflowStatus && (
+        <ProjectWorkflowTabs projectId={projectId} active="analysis" status={workflowStatus} servicePath={serviceScope.servicePath} />
       )}
 
       {analyzeMutation.isPending && (
@@ -202,13 +206,13 @@ export function ProjectDetailPage() {
         </div>
       )}
 
-      {hasAnalysis && <BusinessRulesPanel projectId={projectId} />}
+      {hasAnalysis && serviceScope.selected && <BusinessRulesPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} servicePath={serviceScope.servicePath} />}
       <ConfirmDialog
         open={showReanalyzeConfirm}
         title={t('Phân tích lại project?', 'Reanalyze project?')}
         description={t(
-          `Hệ thống sẽ xóa ${pipelineCounts} và toàn bộ lịch sử coverage trước khi phân tích lại. Thao tác này không thể hoàn tác.`,
-          `The system will delete ${pipelineCounts} and the complete coverage history before reanalysis. This action cannot be undone.`,
+          `Hệ thống sẽ xóa artifact của mọi service (service đang chọn: ${pipelineCounts}) và toàn bộ lịch sử coverage trước khi phân tích lại. Thao tác này không thể hoàn tác.`,
+          `The system will delete artifacts from every service (selected service: ${pipelineCounts}) and the complete coverage history before reanalysis. This action cannot be undone.`,
         )}
         confirmLabel={t('Phân tích lại', 'Reanalyze')}
         cancelLabel={t('Hủy', 'Cancel')}
@@ -224,3 +228,4 @@ export function ProjectDetailPage() {
 }
 
 export default ProjectDetailPage;
+

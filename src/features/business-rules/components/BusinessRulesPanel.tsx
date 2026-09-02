@@ -39,9 +39,11 @@ import { splitBusinessRuleText } from '../utils/business-rule-text';
 import { useLanguage } from '../../../shared/i18n/language';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
+import { belongsToService, projectWorkflowPath } from '../../projects/utils/project-service';
 
 interface BusinessRulesPanelProps {
   projectId: number;
+  servicePath?: string;
 }
 
 
@@ -55,7 +57,7 @@ function sourceDecisions(branches: SourceBranchInfo[]) {
   });
 }
 
-export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
+export function BusinessRulesPanel({ projectId, servicePath }: BusinessRulesPanelProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [description, setDescription] = useState('');
@@ -68,9 +70,9 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
   const [ruleToDelete, setRuleToDelete] = useState<BusinessRule | null>(null);
 
-  const { data: rules = [], isLoading, error } = useBusinessRules(projectId);
+  const { data: rules = [], isLoading, error } = useBusinessRules(projectId, servicePath);
   const { data: analysis } = useAnalysis(projectId);
-  const plansQuery = useTestPlans(projectId);
+  const plansQuery = useTestPlans(projectId, servicePath);
   const serviceGroups = useMemo(() => {
     const rulesByMethod = new Map<number, BusinessRule[]>();
     rules.forEach((rule) => {
@@ -78,7 +80,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
       rulesByMethod.set(rule.methodId, [...(rulesByMethod.get(rule.methodId) ?? []), rule]);
     });
     return [...(analysis?.classes ?? [])]
-      .filter((javaClass) => javaClass.classType === 'SERVICE')
+      .filter((javaClass) => javaClass.classType === 'SERVICE' && belongsToService(javaClass.filePath, servicePath))
       .sort((left, right) => left.filePath.localeCompare(right.filePath)
         || left.qualifiedName.localeCompare(right.qualifiedName))
       .map((javaClass) => ({
@@ -87,7 +89,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
           .sort((left, right) => left.lineStart - right.lineStart || left.id - right.id)
           .map((method) => ({ ...method, rules: rulesByMethod.get(method.id) ?? [] })),
       }));
-  }, [analysis, rules]);
+  }, [analysis, rules, servicePath]);
   const fileGroups = useMemo(() => {
     const groups = new Map<string, { filePath: string; services: typeof serviceGroups }>();
     serviceGroups.forEach((service) => {
@@ -125,13 +127,13 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
       return methodTotal + sourceDecisions(method.branches ?? [])
         .filter((decision) => !covered.has(decision.decisionId)).length;
     }, 0), 0);
-  const createMutation = useCreateBusinessRules(projectId);
-  const generateMutation = useGenerateBusinessRules(projectId);
+  const createMutation = useCreateBusinessRules(projectId, servicePath);
+  const generateMutation = useGenerateBusinessRules(projectId, servicePath);
   const generationProgress = useGenerationProgress(projectId, 'BUSINESS_RULE', generateMutation.isPending);
   const generationRunning = generationProgress.projectRunning
     ?? (generationProgress.data?.status === 'QUEUED' || generationProgress.data?.status === 'RUNNING');
-  const reviewMutation = useReviewBusinessRules(projectId);
-  const approveMutation = useApproveBusinessRules(projectId);
+  const reviewMutation = useReviewBusinessRules(projectId, servicePath);
+  const approveMutation = useApproveBusinessRules(projectId, servicePath);
   const updateMutation = useUpdateBusinessRule(projectId);
   const acceptSuggestionMutation = useAcceptBusinessRuleSuggestion(projectId);
   const deleteMutation = useDeleteBusinessRule(projectId);
@@ -386,7 +388,7 @@ export function BusinessRulesPanel({ projectId }: BusinessRulesPanelProps) {
             className="btn btn-brand"
             disabled={pending || rules.length === 0 || uncoveredDecisionCount > 0}
             onClick={() => approveMutation.mutate(undefined, {
-              onSuccess: () => navigate(`/projects/${projectId}/test-plans`, {
+              onSuccess: () => navigate(projectWorkflowPath(projectId, 'test-plans', servicePath), {
                 state: { workflowNotice: t('Đã duyệt Business Rule. Chuyển sang bước Test Plan.', 'Business Rules approved. Continue with Test Plans.') },
               }),
             })}

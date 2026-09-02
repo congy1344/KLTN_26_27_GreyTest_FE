@@ -19,16 +19,17 @@ import type { UnitTestFile } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { displaySourcePath } from '../../../shared/utils/source-path';
+import { projectWorkflowPath } from '../../projects/utils/project-service';
 
-export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
+export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: number; servicePath?: string }) {
   const navigate = useNavigate();
-  const cases = useTestCases(projectId);
-  const plans = useTestPlans(projectId);
-  const rules = useBusinessRules(projectId);
+  const cases = useTestCases(projectId, servicePath);
+  const plans = useTestPlans(projectId, servicePath);
+  const rules = useBusinessRules(projectId, servicePath);
   const analysis = useAnalysis(projectId);
-  const tests = useUnitTests(projectId);
-  const files = useUnitTestFiles(projectId);
-  const generate = useGenerateUnitTests(projectId);
+  const tests = useUnitTests(projectId, servicePath);
+  const files = useUnitTestFiles(projectId, servicePath);
+  const generate = useGenerateUnitTests(projectId, servicePath);
   const generationProgress = useGenerationProgress(projectId, 'UNIT_TEST', generate.isPending);
   const generationRunning = generationProgress.projectRunning
     ?? (generationProgress.data?.status === 'QUEUED' || generationProgress.data?.status === 'RUNNING');
@@ -102,7 +103,7 @@ export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
     try {
       setDownloadError('');
       setDownloading(true);
-      await downloadUnitTestsZip(projectId);
+      await downloadUnitTestsZip(projectId, servicePath);
     } catch (downloadException) {
       setDownloadError(getErrorMessage(downloadException));
     } finally {
@@ -146,7 +147,7 @@ export function UnitTestsPanel({ projectId = 0 }: { projectId?: number }) {
             <button
               className="btn btn-brand shrink-0"
               disabled={generate.isPending || generationRunning || !coverageReady}
-              onClick={() => navigate(`/projects/${projectId}/coverage`, {
+              onClick={() => navigate(projectWorkflowPath(projectId, 'coverage', servicePath), {
                 state: { workflowNotice: t('Unit Test đã sẵn sàng. Chuyển sang bước Coverage.', 'Unit Tests are ready. Continue with Coverage.') },
               })}
             >

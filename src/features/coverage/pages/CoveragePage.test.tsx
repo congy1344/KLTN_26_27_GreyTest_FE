@@ -6,11 +6,12 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Project } from '../../projects/types';
-import { useProject } from '../../projects/hooks/useProjects';
+import { useProject, useProjectServices } from '../../projects/hooks/useProjects';
 import { CoveragePage } from './CoveragePage';
 
 vi.mock('../../projects/hooks/useProjects', () => ({
   useProject: vi.fn(),
+  useProjectServices: vi.fn(),
 }));
 
 vi.mock('../../../shared/components/AppShell', () => ({
@@ -33,6 +34,11 @@ describe('CoveragePage', () => {
       isLoading: false,
       error: null,
     } as ReturnType<typeof useProject>);
+    vi.mocked(useProjectServices).mockReturnValue({
+      data: [{ servicePath: '.', name: 'demo', status }],
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof useProjectServices>);
 
     render(
       <MemoryRouter initialEntries={['/projects/105/coverage']}>

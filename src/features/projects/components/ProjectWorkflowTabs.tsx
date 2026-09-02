@@ -12,11 +12,13 @@ import {
   isWorkflowStepCompleted,
   type WorkflowStepId,
 } from '../utils/project-workflow';
+import { projectWorkflowPath } from '../utils/project-service';
 
 interface ProjectWorkflowTabsProps {
   projectId: number;
   active: WorkflowStepId;
   status: ProjectStatus;
+  servicePath?: string;
 }
 
 const tabs = [
@@ -38,7 +40,7 @@ const disabledDescriptions: Record<string, [string, string]> = {
   report: ['Phân tích coverage trước khi xuất Report', 'Analyze coverage before exporting a Report'],
 };
 
-export function ProjectWorkflowTabs({ projectId, active, status }: ProjectWorkflowTabsProps) {
+export function ProjectWorkflowTabs({ projectId, active, status, servicePath }: ProjectWorkflowTabsProps) {
   const { t } = useLanguage();
   const enabledByTab: Record<string, boolean> = {
     analysis: true,
@@ -54,7 +56,7 @@ export function ProjectWorkflowTabs({ projectId, active, status }: ProjectWorkfl
       {tabs.map((tab, index) => {
         const Icon = tab.icon;
         const isActive = active === tab.id;
-        const to = tab.id === 'analysis' ? `/projects/${projectId}` : `/projects/${projectId}/${tab.id}`;
+        const to = projectWorkflowPath(projectId, tab.id === 'analysis' ? undefined : tab.id, servicePath);
         const isDisabled = !enabledByTab[tab.id];
         const isCurrent = isActive && !isDisabled;
         const isCompleted = isWorkflowStepCompleted(tab.id, status);
