@@ -139,10 +139,16 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
           ? <InlineAlert tone="success">{t('Đã kiểm chứng đủ: mỗi Test Case được approve có đúng một Unit Test.', 'Verified: every approved Test Case has exactly one Unit Test.')}</InlineAlert>
           : <InlineAlert tone="warning">{t(`Chưa nên sang Coverage: ${coverageWarning}.`, `Not ready for Coverage: ${coverageWarning}.`)}</InlineAlert>)}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3"><ListFilter size={16} className="text-fg-brand-strong" /><span className="text-sm font-semibold text-heading">{t('Tìm và đối chiếu Unit Test', 'Find and verify Unit Tests')}</span></div>
+          <div className="flex items-start gap-3">
+            <ListFilter size={16} className="mt-0.5 text-fg-brand-strong" />
+            <div>
+              <p className="text-sm font-semibold text-heading">{t('Tìm và đối chiếu Unit Test', 'Find and verify Unit Tests')}</p>
+              <p className="mt-0.5 text-xs text-body-subtle">{t('ZIP kèm công cụ tạo jacoco.xml. Giải nén đè vào thư mục module Maven (chứa pom.xml) để file test vào đúng src/test/java.', 'ZIP includes a jacoco.xml runner. Extract directly into Maven module root (with pom.xml) so tests land in src/test/java.')}</p>
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2">
             <button className="btn btn-secondary shrink-0" disabled={downloading || (tests.data ?? []).length === 0} onClick={handleDownload}>
-              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} {t('Tải tất cả file (.zip)', 'Download all files (.zip)')}
+              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} {t('Tải tất cả file + Coverage (.zip)', 'Download tests + Coverage (.zip)')}
             </button>
             <button
               className="btn btn-brand shrink-0"

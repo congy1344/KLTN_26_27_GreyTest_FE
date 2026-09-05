@@ -44,6 +44,32 @@ describe('ProjectWorkflowTabs', () => {
     expect(screen.getByRole('link', { name: /06.*Traceability/ })).toHaveAttribute('aria-current', 'page');
   });
 
+  it('highlights only the workflow page selected by the user', () => {
+    render(
+      <MemoryRouter>
+        <ProjectWorkflowTabs projectId={7} active="analysis" status="PLAN_PENDING_REVIEW" />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: /^01.*Analysis & BR/ }))
+      .toHaveAttribute('data-workflow-state', 'active');
+    expect(screen.getByRole('link', { name: /^02.*Đang thực hiện.*Test Plan/ }))
+      .toHaveAttribute('data-workflow-state', 'available');
+  });
+
+  it('keeps the workflow-stage label visible when the user opens another step', () => {
+    render(
+      <MemoryRouter>
+        <ProjectWorkflowTabs projectId={7} active="analysis" status="CASE_APPROVED" />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: /^01.*Analysis & BR/ }))
+      .toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: /^04.*Đang thực hiện.*Unit Test/ }))
+      .not.toHaveAttribute('aria-current');
+  });
+
   it('keeps the selected service in workflow links', () => {
     render(
       <MemoryRouter>

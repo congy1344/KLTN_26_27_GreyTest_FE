@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
-import { FileCode2, Folder } from 'lucide-react';
+import { Box, Boxes, ClipboardCheck, Code2, Database, FileCode2, Folder, Globe, ListTree, Table2, TestTube2 } from 'lucide-react';
 import type { ExistingTestInfo, JavaClassInfo, JavaMethodInfo } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
 import { displaySourcePath } from '../../../shared/utils/source-path';
@@ -14,8 +14,12 @@ interface ClassTreeProps {
 interface TreeEntry {
   id: string;
   label: string;
+  kind: TreeEntryKind;
   children: TreeEntry[];
 }
+
+type TreeEntryKind = 'folder' | 'java-file' | 'test-file' | 'controller' | 'service'
+  | 'repository' | 'entity' | 'record' | 'enum' | 'class' | 'method' | 'test-method';
 
 const EMPTY_TESTS: ExistingTestInfo[] = [];
 const CODE_BLOCK_CLASS = 'max-h-[calc(100vh-220px)] overflow-auto rounded-default border border-border-default bg-neutral-primary-medium p-3 font-mono text-xs leading-relaxed text-heading';
@@ -24,14 +28,19 @@ function pathParts(path: string) {
   return path.replace(/\\/g, '/').split('/').filter(Boolean);
 }
 
-function addPath(root: TreeEntry[], parts: string[], leaf: TreeEntry) {
+function addPath(root: TreeEntry[], parts: string[], leaf: TreeEntry, fileKind: 'java-file' | 'test-file') {
   let current = root;
   let prefix = '';
   parts.forEach((part, index) => {
     prefix = prefix ? `${prefix}/${part}` : part;
     let entry = current.find((item) => item.id === `path:${prefix}`);
     if (!entry) {
-      entry = { id: `path:${prefix}`, label: part, children: [] };
+      entry = {
+        id: `path:${prefix}`,
+        label: part,
+        kind: index === parts.length - 1 ? fileKind : 'folder',
+        children: [],
+      };
       current.push(entry);
     }
     if (index === parts.length - 1) {
@@ -39,6 +48,36 @@ function addPath(root: TreeEntry[], parts: string[], leaf: TreeEntry) {
     }
     current = entry.children;
   });
+}
+
+function classKind(classType: string): TreeEntryKind {
+  switch (classType.toUpperCase()) {
+    case 'CONTROLLER': return 'controller';
+    case 'SERVICE': return 'service';
+    case 'REPOSITORY': return 'repository';
+    case 'ENTITY': return 'entity';
+    case 'RECORD': return 'record';
+    case 'ENUM': return 'enum';
+    default: return 'class';
+  }
+}
+
+function entryIcon(kind: TreeEntryKind) {
+  const props = { size: 14, strokeWidth: 1.8, 'aria-hidden': true } as const;
+  switch (kind) {
+    case 'folder': return <Folder {...props} className="text-body-subtle" />;
+    case 'java-file': return <FileCode2 {...props} className="text-fg-brand-strong" />;
+    case 'test-file': return <TestTube2 {...props} className="text-fg-success-strong" />;
+    case 'controller': return <Globe {...props} className="text-fg-warning" />;
+    case 'service': return <Boxes {...props} className="text-fg-success-strong" />;
+    case 'repository': return <Database {...props} className="text-fg-purple" />;
+    case 'entity': return <Table2 {...props} className="text-fg-purple" />;
+    case 'record': return <Box {...props} className="text-fg-brand" />;
+    case 'enum': return <ListTree {...props} className="text-fg-warning" />;
+    case 'method': return <Code2 {...props} className="text-fg-brand" />;
+    case 'test-method': return <ClipboardCheck {...props} className="text-fg-success-strong" />;
+    default: return <Box {...props} className="text-body" />;
+  }
 }
 
 function methodDetail(method: JavaMethodInfo) {
@@ -87,7 +126,14 @@ function renderEntries(entries: TreeEntry[], expandedIds: Set<string>): ReactNod
     <TreeItem
       key={entry.id}
       itemId={entry.id}
-      label={<span className="flex items-center gap-2 text-sm">{entry.children.length ? <Folder size={14} /> : <FileCode2 size={14} />}{entry.label}</span>}
+      label={(
+        <span className="flex items-center gap-2 text-sm" data-node-kind={entry.kind}>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-neutral-secondary-soft">
+            {entryIcon(entry.kind)}
+          </span>
+          <span className="truncate">{entry.label}</span>
+        </span>
+      )}
       slotProps={{ groupTransition: { unmountOnExit: true } }}
     >
       {entry.children.length > 0 && (expandedIds.has(entry.id)
@@ -106,19 +152,27 @@ export function ClassTree({ classes, existingTests = EMPTY_TESTS }: ClassTreePro
       const classEntry: TreeEntry = {
         id: `class:${javaClass.id}`,
         label: javaClass.className,
+        kind: classKind(javaClass.classType),
         children: javaClass.methods.map((method) => ({
           id: `method:${method.id}`,
           label: method.methodName,
+          kind: 'method',
           children: [],
         })),
       };
-      addPath(root, pathParts(javaClass.filePath), classEntry);
+      addPath(root, pathParts(javaClass.filePath), classEntry, 'java-file');
     });
     existingTests.forEach((test) => addPath(root, pathParts(test.filePath), {
       id: `test:${test.id}`,
       label: test.testClassName,
-      children: test.testMethods.map((method) => ({ id: `test-method:${test.id}:${method.name}`, label: method.name, children: [] })),
-    }));
+      kind: 'test-file',
+      children: test.testMethods.map((method) => ({
+        id: `test-method:${test.id}:${method.name}`,
+        label: method.name,
+        kind: 'test-method',
+        children: [],
+      })),
+    }, 'test-file'));
     return root;
   }, [classes, existingTests]);
   const rootExpandedItems = useMemo(() => entries.map((entry) => entry.id), [entries]);

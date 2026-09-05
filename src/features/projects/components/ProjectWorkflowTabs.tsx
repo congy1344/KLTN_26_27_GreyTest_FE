@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { BarChart3, CheckCircle2, ClipboardCheck, ClipboardList, Code2, FileText, ScanLine, TableProperties } from 'lucide-react';
+import { AlertCircle, BarChart3, CheckCircle2, ClipboardCheck, ClipboardList, Code2, FileText, ScanLine, TableProperties } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n/language';
 import type { ProjectStatus } from '../types';
 import {
@@ -9,6 +9,7 @@ import {
   canOpenTestPlans,
   canOpenTraceability,
   canOpenUnitTests,
+  getCurrentWorkflowStep,
   isWorkflowStepCompleted,
   type WorkflowStepId,
 } from '../utils/project-workflow';
@@ -42,6 +43,7 @@ const disabledDescriptions: Record<string, [string, string]> = {
 
 export function ProjectWorkflowTabs({ projectId, active, status, servicePath }: ProjectWorkflowTabsProps) {
   const { t } = useLanguage();
+  const currentWorkflowStep = getCurrentWorkflowStep(status);
   const enabledByTab: Record<string, boolean> = {
     analysis: true,
     'test-plans': canOpenTestPlans(status),
@@ -60,13 +62,24 @@ export function ProjectWorkflowTabs({ projectId, active, status, servicePath }: 
         const isDisabled = !enabledByTab[tab.id];
         const isCurrent = isActive && !isDisabled;
         const isCompleted = isWorkflowStepCompleted(tab.id, status);
+        const isWorkflowCurrent = currentWorkflowStep === tab.id && status !== 'COMPLETED' && status !== 'FAILED';
+        const isFailedStep = currentWorkflowStep === tab.id && status === 'FAILED';
+        const workflowState = isDisabled
+          ? 'disabled'
+          : isCurrent
+            ? 'active'
+            : isCompleted
+              ? 'completed'
+              : 'available';
         const className = `min-h-[108px] rounded-base border p-3 shadow-sm transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${
           isDisabled
             ? 'cursor-not-allowed border-border-default bg-neutral-secondary-soft text-body-subtle opacity-70'
             : `hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
               isCurrent
-                ? 'border-border-brand-subtle bg-brand-softer text-fg-brand-strong'
-                : 'border-border-default bg-neutral-primary-soft text-body hover:border-border-default-strong'
+                ? 'border-border-brand bg-brand-softer text-fg-brand-strong shadow-md ring-2 ring-brand/20'
+                : isCompleted
+                  ? 'border-border-success-subtle bg-success-soft/50 text-fg-success-strong'
+                  : 'border-border-default bg-neutral-primary-soft text-body hover:border-border-default-strong'
             }`
         }`;
         const description = isDisabled && disabledDescriptions[tab.id]
@@ -75,13 +88,32 @@ export function ProjectWorkflowTabs({ projectId, active, status, servicePath }: 
         const content = (
           <div className="flex h-full flex-col">
             <div className="flex items-center justify-between gap-2">
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-default ${
-              isCurrent ? 'bg-neutral-primary-soft text-fg-brand-strong' : 'bg-neutral-secondary-medium text-body-subtle'
+            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-default transition-colors ${
+              isCurrent
+                ? 'bg-brand text-neutral-primary-soft shadow-sm'
+                : isCompleted
+                  ? 'bg-success-soft text-fg-success-strong'
+                  : 'bg-neutral-secondary-medium text-body-subtle'
             }`}>
               <Icon size={15} strokeWidth={1.8} />
             </span>
               <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold text-body-subtle">
                 <span>{String(index + 1).padStart(2, '0')}</span>
+                {isWorkflowCurrent && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border border-border-brand-subtle bg-brand-softer px-1.5 py-0.5 font-sans text-[9px] font-bold text-fg-brand-strong"
+                    title={t('Giai đoạn hiện tại của quy trình', 'Current workflow stage')}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-hidden="true" />
+                    {t('Đang thực hiện', 'In progress')}
+                  </span>
+                )}
+                {isFailedStep && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-1.5 py-0.5 font-sans text-[9px] font-bold text-fg-danger-strong">
+                    <AlertCircle size={11} strokeWidth={2} aria-hidden="true" />
+                    {t('Lỗi', 'Failed')}
+                  </span>
+                )}
                 {isCompleted && (
                   <span className="inline-flex items-center text-fg-success-strong">
                     <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" />
@@ -99,7 +131,7 @@ export function ProjectWorkflowTabs({ projectId, active, status, servicePath }: 
 
         if (isDisabled) {
           return (
-            <span key={tab.id} aria-disabled="true" className={className}>
+            <span key={tab.id} aria-disabled="true" data-workflow-state={workflowState} className={className}>
               {content}
             </span>
           );
@@ -110,6 +142,7 @@ export function ProjectWorkflowTabs({ projectId, active, status, servicePath }: 
             key={tab.id}
             to={to}
             aria-current={isCurrent ? 'page' : undefined}
+            data-workflow-state={workflowState}
             className={className}
           >
             {content}

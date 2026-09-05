@@ -78,6 +78,7 @@ describe('UnitTestsPanel', () => {
   it('disables ZIP download until tests exist', () => {
     renderPanel();
     expect(screen.getByRole('button', { name: /Tải tất cả file/ })).toBeDisabled();
+    expect(screen.getByText(/kèm công cụ tạo jacoco\.xml/i)).toBeVisible();
     expect(screen.getByRole('button', { name: /Tiếp tục đến Coverage/ })).toBeDisabled();
   });
 

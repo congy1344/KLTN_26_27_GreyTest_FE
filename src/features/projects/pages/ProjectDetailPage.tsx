@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Scan, Loader2, GitBranch, Archive } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Scan, Loader2, GitBranch, Archive } from 'lucide-react';
 import { useProject, useAnalysis, useAnalyzeProject, useExistingTests } from '../hooks/useProjects';
 import { StatusBadge } from '../components/StatusBadge';
 import { AnalysisResult } from '../components/AnalysisResult';
@@ -167,6 +167,30 @@ export function ProjectDetailPage() {
         </div>
       </header>
       {hasAnalysis && <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
+      {hasAnalysis && serviceScope.isError && (
+        <div className="mb-6 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4 shadow-sm">
+          <AlertTriangle size={17} className="mt-0.5 shrink-0 text-fg-warning" />
+          <div>
+            <p className="text-sm font-semibold text-fg-warning">
+              {t('Không thể tải danh sách service để sinh Business Rule', 'Unable to load services for Business Rule generation')}
+            </p>
+            <p className="mt-1 text-xs text-body">{getErrorMessage(serviceScope.error)}</p>
+          </div>
+        </div>
+      )}
+      {hasAnalysis && serviceScope.isSuccess && serviceScope.services.length === 0 && (
+        <div className="mb-6 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4 shadow-sm">
+          <AlertTriangle size={17} className="mt-0.5 shrink-0 text-fg-warning" />
+          <div>
+            <p className="text-sm font-semibold text-fg-warning">
+              {t('Không tìm thấy Service class để sinh Business Rule', 'No Service class found for Business Rule generation')}
+            </p>
+            <p className="mt-1 text-xs text-body">
+              {t('Kiểm tra kết quả phân loại class hoặc bấm Phân tích lại.', 'Check class classification or analyze the project again.')}
+            </p>
+          </div>
+        </div>
+      )}
       {hasAnalysis && serviceScope.selected && workflowStatus && (
         <ProjectWorkflowTabs projectId={projectId} active="analysis" status={workflowStatus} servicePath={serviceScope.servicePath} />
       )}
@@ -228,4 +252,3 @@ export function ProjectDetailPage() {
 }
 
 export default ProjectDetailPage;
-

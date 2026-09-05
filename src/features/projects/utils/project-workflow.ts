@@ -104,6 +104,10 @@ export function isWorkflowStepCompleted(step: WorkflowStepId, status: ProjectSta
   return stepIndex < currentIndex || (status === 'COMPLETED' && step === 'report');
 }
 
+export function getCurrentWorkflowStep(status: ProjectStatus) {
+  return CURRENT_STEP_BY_STATUS[status];
+}
+
 export function getProjectResumePath(projectId: number, status: ProjectStatus) {
   const step = CURRENT_STEP_BY_STATUS[status];
   return step === 'analysis' ? `/projects/${projectId}` : `/projects/${projectId}/${step}`;

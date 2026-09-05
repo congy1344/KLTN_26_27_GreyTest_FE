@@ -7,7 +7,7 @@ export function useProjectServiceScope(projectId: number, enabled = true) {
   const requestedPath = searchParams.get('servicePath');
   const services = query.data ?? [];
   const selected = services.find((service) => service.servicePath === requestedPath)
-    ?? (services.length === 1 ? services[0] : undefined);
+    ?? services[0];
 
   const select = (servicePath: string) => {
     const next = new URLSearchParams(searchParams);
@@ -21,7 +21,7 @@ export function useProjectServiceScope(projectId: number, enabled = true) {
     services,
     selected,
     servicePath: selected?.servicePath,
-    requiresSelection: services.length > 1 && !selected,
+    requiresSelection: false,
     select,
   };
 }

@@ -49,6 +49,16 @@ const classes: JavaClassInfo[] = [
     sourceCode: 'public record CreateUserRequest(String name, UserStatus status) {\n}',
     methods: [],
   },
+  {
+    id: 5,
+    packageName: 'com.example.persistence',
+    className: 'UserEntity',
+    qualifiedName: 'com.example.persistence.UserEntity',
+    classType: 'ENTITY',
+    filePath: 'UserEntity.java',
+    sourceCode: 'class UserEntity {}',
+    methods: [],
+  },
 ];
 
 afterEach(cleanup);
@@ -74,5 +84,24 @@ describe('ClassTree', () => {
     expect(screen.getByText(/public record CreateUserRequest/)).toBeInTheDocument();
     expect(screen.getByText(/public record CreateUserRequest/).closest('pre'))
       .toHaveClass('max-h-[calc(100vh-220px)]');
+  });
+
+  it('uses distinct icons for file, class type, and method nodes', () => {
+    render(<ClassTree classes={classes} />);
+
+    expect(screen.getByText('UserController.java').closest('[data-node-kind]'))
+      .toHaveAttribute('data-node-kind', 'java-file');
+    expect(screen.getByText('UserController').closest('[data-node-kind]'))
+      .toHaveAttribute('data-node-kind', 'controller');
+    expect(screen.getByText('CreateUserRequest').closest('[data-node-kind]'))
+      .toHaveAttribute('data-node-kind', 'record');
+    expect(screen.getByText('UserEntity').closest('[data-node-kind]'))
+      .toHaveAttribute('data-node-kind', 'entity');
+
+    const controllerLabel = screen.getByText('UserController');
+    fireEvent.click(controllerLabel);
+
+    expect(screen.getByText('findUser').closest('[data-node-kind]'))
+      .toHaveAttribute('data-node-kind', 'method');
   });
 });
