@@ -7,11 +7,13 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Project } from '../../projects/types';
 import { useProject } from '../../projects/hooks/useProjects';
+import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceScope';
 import { ReportPage } from './ReportPage';
 
 vi.mock('../../projects/hooks/useProjects', () => ({
   useProject: vi.fn(),
 }));
+vi.mock('../../projects/hooks/useProjectServiceScope', () => ({ useProjectServiceScope: vi.fn() }));
 
 vi.mock('../../../shared/components/AppShell', () => ({
   AppShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -33,9 +35,19 @@ describe('ReportPage', () => {
       isLoading: false,
       error: null,
     } as ReturnType<typeof useProject>);
+    vi.mocked(useProjectServiceScope).mockReturnValue({
+      services: [{ servicePath: 'billing-service', name: 'billing-service', status }],
+      selected: { servicePath: 'billing-service', name: 'billing-service', status },
+      servicePath: 'billing-service',
+      select: vi.fn(),
+      isLoading: false,
+      error: null,
+      isError: false,
+      isSuccess: true,
+    } as never);
 
     render(
-      <MemoryRouter initialEntries={['/projects/105/report']}>
+      <MemoryRouter initialEntries={['/projects/105/report?servicePath=billing-service']}>
         <Routes>
           <Route path="/projects/:id/report" element={<ReportPage />} />
           <Route path="/projects/:id/coverage" element={<div>Coverage Page</div>} />
@@ -47,7 +59,7 @@ describe('ReportPage', () => {
   it('allows report once coverage is analyzed', () => {
     renderPage('COVERAGE_ANALYZED');
     expect(screen.getByText('Report Panel')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Traceability' })).toHaveAttribute('href', '/projects/105/traceability');
+    expect(screen.getByRole('link', { name: 'Traceability' })).toHaveAttribute('href', '/projects/105/traceability?servicePath=billing-service');
     expect(screen.queryByText('Mở Traceability')).not.toBeInTheDocument();
   });
 

@@ -7,9 +7,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { Project } from '../../projects/types';
 import { useProject } from '../../projects/hooks/useProjects';
+import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceScope';
 import { TraceabilityPage } from './TraceabilityPage';
 
 vi.mock('../../projects/hooks/useProjects', () => ({ useProject: vi.fn() }));
+vi.mock('../../projects/hooks/useProjectServiceScope', () => ({ useProjectServiceScope: vi.fn() }));
 vi.mock('../../../shared/components/AppShell', () => ({
   AppShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
@@ -28,9 +30,19 @@ function renderPage(status: Project['status']) {
     isLoading: false,
     error: null,
   } as ReturnType<typeof useProject>);
+  vi.mocked(useProjectServiceScope).mockReturnValue({
+    services: [{ servicePath: 'billing-service', name: 'billing-service', status }],
+    selected: { servicePath: 'billing-service', name: 'billing-service', status },
+    servicePath: 'billing-service',
+    select: vi.fn(),
+    isLoading: false,
+    error: null,
+    isError: false,
+    isSuccess: true,
+  } as never);
 
   render(
-    <MemoryRouter initialEntries={['/projects/105/traceability']}>
+    <MemoryRouter initialEntries={['/projects/105/traceability?servicePath=billing-service']}>
       <Routes>
         <Route path="/projects/:id/traceability" element={<TraceabilityPage />} />
       </Routes>
@@ -41,7 +53,9 @@ function renderPage(status: Project['status']) {
 it('continues from traceability to the final report step', () => {
   renderPage('COVERAGE_ANALYZED');
   expect(screen.getByRole('link', { name: /Tiếp tục đến Report/i }))
-    .toHaveAttribute('href', '/projects/105/report');
+    .toHaveAttribute('href', '/projects/105/report?servicePath=billing-service');
+    expect(screen.getByRole('link', { name: /^05.*Coverage/ }))
+      .toHaveAttribute('href', '/projects/105/coverage?servicePath=billing-service');
 });
 
 it('does not offer report before coverage is analyzed', () => {

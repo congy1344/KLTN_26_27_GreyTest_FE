@@ -15,9 +15,12 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-export function getErrorMessage(error: unknown): string {
+export function getErrorMessage(error: unknown, includeErrorMessage = false): string {
   if (axios.isAxiosError(error)) {
     return error.response?.data?.message ?? error.message;
+  }
+  if (includeErrorMessage && error instanceof Error) {
+    return error.message || (getLanguage() === 'vi' ? 'Có lỗi xảy ra' : 'An error occurred');
   }
   return getLanguage() === 'vi' ? 'Có lỗi xảy ra' : 'An error occurred';
 }

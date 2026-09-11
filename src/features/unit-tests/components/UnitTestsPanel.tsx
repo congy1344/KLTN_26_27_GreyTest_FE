@@ -105,7 +105,7 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
       setDownloading(true);
       await downloadUnitTestsZip(projectId, servicePath);
     } catch (downloadException) {
-      setDownloadError(getErrorMessage(downloadException));
+      setDownloadError(getErrorMessage(downloadException, true));
     } finally {
       setDownloading(false);
     }
@@ -124,6 +124,15 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
             label={t('Tiến trình AI của dự án', 'Project AI progress')}
             progress={generationProgress.projectProgress ?? generationProgress.data}
           />
+          <button
+            className="btn btn-brand shrink-0"
+            disabled={generate.isPending || generationRunning || !coverageReady}
+            onClick={() => navigate(projectWorkflowPath(projectId, 'coverage', servicePath), {
+              state: { workflowNotice: t('Unit Test đã sẵn sàng. Chuyển sang bước Coverage.', 'Unit Tests are ready. Continue with Coverage.') },
+            })}
+          >
+            {t('Tiếp tục đến Coverage', 'Continue to Coverage')} <ArrowRight size={14} />
+          </button>
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -143,21 +152,12 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
             <ListFilter size={16} className="mt-0.5 text-fg-brand-strong" />
             <div>
               <p className="text-sm font-semibold text-heading">{t('Tìm và đối chiếu Unit Test', 'Find and verify Unit Tests')}</p>
-              <p className="mt-0.5 text-xs text-body-subtle">{t('ZIP kèm công cụ tạo jacoco.xml. Giải nén đè vào thư mục module Maven (chứa pom.xml) để file test vào đúng src/test/java.', 'ZIP includes a jacoco.xml runner. Extract directly into Maven module root (with pom.xml) so tests land in src/test/java.')}</p>
+              <p className="mt-0.5 text-xs text-body-subtle">{t('ZIP kèm công cụ tạo jacoco.xml. Giải nén đè vào thư mục module Maven hoặc Gradle (chứa pom.xml/build.gradle) để file test vào đúng src/test/java.', 'ZIP includes a jacoco.xml runner. Extract directly into a Maven or Gradle module root so tests land in src/test/java.')}</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex min-w-0 max-w-full">
             <button className="btn btn-secondary shrink-0" disabled={downloading || (tests.data ?? []).length === 0} onClick={handleDownload}>
               {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} {t('Tải tất cả file + Coverage (.zip)', 'Download tests + Coverage (.zip)')}
-            </button>
-            <button
-              className="btn btn-brand shrink-0"
-              disabled={generate.isPending || generationRunning || !coverageReady}
-              onClick={() => navigate(projectWorkflowPath(projectId, 'coverage', servicePath), {
-                state: { workflowNotice: t('Unit Test đã sẵn sàng. Chuyển sang bước Coverage.', 'Unit Tests are ready. Continue with Coverage.') },
-              })}
-            >
-              {t('Tiếp tục đến Coverage', 'Continue to Coverage')} <ArrowRight size={14} />
             </button>
           </div>
         </div>

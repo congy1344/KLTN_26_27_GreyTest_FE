@@ -76,4 +76,17 @@ describe('groupRows', () => {
     expect(screen.getByText('TC-001')).toBeVisible();
     expect(screen.getByText('shouldWork')).toBeVisible();
   });
+
+  it('hides uncovered rows from the matrix', () => {
+    traceabilityData.rows = [
+      row({}),
+      row({ ruleId: 2, ruleCode: 'BR-002', planId: null, planCode: null, caseId: null, caseCode: null, unitTestId: null, unitTestName: null }),
+    ];
+
+    render(<TraceabilityMatrix projectId={7} />);
+
+    expect(screen.getByText('BR-001')).toBeVisible();
+    expect(screen.queryByText('BR-002')).not.toBeInTheDocument();
+    expect(screen.queryByText('Uncovered')).not.toBeInTheDocument();
+  });
 });

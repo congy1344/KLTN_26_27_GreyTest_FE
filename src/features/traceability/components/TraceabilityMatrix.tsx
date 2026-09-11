@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Search, TableProperties } from 'lucide-react';
+import { Search, TableProperties } from 'lucide-react';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import { LoadingState } from '../../../shared/components/LoadingState';
@@ -25,11 +25,11 @@ export function groupRows(rows: TraceabilityRow[], search: string): Map<string, 
   return groups;
 }
 
-export function TraceabilityMatrix({ projectId }: { projectId: number }) {
+export function TraceabilityMatrix({ projectId, servicePath }: { projectId: number; servicePath?: string }) {
   const { t } = useLanguage();
-  const { data, isLoading, isError, error, refetch } = useTraceability(projectId);
+  const { data, isLoading, isError, error, refetch } = useTraceability(projectId, servicePath);
   const [search, setSearch] = useState('');
-  const rows = useMemo(() => data?.rows ?? [], [data]);
+  const rows = useMemo(() => (data?.rows ?? []).filter((row) => row.unitTestId != null), [data]);
   const groups = useMemo(() => groupRows(rows, search), [rows, search]);
 
   if (isLoading) {
@@ -40,7 +40,6 @@ export function TraceabilityMatrix({ projectId }: { projectId: number }) {
   }
 
   const ruleCodes = [...new Set(rows.map((row) => row.ruleCode))];
-  const uncoveredCodes = new Set((data?.uncoveredRules ?? []).map((row) => row.ruleCode));
   const tracePaths = rows.filter((row) => row.unitTestId != null).length;
 
   return (
@@ -54,8 +53,6 @@ export function TraceabilityMatrix({ projectId }: { projectId: number }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SummaryChip label={t(`${ruleCodes.length} Business Rule`, `${ruleCodes.length} Business Rules`)} />
-          <SummaryChip tone="success" label={t(`${ruleCodes.length - uncoveredCodes.size} đã cover`, `${ruleCodes.length - uncoveredCodes.size} covered`)} />
-          <SummaryChip tone={uncoveredCodes.size > 0 ? 'danger' : 'success'} label={t(`${uncoveredCodes.size} chưa cover`, `${uncoveredCodes.size} uncovered`)} />
           <SummaryChip label={t(`${tracePaths} trace path`, `${tracePaths} trace paths`)} />
         </div>
       </div>
@@ -104,7 +101,6 @@ export function TraceabilityMatrix({ projectId }: { projectId: number }) {
               </thead>
               <tbody>
                 {[...groups.entries()].flatMap(([ruleCode, ruleRows]) => {
-                  const uncovered = uncoveredCodes.has(ruleCode);
                   return ruleRows.map((row, index) => (
                     <tr
                       key={`${ruleCode}-${row.planId ?? 'no-plan'}-${row.caseId ?? index}-${row.unitTestId ?? 'no-test'}`}
@@ -114,12 +110,6 @@ export function TraceabilityMatrix({ projectId }: { projectId: number }) {
                         <td rowSpan={ruleRows.length} className="border-r border-border-default/70 bg-neutral-secondary-soft/35 px-4 py-4 align-top">
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-mono text-xs font-bold text-heading">{ruleCode}</span>
-                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                              uncovered ? 'bg-danger-soft text-fg-danger-strong' : 'bg-success-soft text-fg-success-strong'
-                            }`}>
-                              {uncovered ? <AlertTriangle size={10} /> : <CheckCircle2 size={10} />}
-                              {uncovered ? t('Chưa cover', 'Uncovered') : 'Covered'}
-                            </span>
                           </div>
                           <p className="mt-2 text-xs leading-relaxed text-body-subtle">{row.ruleDescription}</p>
                         </td>

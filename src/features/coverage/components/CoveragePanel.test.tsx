@@ -81,6 +81,17 @@ describe('CoveragePanel', () => {
     expect(screen.getByText('+10% so với vòng trước')).toBeInTheDocument();
   });
 
+  it('keeps the upload form and coverage result in the original two-column layout', () => {
+    mockUseCoverageReport.mockReturnValue({ data: report, isLoading: false, isError: false });
+
+    render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
+
+    const layout = screen.getByText('Coverage result').closest('div[class*="xl:grid-cols"]');
+    expect(layout).toHaveClass('xl:grid-cols-[minmax(280px,0.72fr)_minmax(0,1.28fr)]');
+    expect(screen.getByText('Coverage result')).toBeInTheDocument();
+    expect(screen.getByText('JaCoCo XML')).toBeInTheDocument();
+  });
+
   it('continues to Traceability after coverage has been analyzed', () => {
     mockUseCoverageReport.mockReturnValue({ data: report, isLoading: false, isError: false });
 

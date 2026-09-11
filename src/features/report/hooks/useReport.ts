@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchReportExport } from '../api/report-api';
 import type { ReportFormat, ReportSummary } from '../types';
 
-export function useReportExport(projectId: number, format: ReportFormat) {
+export function useReportExport(projectId: number, format: ReportFormat, servicePath?: string) {
   return useQuery({
-    queryKey: ['report', projectId, format],
-    queryFn: () => fetchReportExport(projectId, format),
+    queryKey: ['report', projectId, format, servicePath],
+    queryFn: () => fetchReportExport(projectId, format, servicePath),
     enabled: projectId > 0,
   });
 }

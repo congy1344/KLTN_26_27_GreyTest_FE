@@ -79,7 +79,24 @@ describe('UnitTestsPanel', () => {
     renderPanel();
     expect(screen.getByRole('button', { name: /Tải tất cả file/ })).toBeDisabled();
     expect(screen.getByText(/kèm công cụ tạo jacoco\.xml/i)).toBeVisible();
+    expect(screen.getByText(/Maven hoặc Gradle/)).toBeVisible();
     expect(screen.getByRole('button', { name: /Tiếp tục đến Coverage/ })).toBeDisabled();
+  });
+
+  it('places coverage beside the generation controls', () => {
+    renderPanel();
+
+    const buttons = screen.getAllByRole('button');
+    const downloadButton = buttons.find((button) => button.textContent?.includes('file'))!;
+    const coverageButton = buttons.find((button) => button.textContent?.includes('Coverage') && !button.textContent?.includes('file'))!;
+    const generateButton = screen.getByRole('button', { name: 'AI sinh Unit Test' });
+    const logButton = screen.getByRole('button', { name: 'Log tiến độ' });
+    const actionGroup = generateButton.parentElement;
+
+    expect(actionGroup).toHaveClass('flex-wrap', 'items-center', 'gap-2');
+    expect(coverageButton.parentElement).toBe(actionGroup);
+    expect(logButton.parentElement?.parentElement).toBe(actionGroup);
+    expect(downloadButton.parentElement).not.toBe(actionGroup);
   });
 
   it('continues to Coverage when tests exist', () => {

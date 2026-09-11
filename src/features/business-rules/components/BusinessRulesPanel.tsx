@@ -49,7 +49,7 @@ interface BusinessRulesPanelProps {
 
 function sourceDecisions(branches: SourceBranchInfo[]) {
   const seen = new Set<string>();
-  return branches.flatMap((branch) => {
+  return branches.filter((branch) => branch.kind !== 'STATEMENT').flatMap((branch) => {
     const decisionId = sourceDecisionId(branch.branchId);
     if (!decisionId || seen.has(decisionId)) return [];
     seen.add(decisionId);

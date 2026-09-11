@@ -5,8 +5,11 @@ import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import { ProjectWorkflowTabs } from '../../projects/components/ProjectWorkflowTabs';
 import { ProjectPageHeader } from '../../projects/components/ProjectPageHeader';
+import { ProjectServiceSelector } from '../../projects/components/ProjectServiceSelector';
 import { useProject } from '../../projects/hooks/useProjects';
+import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceScope';
 import { canOpenReport, canOpenTraceability } from '../../projects/utils/project-workflow';
+import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { TraceabilityMatrix } from '../components/TraceabilityMatrix';
 import { useLanguage } from '../../../shared/i18n/language';
 
@@ -15,8 +18,10 @@ export function TraceabilityPage() {
   const projectId = Number(id);
   const { data: project, isLoading, error } = useProject(projectId);
   const { t } = useLanguage();
+  const serviceScope = useProjectServiceScope(projectId, project?.status !== undefined && project.status !== 'UPLOADED');
+  const status = serviceScope.selected?.status ?? project?.status;
 
-  if (isLoading) {
+  if (isLoading || serviceScope.isLoading) {
     return (
       <AppShell maxWidth="wide">
         <SkeletonLoader count={4} />
@@ -24,16 +29,16 @@ export function TraceabilityPage() {
     );
   }
 
-  if (error || !project) {
+  if (error || serviceScope.error || !project) {
     return (
       <AppShell maxWidth="wide">
-        <ErrorState error={error ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
+        <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
       </AppShell>
     );
   }
 
-  if (!canOpenTraceability(project.status)) {
-    return <Navigate to={`/projects/${projectId}/unit-tests`} replace />;
+  if (serviceScope.selected && status && !canOpenTraceability(status)) {
+    return <Navigate to={projectWorkflowPath(projectId, 'unit-tests', serviceScope.servicePath)} replace />;
   }
 
   return (
@@ -42,14 +47,15 @@ export function TraceabilityPage() {
         project={project}
         titlePrefix="Traceability"
         subtitle={t('Truy vết từng Business Rule tới Test Plan, Test Case và Unit Test tương ứng.', 'Trace each Business Rule to its Test Plans, Test Cases, and Unit Tests.')}
-        backTo={`/projects/${projectId}/coverage`}
+        backTo={projectWorkflowPath(projectId, 'coverage', serviceScope.servicePath)}
         backLabel="Coverage"
       />
 
-      <ProjectWorkflowTabs projectId={projectId} active="traceability" status={project.status} />
-      <TraceabilityMatrix projectId={projectId} />
+      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
+      <ProjectWorkflowTabs projectId={projectId} active="traceability" status={status ?? project.status} servicePath={serviceScope.servicePath} />
+      <TraceabilityMatrix projectId={projectId} servicePath={serviceScope.servicePath} />
 
-      {canOpenReport(project.status) && <div className="mt-6 rounded-base border border-border-brand-subtle bg-brand-softer p-4 shadow-sm animate-fade-in">
+      {canOpenReport(status ?? project.status) && <div className="mt-6 rounded-base border border-border-brand-subtle bg-brand-softer p-4 shadow-sm animate-fade-in">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <FileText size={16} className="shrink-0 text-fg-brand-strong" />
@@ -60,7 +66,7 @@ export function TraceabilityPage() {
               </p>
             </div>
           </div>
-          <Link to={`/projects/${projectId}/report`} className="btn btn-brand shrink-0">
+          <Link to={projectWorkflowPath(projectId, 'report', serviceScope.servicePath)} className="btn btn-brand shrink-0">
             {t('Tiếp tục đến Report', 'Continue to Report')}
             <ArrowRight size={14} strokeWidth={1.8} />
           </Link>

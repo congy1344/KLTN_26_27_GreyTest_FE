@@ -21,7 +21,9 @@ export function SourceTrace({ value, compact = false }: { value?: SourceTraceVal
             {value.branch.outcome ? ` ${value.branch.outcome}` : ''}
           </span>
           <code className="break-all text-body">{value.branch.kind.toLowerCase()} ({value.branch.condition})</code>
-          <span className="font-mono text-[11px] text-body-subtle">L{value.branch.lineStart}</span>
+          <span className="font-mono text-[11px] text-body-subtle">
+            L{value.branch.lineStart}-{value.branch.lineEnd}
+          </span>
         </div>
       )}
     </div>

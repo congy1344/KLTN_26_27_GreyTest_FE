@@ -152,3 +152,91 @@ export interface ExistingTestInfo {
   sourceCode: string;
   createdAt: string | null;
 }
+
+// ─── Source Update & Incremental Generation Types ────────────────────────────
+
+export type SourceUpdateStatus =
+  | 'DRAFT'
+  | 'ANALYZING'
+  | 'ANALYZED'
+  | 'GENERATING'
+  | 'READY_TO_APPLY'
+  | 'APPLIED'
+  | 'CANCELLED'
+  | 'FAILED';
+
+export type SourceUpdateAction = 'KEEP' | 'UPDATE' | 'CREATE' | 'REMOVE';
+
+export type SourceUpdateReviewStatus = 'PENDING' | 'ACCEPTED' | 'MODIFIED' | 'REJECTED';
+
+export type SourceUpdateTargetType = 'METHOD' | 'BUSINESS_RULE' | 'TEST_PLAN' | 'TEST_CASE' | 'UNIT_TEST';
+
+export type MethodDiffType = 'ADDED' | 'MODIFIED' | 'DELETED' | 'UNCHANGED';
+
+export interface MethodDiffItem {
+  className: string;
+  qualifiedClassName: string;
+  methodName: string;
+  signature: string;
+  methodKey: string;
+  diffType: MethodDiffType;
+  reason: string;
+  beforeSource: string | null;
+  afterSource: string | null;
+  callerMethods: string[];
+  isServiceMethod: boolean;
+}
+
+export interface ImpactSummaryDto {
+  totalChangedMethods: number;
+  addedMethodsCount: number;
+  modifiedMethodsCount: number;
+  deletedMethodsCount: number;
+  changedMethods: MethodDiffItem[];
+  affectedServiceMethods: string[];
+  affectedBusinessRuleIds: number[];
+  affectedTestPlanIds: number[];
+  affectedTestCaseIds: number[];
+  affectedUnitTestIds: number[];
+}
+
+export interface SourceUpdateItemDto {
+  id: number;
+  sourceUpdateId: number;
+  targetType: SourceUpdateTargetType;
+  targetId: number | null;
+  targetKey: string | null;
+  action: SourceUpdateAction;
+  reason: string | null;
+  beforeData: string | null;
+  afterData: string | null;
+  reviewStatus: SourceUpdateReviewStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SourceUpdateDto {
+  id: number;
+  projectId: number;
+  baseRevisionId: number | null;
+  candidateRevisionId: number;
+  status: SourceUpdateStatus;
+  totalChangedMethods: number;
+  impactSummary: string | null;
+  items: SourceUpdateItemDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SourceRevisionDto {
+  id: number;
+  projectId: number;
+  sourceType: SourceType;
+  sourceUrl: string | null;
+  branch: string | null;
+  commitSha: string | null;
+  storagePath: string | null;
+  logicalRoot: string | null;
+  contentHash: string | null;
+  createdAt: string;
+}

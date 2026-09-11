@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Scan, Loader2, GitBranch, Archive } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Scan, Loader2, GitBranch, Archive, RefreshCw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useProject, useAnalysis, useAnalyzeProject, useExistingTests } from '../hooks/useProjects';
 import { StatusBadge } from '../components/StatusBadge';
 import { AnalysisResult } from '../components/AnalysisResult';
+import { SourceUpdateModal } from '../components/SourceUpdateModal';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { AppShell } from '../../../shared/components/AppShell';
@@ -22,6 +24,7 @@ import { useProjectServiceScope } from '../hooks/useProjectServiceScope';
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const projectId = Number(id);
+  const queryClient = useQueryClient();
 
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(projectId);
   const shouldLoadAnalysis = project?.status !== undefined && project.status !== 'UPLOADED';
@@ -36,6 +39,7 @@ export function ProjectDetailPage() {
   const analyzeMutation = useAnalyzeProject();
   const { t } = useLanguage();
   const [showReanalyzeConfirm, setShowReanalyzeConfirm] = useState(false);
+  const [showSourceUpdateModal, setShowSourceUpdateModal] = useState(false);
 
   // Regenerate từ pha đầu: cho phân tích lại ở mọi status miễn còn source
   const canAnalyze = project?.sourceAvailable ?? false;
@@ -125,6 +129,16 @@ export function ProjectDetailPage() {
 
             <div className="flex shrink-0 flex-wrap items-center gap-3">
               <StatusBadge status={project.status} />
+
+              <button
+                type="button"
+                onClick={() => setShowSourceUpdateModal(true)}
+                className="btn btn-outline flex items-center gap-1.5"
+                id="btn-source-update"
+              >
+                <RefreshCw size={14} strokeWidth={1.8} />
+                {t('Cập nhật source', 'Update source')}
+              </button>
 
               {canAnalyze && (
                 <button
@@ -231,6 +245,19 @@ export function ProjectDetailPage() {
       )}
 
       {hasAnalysis && serviceScope.selected && <BusinessRulesPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} servicePath={serviceScope.servicePath} />}
+      <SourceUpdateModal
+        project={project}
+        isOpen={showSourceUpdateModal}
+        onClose={() => setShowSourceUpdateModal(false)}
+        onApplied={() => {
+          queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['analysis', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['business-rules', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['test-plans', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['test-cases', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['unit-tests', projectId] });
+        }}
+      />
       <ConfirmDialog
         open={showReanalyzeConfirm}
         title={t('Phân tích lại project?', 'Reanalyze project?')}

@@ -8,12 +8,12 @@ import { useLanguage } from '../../../shared/i18n/language';
 import { parseReportSummary, useReportExport } from '../hooks/useReport';
 import type { ReportFormat } from '../types';
 
-export function ReportPanel({ projectId }: { projectId: number }) {
+export function ReportPanel({ projectId, servicePath }: { projectId: number; servicePath?: string }) {
   const [format, setFormat] = useState<ReportFormat>('markdown');
   const { t } = useLanguage();
-  const preview = useReportExport(projectId, format);
+  const preview = useReportExport(projectId, format, servicePath);
   // Metric card luôn đọc từ bản JSON (khi đang xem markdown thì là 1 request nhỏ thêm, có cache)
-  const jsonReport = useReportExport(projectId, 'json');
+  const jsonReport = useReportExport(projectId, 'json', servicePath);
   const summary = useMemo(() => parseReportSummary(jsonReport.data), [jsonReport.data]);
 
   const handleDownload = () => {

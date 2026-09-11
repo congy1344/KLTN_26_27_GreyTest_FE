@@ -20,11 +20,32 @@ export async function generateUnitTests(projectId: number, servicePath?: string)
 
 /** Tải ZIP toàn bộ file test đã gộp (cần JWT header nên đi qua apiClient thay vì <a href>). */
 export async function downloadUnitTestsZip(projectId: number, servicePath?: string) {
-  const { data } = await apiClient.get<Blob>(`/projects/${projectId}/unit-tests/download`, { responseType: 'blob', params: serviceParams(servicePath) });
+  let data: Blob;
+  try {
+    ({ data } = await apiClient.get<Blob>(`/projects/${projectId}/unit-tests/download`, { responseType: 'blob', params: serviceParams(servicePath) }));
+  } catch (error) {
+    const responseData = (error as { response?: { data?: unknown } }).response?.data;
+    if (responseData instanceof Blob) {
+      const message = await responseData.text();
+      let errorMessage = message;
+      try {
+        const payload = JSON.parse(message) as { message?: string };
+        errorMessage = payload.message || message;
+      } catch {
+        // Giữ nguyên response text nếu backend không trả JSON chuẩn.
+      }
+      throw new Error(errorMessage || 'Không thể tải Unit Test ZIP');
+    }
+    throw error;
+  }
   const url = URL.createObjectURL(data);
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = 'greytest-unit-tests.zip';
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    anchor.remove();
+  }, 0);
 }
