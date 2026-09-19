@@ -39,6 +39,7 @@ import { getErrorMessage } from '../../../shared/api/api-client';
 
 interface SourceUpdateModalProps {
   project: Project;
+  servicePath?: string | null;
   isOpen: boolean;
   onClose: () => void;
   onApplied: () => void;
@@ -88,7 +89,7 @@ function isSourceUpdateTimeout(error: unknown): boolean {
 
 const progressPercent = (percent: number) => Math.min(100, Math.max(0, Math.round(percent)));
 
-export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: SourceUpdateModalProps) {
+export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApplied }: SourceUpdateModalProps) {
   const [activeTab, setActiveTab] = useState<'ZIP' | 'GITHUB'>(project.sourceType === 'GITHUB' ? 'GITHUB' : 'ZIP');
   const [file, setFile] = useState<File | null>(null);
   const [branch, setBranch] = useState('main');
@@ -98,7 +99,10 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
   const [generatingStage, setGeneratingStage] = useState<string | null>(null);
   const [progress, setProgress] = useState<SourceUpdateProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stageNotice, setStageNotice] = useState<{ type: 'success' | 'error'; message: string; timestamp: string } | null>(null);
+  const [completedStages, setCompletedStages] = useState<Record<string, boolean>>({});
   const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
+  const [expandedDiffMethodKey, setExpandedDiffMethodKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeAbortRef = useRef<AbortController | null>(null);
   const operationVersionRef = useRef(0);
@@ -107,11 +111,15 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
     if (isOpen && project.id) {
       setError(null);
       setProgress(null);
+      setStageNotice(null);
     } else if (!isOpen) {
       cancelActiveOperation();
       setUpdateDraft(null);
       setImpactSummary(null);
+      setStageNotice(null);
+      setCompletedStages({});
       setExpandedItemId(null);
+      setExpandedDiffMethodKey(null);
       setFile(null);
       setProgress(null);
       setLoading(false);
@@ -222,7 +230,7 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
   async function analyzeDraft(updateId: number, startPercent: number, operationId: number) {
     updateProgress(startPercent, 'Đang phân tích cấu trúc AST của source code...');
     const analyzed = await runRequest(
-      (signal) => analyzeSourceUpdate(project.id, updateId, { signal }),
+      (signal) => analyzeSourceUpdate(project.id, updateId, servicePath, { signal }),
       'Phân tích AST quá thời gian chờ 120 giây.',
     );
     if (!isCurrentOperation(operationId)) return;
@@ -307,19 +315,43 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
     const operationId = beginOperation();
     setGeneratingStage(stage);
     setError(null);
-    updateProgress(5, `Đang sinh ${stage.replace('_', ' ')}...`);
+    setStageNotice(null);
+    const stageNames: Record<string, string> = {
+      BUSINESS_RULE: 'Business Rule',
+      TEST_PLAN: 'Test Plan',
+      TEST_CASE: 'Test Case',
+      UNIT_TEST: 'Unit Test',
+    };
+    const stageName = stageNames[stage] || stage;
+    updateProgress(5, `Đang sinh ${stageName}...`);
     try {
+      const prevCount = updateDraft.items?.length ?? 0;
       const result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, stage, { signal }),
-        `Sinh ${stage.replace('_', ' ')} quá thời gian chờ 120 giây.`,
+        `Sinh ${stageName} quá thời gian chờ 120 giây.`,
       );
       if (!isCurrentOperation(operationId)) return;
       setUpdateDraft(result);
-      updateProgress(100, `Đã hoàn tất sinh ${stage.replace('_', ' ')}.`);
+      const newCount = (result.items?.length ?? 0) - prevCount;
+      setCompletedStages((prev) => ({ ...prev, [stage]: true }));
+      setStageNotice({
+        type: 'success',
+        message: `✓ Đã sinh xong ${stageName}! ${newCount > 0 ? `Đã tạo thêm ${newCount} đề xuất mới sẵn sàng duyệt.` : 'Đã cập nhật các đề xuất tương ứng.'}`,
+        timestamp: new Date().toLocaleTimeString(),
+      });
+      updateProgress(100, `Đã hoàn tất sinh ${stageName}.`);
     } catch (err) {
       if (isCurrentOperation(operationId)) {
         const reconciled = isSourceUpdateTimeout(err) && await reconcileDraftAfterTimeout(operationId, updateDraft.id);
-        if (!reconciled && isCurrentOperation(operationId)) setError(getSourceUpdateErrorMessage(err));
+        if (!reconciled && isCurrentOperation(operationId)) {
+          const errMsg = getSourceUpdateErrorMessage(err);
+          setError(errMsg);
+          setStageNotice({
+            type: 'error',
+            message: `✕ Sinh ${stageName} thất bại: ${errMsg}`,
+            timestamp: new Date().toLocaleTimeString(),
+          });
+        }
       }
     } finally {
       if (isCurrentOperation(operationId)) setGeneratingStage(null);
@@ -331,37 +363,63 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
     const operationId = beginOperation();
     setLoading(true);
     setError(null);
-    updateProgress(0, 'Đang bắt đầu sinh tăng dần...');
+    setStageNotice(null);
+    updateProgress(0, 'Đang bắt đầu sinh tăng dần toàn bộ...');
     try {
+      const prevCount = updateDraft.items?.length ?? 0;
+      updateProgress(10, 'Đang sinh Business Rule...');
       let result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'BUSINESS_RULE', { signal }),
         'Sinh Business Rule quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return;
-      updateProgress(25, 'Đã sinh Business Rule. Đang sinh Test Plan...');
+      setCompletedStages((prev) => ({ ...prev, BUSINESS_RULE: true }));
+      updateProgress(35, 'Đã sinh Business Rule. Đang sinh Test Plan...');
       result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'TEST_PLAN', { signal }),
         'Sinh Test Plan quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return;
-      updateProgress(50, 'Đã sinh Test Plan. Đang sinh Test Case...');
+      setCompletedStages((prev) => ({ ...prev, TEST_PLAN: true }));
+      updateProgress(65, 'Đã sinh Test Plan. Đang sinh Test Case...');
       result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'TEST_CASE', { signal }),
         'Sinh Test Case quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return;
-      updateProgress(75, 'Đã sinh Test Case. Đang sinh Unit Test...');
+      setCompletedStages((prev) => ({ ...prev, TEST_CASE: true }));
+      updateProgress(85, 'Đã sinh Test Case. Đang sinh Unit Test...');
       result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'UNIT_TEST', { signal }),
         'Sinh Unit Test quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return;
+      setCompletedStages({
+        BUSINESS_RULE: true,
+        TEST_PLAN: true,
+        TEST_CASE: true,
+        UNIT_TEST: true,
+      });
       setUpdateDraft(result);
+      const totalCreated = (result.items?.length ?? 0) - prevCount;
+      setStageNotice({
+        type: 'success',
+        message: `✓ Đã sinh thành công toàn bộ BR, Test Plan, Test Case và Unit Test! Tổng cộng ${totalCreated > 0 ? `${totalCreated} đề xuất mới` : `${result.items?.length ?? 0} đề xuất`} đã sẵn sàng áp dụng.`,
+        timestamp: new Date().toLocaleTimeString(),
+      });
       updateProgress(100, 'Đã hoàn tất sinh tăng dần cho source code.');
     } catch (err) {
       if (isCurrentOperation(operationId)) {
         const reconciled = isSourceUpdateTimeout(err) && await reconcileDraftAfterTimeout(operationId, updateDraft.id);
-        if (!reconciled && isCurrentOperation(operationId)) setError(getSourceUpdateErrorMessage(err));
+        if (!reconciled && isCurrentOperation(operationId)) {
+          const errMsg = getSourceUpdateErrorMessage(err);
+          setError(errMsg);
+          setStageNotice({
+            type: 'error',
+            message: `✕ Sinh tự động gặp lỗi: ${errMsg}`,
+            timestamp: new Date().toLocaleTimeString(),
+          });
+        }
       }
     } finally {
       if (isCurrentOperation(operationId)) setLoading(false);
@@ -395,17 +453,88 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
     }
   }
 
+  async function handleAcceptAllItems() {
+    if (!updateDraft || isBusy() || !updateDraft.items || updateDraft.items.length === 0) return;
+    const pendingItems = updateDraft.items.filter((item) => item.reviewStatus !== 'ACCEPTED');
+    if (pendingItems.length === 0) return;
+    const operationId = beginOperation();
+    setLoading(true);
+    setError(null);
+    updateProgress(10, `Đang chấp nhận tất cả ${pendingItems.length} đề xuất...`);
+    try {
+      for (let i = 0; i < pendingItems.length; i++) {
+        const item = pendingItems[i];
+        await runRequest(
+          (signal) => patchSourceUpdateItem(project.id, updateDraft.id, item.id, { reviewStatus: 'ACCEPTED' }, { signal }),
+          'Chấp nhận đề xuất quá thời gian chờ.',
+        );
+        updateProgress(10 + Math.round(((i + 1) / pendingItems.length) * 80), `Đã chấp nhận ${i + 1}/${pendingItems.length} đề xuất...`);
+      }
+      const refreshed = await runRequest(
+        (signal) => fetchSourceUpdate(project.id, updateDraft.id, { signal }),
+        'Tải lại bản nháp sau khi duyệt.',
+      );
+      if (!isCurrentOperation(operationId)) return;
+      setUpdateDraft(refreshed);
+      updateProgress(100, `Đã chấp nhận thành công tất cả ${pendingItems.length} đề xuất!`);
+      setStageNotice({
+        type: 'success',
+        message: `✓ Đã chấp nhận tất cả ${pendingItems.length} đề xuất. Toàn bộ đã sẵn sàng để áp dụng vào project!`,
+        timestamp: new Date().toLocaleTimeString(),
+      });
+    } catch (err) {
+      if (isCurrentOperation(operationId)) {
+        setError(getSourceUpdateErrorMessage(err));
+      }
+    } finally {
+      if (isCurrentOperation(operationId)) setLoading(false);
+    }
+  }
+
   async function handleApply() {
     if (!updateDraft || isBusy()) return;
     const operationId = beginOperation();
     setLoading(true);
     setError(null);
+    updateProgress(5, 'Đang chuẩn bị áp dụng cập nhật vào project...');
     try {
+      // Tự động sinh lại Test Case cho các Test Plan bị ảnh hưởng nếu chưa sinh
+      const hasTestCaseItems = (updateDraft.items || []).some(
+        (item) => item.targetType === 'TEST_CASE' && item.afterData != null,
+      );
+      const affectedPlanCount = impactSummary?.affectedTestPlanIds?.length ?? 0;
+      if (affectedPlanCount > 0 && !hasTestCaseItems && !completedStages['TEST_CASE']) {
+        updateProgress(10, 'Đang tự động sinh lại Test Case cho các Test Plan bị ảnh hưởng...');
+        const updated = await runRequest(
+          (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'TEST_CASE', { signal }),
+          'Tự động sinh Test Case quá thời gian chờ 120 giây.',
+        );
+        if (!isCurrentOperation(operationId)) return;
+        if (updated) {
+          updateDraft.items = updated.items;
+          setUpdateDraft(updated);
+        }
+        setCompletedStages((prev) => ({ ...prev, TEST_CASE: true }));
+      }
+
+      // Tự động duyệt các đề xuất còn PENDING để đảm bảo không bị chặn hoặc lỗi backend
+      const pendingItems = (updateDraft.items || []).filter((item) => item.reviewStatus === 'PENDING');
+      if (pendingItems.length > 0) {
+        updateProgress(15, `Đang tự động duyệt ${pendingItems.length} đề xuất còn lại...`);
+        for (const item of pendingItems) {
+          await runRequest(
+            (signal) => patchSourceUpdateItem(project.id, updateDraft.id, item.id, { reviewStatus: 'ACCEPTED' }, { signal }),
+            'Duyệt đề xuất trước khi áp dụng quá thời gian chờ.',
+          );
+        }
+      }
+      updateProgress(60, 'Đang ghi nhận thay đổi vào project...');
       await runRequest(
         (signal) => applySourceUpdate(project.id, updateDraft.id, { signal }),
         'Áp dụng cập nhật quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return;
+      updateProgress(100, 'Đã áp dụng thành công cập nhật vào project.');
       onApplied();
       onClose();
     } catch (err) {
@@ -469,7 +598,14 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
             <div>
               <h2 className="text-lg font-bold text-heading">Cập nhật Source Code & Sinh Tăng Dần</h2>
               <p className="text-xs text-body-subtle">
-                Dự án: <span className="font-semibold text-heading">{project.name}</span> · Nhận diện thay đổi method và chỉ sinh cho phần bị ảnh hưởng
+                Dự án: <span className="font-semibold text-heading">{project.name}</span>
+                {servicePath ? (
+                  <>
+                    {' · '}Đang chọn Service: <span className="font-semibold text-brand">{servicePath}</span> (chỉ phân tích & cập nhật service này)
+                  </>
+                ) : (
+                  ' · Nhận diện thay đổi method và chỉ sinh cho phần bị ảnh hưởng'
+                )}
               </p>
             </div>
           </div>
@@ -621,40 +757,133 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
                 </div>
               )}
 
-              {/* Danh sách Changed Methods Diff */}
-              {impactSummary && impactSummary.changedMethods?.length > 0 && (
-                <div className="rounded-lg border border-border-default bg-neutral-secondary-soft/50 p-4">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-body-subtle">
-                    Danh sách phương thức thay đổi trong Source (AST Diff)
-                  </h3>
-                  <div className="space-y-2">
-                    {impactSummary.changedMethods.map((m: MethodDiffItem) => (
-                      <div
-                        key={m.methodKey}
-                        className="flex items-center justify-between rounded-md border border-border-default bg-neutral-primary-soft p-2.5 text-xs"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
-                                m.diffType === 'ADDED'
-                                  ? 'bg-emerald-500/10 text-emerald-500'
-                                  : m.diffType === 'MODIFIED'
-                                  ? 'bg-amber-500/10 text-amber-500'
-                                  : 'bg-rose-500/10 text-rose-500'
-                              }`}
-                            >
-                              {m.diffType}
-                            </span>
-                            <span className="font-mono font-medium text-heading truncate">{m.signature}</span>
+              {/* Danh sách Changed Methods Diff (Chỉ hiển thị Service) */}
+              {(() => {
+                const serviceMethods = (impactSummary?.changedMethods || []).filter((m: MethodDiffItem) => {
+                  if (!m.isServiceMethod) return false;
+                  if (!servicePath) return true;
+                  if (m.servicePath) return m.servicePath === servicePath;
+                  return true;
+                });
+                if (serviceMethods.length === 0) return null;
+                return (
+                  <div className="rounded-lg border border-border-default bg-neutral-secondary-soft/50 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-body-subtle">
+                        Danh sách phương thức Service thay đổi {servicePath ? `(${servicePath})` : ''} (AST Diff)
+                      </h3>
+                      <span className="text-[11px] text-body-subtle">
+                        Nhấp vào phương thức để xem chi tiết mã nguồn trước / sau
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {serviceMethods.map((m: MethodDiffItem) => {
+                        const isExpanded = expandedDiffMethodKey === m.methodKey;
+                        const hasSource = Boolean(m.beforeSource || m.afterSource);
+
+                      return (
+                        <div
+                          key={m.methodKey}
+                          className={`rounded-md border transition-colors ${
+                            m.diffType === 'ADDED'
+                              ? 'border-emerald-500/30 bg-emerald-500/5'
+                              : m.diffType === 'MODIFIED'
+                              ? 'border-amber-500/30 bg-amber-500/5'
+                              : 'border-rose-500/30 bg-rose-500/5'
+                          } p-3 text-xs`}
+                        >
+                          <div
+                            className={`flex items-center justify-between gap-2 ${hasSource ? 'cursor-pointer select-none' : ''}`}
+                            onClick={() => hasSource && setExpandedDiffMethodKey(isExpanded ? null : m.methodKey)}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[10px] font-bold ${
+                                    m.diffType === 'ADDED'
+                                      ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                      : m.diffType === 'MODIFIED'
+                                      ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                                      : 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                                  }`}
+                                >
+                                  {m.diffType === 'ADDED' && '+ THÊM MỚI'}
+                                  {m.diffType === 'MODIFIED' && '~ ĐÃ SỬA'}
+                                  {m.diffType === 'DELETED' && '- ĐÃ XÓA'}
+                                </span>
+                                <span className="font-mono font-semibold text-heading truncate">{m.signature}</span>
+                                {m.isServiceMethod && (
+                                  <span className="rounded bg-brand/10 px-1.5 py-0.2 text-[9px] font-medium text-brand">
+                                    Service
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-[11px] text-body-subtle">
+                                <span className="font-medium text-heading">{m.qualifiedClassName}</span> · {m.reason}
+                              </p>
+                            </div>
+
+                            {hasSource && (
+                              <button
+                                type="button"
+                                className="rounded p-1 text-body-subtle hover:bg-neutral-secondary-soft"
+                                aria-label={isExpanded ? 'Thu gọn diff' : 'Mở rộng diff'}
+                              >
+                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              </button>
+                            )}
                           </div>
-                          <p className="mt-1 text-body-subtle">{m.qualifiedClassName} · {m.reason}</p>
+
+                          {/* Chi tiết Before/After Source Code */}
+                          {isExpanded && (
+                            <div className="mt-3 space-y-2 border-t border-border-default pt-3">
+                              {m.diffType === 'MODIFIED' && (
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                  {m.beforeSource && (
+                                    <div>
+                                      <p className="mb-1 text-[10px] font-bold text-rose-500">Mã nguồn ban đầu (Before):</p>
+                                      <pre className="max-h-52 overflow-x-auto rounded border border-rose-500/20 bg-rose-500/5 p-2 font-mono text-[11px] text-rose-700 dark:text-rose-300">
+                                        <code>{m.beforeSource}</code>
+                                      </pre>
+                                    </div>
+                                  )}
+                                  {m.afterSource && (
+                                    <div>
+                                      <p className="mb-1 text-[10px] font-bold text-emerald-500">Mã nguồn mới cập nhật (After):</p>
+                                      <pre className="max-h-52 overflow-x-auto rounded border border-emerald-500/20 bg-emerald-500/5 p-2 font-mono text-[11px] text-emerald-700 dark:text-emerald-300">
+                                        <code>{m.afterSource}</code>
+                                      </pre>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {m.diffType === 'ADDED' && m.afterSource && (
+                                <div>
+                                  <p className="mb-1 text-[10px] font-bold text-emerald-500">Mã nguồn phương thức mới thêm:</p>
+                                  <pre className="max-h-52 overflow-x-auto rounded border border-emerald-500/20 bg-emerald-500/5 p-2 font-mono text-[11px] text-emerald-700 dark:text-emerald-300">
+                                    <code>{m.afterSource}</code>
+                                  </pre>
+                                </div>
+                              )}
+
+                              {m.diffType === 'DELETED' && m.beforeSource && (
+                                <div>
+                                  <p className="mb-1 text-[10px] font-bold text-rose-500">Mã nguồn phương thức đã bị xóa:</p>
+                                  <pre className="max-h-52 overflow-x-auto rounded border border-rose-500/20 bg-rose-500/5 p-2 font-mono text-[11px] text-rose-700 dark:text-rose-300 opacity-80">
+                                    <code>{m.beforeSource}</code>
+                                  </pre>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* Action Toolbar Sinh tăng dần */}
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand/20 bg-brand/5 p-4">
@@ -672,37 +901,53 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
                     type="button"
                     disabled={loading || generatingStage !== null}
                     onClick={() => handleGenerateStage('BUSINESS_RULE')}
-                    className="rounded-lg border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs font-semibold text-heading hover:bg-neutral-secondary-soft"
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      completedStages['BUSINESS_RULE']
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'border-border-default bg-neutral-primary-soft text-heading hover:bg-neutral-secondary-soft'
+                    }`}
                   >
                     {generatingStage === 'BUSINESS_RULE' ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}
-                    1. Sinh BR
+                    {completedStages['BUSINESS_RULE'] ? '✓ Đã sinh BR' : '1. Sinh BR'}
                   </button>
                   <button
                     type="button"
                     disabled={loading || generatingStage !== null}
                     onClick={() => handleGenerateStage('TEST_PLAN')}
-                    className="rounded-lg border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs font-semibold text-heading hover:bg-neutral-secondary-soft"
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      completedStages['TEST_PLAN']
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'border-border-default bg-neutral-primary-soft text-heading hover:bg-neutral-secondary-soft'
+                    }`}
                   >
                     {generatingStage === 'TEST_PLAN' ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}
-                    2. Sinh Test Plan
+                    {completedStages['TEST_PLAN'] ? '✓ Đã sinh Test Plan' : '2. Sinh Test Plan'}
                   </button>
                   <button
                     type="button"
                     disabled={loading || generatingStage !== null}
                     onClick={() => handleGenerateStage('TEST_CASE')}
-                    className="rounded-lg border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs font-semibold text-heading hover:bg-neutral-secondary-soft"
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      completedStages['TEST_CASE']
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'border-border-default bg-neutral-primary-soft text-heading hover:bg-neutral-secondary-soft'
+                    }`}
                   >
                     {generatingStage === 'TEST_CASE' ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}
-                    3. Sinh Test Case
+                    {completedStages['TEST_CASE'] ? '✓ Đã sinh Test Case' : '3. Sinh Test Case'}
                   </button>
                   <button
                     type="button"
                     disabled={loading || generatingStage !== null}
                     onClick={() => handleGenerateStage('UNIT_TEST')}
-                    className="rounded-lg border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs font-semibold text-heading hover:bg-neutral-secondary-soft"
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      completedStages['UNIT_TEST']
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'border-border-default bg-neutral-primary-soft text-heading hover:bg-neutral-secondary-soft'
+                    }`}
                   >
                     {generatingStage === 'UNIT_TEST' ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}
-                    4. Sinh Unit Test
+                    {completedStages['UNIT_TEST'] ? '✓ Đã sinh Unit Test' : '4. Sinh Unit Test'}
                   </button>
                   <button
                     type="button"
@@ -716,14 +961,58 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
                 </div>
               </div>
 
+              {/* Thông báo kết quả sinh AI */}
+              {stageNotice && (
+                <div
+                  className={`flex items-start justify-between gap-3 rounded-lg border p-3.5 text-xs animate-fade-in ${
+                    stageNotice.type === 'success'
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {stageNotice.type === 'success' ? (
+                      <CheckCircle2 size={16} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <XCircle size={16} className="shrink-0 text-rose-600 dark:text-rose-400" />
+                    )}
+                    <div>
+                      <p className="font-semibold">{stageNotice.message}</p>
+                      <p className="mt-0.5 text-[11px] opacity-80">Thời gian: {stageNotice.timestamp}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStageNotice(null)}
+                    className="rounded p-1 hover:bg-black/5 dark:hover:bg-white/5"
+                    aria-label="Đóng thông báo"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
               {/* Danh sách các đề xuất thay đổi (Source Update Items) */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-heading flex items-center justify-between">
-                  <span>Các Đề Xuất Cập Nhật Đang Chờ Duyệt ({updateDraft.items?.length ?? 0})</span>
-                  <span className="text-xs font-normal text-body-subtle">
-                    Trạng thái bản nháp: <span className="font-semibold text-brand">{updateDraft.status}</span>
-                  </span>
-                </h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-heading flex items-center gap-2">
+                    <span>Các Đề Xuất Cập Nhật Đang Chờ Duyệt ({updateDraft.items?.length ?? 0})</span>
+                    <span className="text-xs font-normal text-body-subtle">
+                      (Bản nháp: <span className="font-semibold text-brand">{updateDraft.status}</span>)
+                    </span>
+                  </h3>
+                  {updateDraft.items && updateDraft.items.some((i) => i.reviewStatus !== 'ACCEPTED') && (
+                    <button
+                      type="button"
+                      disabled={isBusy()}
+                      onClick={handleAcceptAllItems}
+                      className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+                    >
+                      <CheckCircle2 size={13} />
+                      Chấp nhận tất cả đề xuất
+                    </button>
+                  )}
+                </div>
 
                 {updateDraft.items?.length === 0 ? (
                   <p className="rounded-lg border border-border-default p-4 text-center text-xs text-body-subtle">
@@ -841,7 +1130,7 @@ export function SourceUpdateModal({ project, isOpen, onClose, onApplied }: Sourc
               </button>
               <button
                 type="button"
-                disabled={isBusy() || hasPendingReviews || !canApply}
+                disabled={isBusy() || !canApply}
                 onClick={handleApply}
                 className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
               >

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestPlansPanel } from './TestPlansPanel';
@@ -71,10 +71,10 @@ describe('TestPlansPanel', () => {
     };
     render(<MemoryRouter><TestPlansPanel projectId={105} projectStatus="BR_APPROVED" /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log tiến độ 50%' }));
-    expect(screen.getByRole('progressbar', { name: 'Tiến độ tổng thể' })).toBeVisible();
-    expect(screen.getAllByText('50%')).toHaveLength(2);
-    expect(screen.getByText('Batch 1/1: nhận 3 Test Plan từ AI.')).toBeVisible();
+    const floatingDock = screen.getByRole('complementary');
+    expect(floatingDock).toBeVisible();
+    expect(within(floatingDock).getByText('50%')).toBeVisible();
+    expect(within(floatingDock).getByText('Batch 1/1: nhận 3 Test Plan từ AI.')).toBeVisible();
   });
 
   it('warns about downstream cases and unit tests before regenerating plans', () => {

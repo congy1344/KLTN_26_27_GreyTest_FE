@@ -42,8 +42,8 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
   const report = reportQuery.data ?? null;
   const fileName = selectedFile?.name ?? '';
   const canRefine = projectStatus === 'COVERAGE_ANALYZED' || projectStatus === 'COMPLETED';
-  const refinableGapCount = report?.gaps.filter((gap) => gap.refinable).length ?? 0;
-  const nonRefinableGapCount = (report?.gaps.length ?? 0) - refinableGapCount;
+  const visibleGaps = report?.gaps.filter((gap) => gap.refinable) ?? [];
+  const refinableGapCount = visibleGaps.length;
 
   useEffect(() => {
     if (!showSuccess) return;
@@ -184,17 +184,17 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
               hint={t('Upload jacoco.xml để phân tích coverage theo class/method.', 'Upload jacoco.xml to analyze coverage by class and method.')}
               minHeight="min-h-[330px]"
             />
-          ) : report.gaps.length === 0 ? (
+          ) : visibleGaps.length === 0 ? (
             <EmptyState
               icon={CheckCircle2}
-              title={t('Không có coverage gap', 'No coverage gaps')}
-              hint={t('Mọi method đều đạt ngưỡng line >= 80% và branch >= 70%.', 'All methods meet the line >= 80% and branch >= 70% gates.')}
+              title={t('Không có coverage gap cần bổ sung', 'No coverage gaps to refine')}
+              hint={t('Mọi method trong phạm vi đều đạt ngưỡng line >= 80% và branch >= 70%.', 'All scoped methods meet the line >= 80% and branch >= 70% gates.')}
               minHeight="min-h-[330px]"
             />
           ) : (
             <>
               <div className="divide-y divide-border-default">
-                {report.gaps.map((gap) => (
+                {visibleGaps.map((gap) => (
                   <GapRow key={`${gap.className}.${gap.methodName}-${gap.methodId}`} gap={gap} />
                 ))}
               </div>
@@ -202,22 +202,14 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
                 {refinement.isError && (
                   <InlineAlert tone="danger">{getErrorMessage(refinement.error)}</InlineAlert>
                 )}
-                {refinableGapCount === 0 && (
-                  <InlineAlert tone="warning">
-                    {t(
-                      `Không còn coverage gap Service đủ điều kiện bổ sung. ${nonRefinableGapCount} gap còn lại nằm ngoài phạm vi hoặc chưa đủ trace.`,
-                      `No Service coverage gaps remain eligible for refinement. The remaining ${nonRefinableGapCount} gaps are out of scope or lack traceability.`,
-                    )}
-                  </InlineAlert>
-                )}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs leading-relaxed text-body-subtle">
                     {refinableGapCount > 0
                       ? t(
-                          `AI sẽ bổ sung ${refinableGapCount} Service gap và tự sinh Unit Test cho vòng ${report.round + 1}; ${nonRefinableGapCount} gap không đủ điều kiện sẽ được bỏ qua.`,
-                          `AI will refine ${refinableGapCount} Service gaps and generate their Unit Tests for round ${report.round + 1}; ${nonRefinableGapCount} ineligible gaps will be ignored.`,
+                          `AI sẽ bổ sung ${refinableGapCount} Service gap và tự sinh Unit Test cho vòng ${report.round + 1}.`,
+                          `AI will refine ${refinableGapCount} Service gaps and generate their Unit Tests for round ${report.round + 1}.`,
                         )
-                      : t('GreyTest hiện chỉ sinh Unit Test cho tầng Service.', 'GreyTest currently generates Unit Tests for the Service layer only.')}
+                      : t('Không có coverage gap nào cần bổ sung.', 'No coverage gaps need refinement.')}
                   </p>
                   <button
                     type="button"
@@ -272,10 +264,8 @@ function GapRow({ gap }: { gap: CoverageGap }) {
         {gap.risk === 'HIGH' ? <AlertTriangle size={11} /> : <CheckCircle2 size={11} />}
         {gap.risk}
       </span>
-      <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-        gap.refinable ? 'bg-success-soft text-fg-success-strong' : 'bg-neutral-secondary-medium text-body-subtle'
-      }`}>
-        {gap.refinable ? 'Service · Có thể bổ sung' : 'Không thể bổ sung'}
+      <span className="inline-flex w-fit rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-fg-success-strong">
+        {gap.refinable ? 'Service · Có thể bổ sung' : 'Có thể bổ sung'}
       </span>
     </article>
   );

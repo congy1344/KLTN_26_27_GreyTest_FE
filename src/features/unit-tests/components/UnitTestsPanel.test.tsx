@@ -64,7 +64,7 @@ describe('UnitTestsPanel', () => {
     mocks.generating = true;
     renderPanel();
 
-    expect(screen.getByRole('button', { name: 'Log tiến độ' })).toBeVisible();
+    expect(screen.getByRole('complementary')).toBeVisible();
   });
 
   it('calls the backend generation endpoint', () => {
@@ -90,12 +90,10 @@ describe('UnitTestsPanel', () => {
     const downloadButton = buttons.find((button) => button.textContent?.includes('file'))!;
     const coverageButton = buttons.find((button) => button.textContent?.includes('Coverage') && !button.textContent?.includes('file'))!;
     const generateButton = screen.getByRole('button', { name: 'AI sinh Unit Test' });
-    const logButton = screen.getByRole('button', { name: 'Log tiến độ' });
     const actionGroup = generateButton.parentElement;
 
     expect(actionGroup).toHaveClass('flex-wrap', 'items-center', 'gap-2');
     expect(coverageButton.parentElement).toBe(actionGroup);
-    expect(logButton.parentElement?.parentElement).toBe(actionGroup);
     expect(downloadButton.parentElement).not.toBe(actionGroup);
   });
 

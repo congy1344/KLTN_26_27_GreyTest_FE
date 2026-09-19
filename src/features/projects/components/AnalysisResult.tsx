@@ -8,9 +8,10 @@ import { useLanguage } from '../../../shared/i18n/language';
 interface AnalysisResultProps {
   data: AnalysisResultType;
   existingTests?: ExistingTestInfo[];
+  methodDiffMap?: Record<string, 'ADDED' | 'MODIFIED' | 'DELETED'>;
 }
 
-export function AnalysisResult({ data, existingTests = [] }: AnalysisResultProps) {
+export function AnalysisResult({ data, existingTests = [], methodDiffMap }: AnalysisResultProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const { t } = useLanguage();
 
@@ -92,7 +93,7 @@ export function AnalysisResult({ data, existingTests = [] }: AnalysisResultProps
           <h3 className="text-sm font-semibold text-heading">{t('Cấu trúc source code', 'Source code structure')}</h3>
           <p className="mt-1 text-xs text-body-subtle">{t('Mở từng class và method để xem endpoint, signature và source.', 'Open a class or method to inspect its endpoint, signature, and source.')}</p>
         </div>
-        <ClassTree classes={data.classes} existingTests={existingTests} />
+        <ClassTree classes={data.classes} existingTests={existingTests} methodDiffMap={methodDiffMap} />
       </section>}
     </div>
   );

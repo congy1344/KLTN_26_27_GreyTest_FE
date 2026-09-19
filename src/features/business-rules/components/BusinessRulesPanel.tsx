@@ -40,10 +40,13 @@ import { useLanguage } from '../../../shared/i18n/language';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { belongsToService, projectWorkflowPath } from '../../projects/utils/project-service';
+import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
 
 interface BusinessRulesPanelProps {
   projectId: number;
   servicePath?: string;
+  methodDiffMap?: Record<string, 'ADDED' | 'MODIFIED' | 'DELETED'>;
+  affectedRuleIds?: Set<number>;
 }
 
 
@@ -57,9 +60,17 @@ function sourceDecisions(branches: SourceBranchInfo[]) {
   });
 }
 
-export function BusinessRulesPanel({ projectId, servicePath }: BusinessRulesPanelProps) {
+export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affectedRuleIds }: BusinessRulesPanelProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const impactData = useSourceUpdateImpact(projectId);
+  const effectiveMethodDiffMap = methodDiffMap ?? impactData.methodDiffMap;
+  const effectiveAffectedRuleIds = affectedRuleIds ?? impactData.affectedRuleIds;
+  const getMethodDiff = impactData.getMethodDiff;
+  const deletedMethods = impactData.deletedMethods;
+  const addedRuleIds = impactData.addedRuleIds;
+  const modifiedRuleIds = impactData.modifiedRuleIds;
+  const deletedRuleIds = impactData.deletedRuleIds;
   const [description, setDescription] = useState('');
   const [methodId, setMethodId] = useState('');
   const [sourceBranchId, setSourceBranchId] = useState('');
@@ -73,6 +84,10 @@ export function BusinessRulesPanel({ projectId, servicePath }: BusinessRulesPane
   const { data: rules = [], isLoading, error } = useBusinessRules(projectId, servicePath);
   const { data: analysis } = useAnalysis(projectId);
   const plansQuery = useTestPlans(projectId, servicePath);
+  const sourceTraceByRule = useMemo(
+    () => buildRuleSourceIndex(analysis, rules),
+    [analysis, rules],
+  );
   const serviceGroups = useMemo(() => {
     const rulesByMethod = new Map<number, BusinessRule[]>();
     rules.forEach((rule) => {
@@ -87,9 +102,14 @@ export function BusinessRulesPanel({ projectId, servicePath }: BusinessRulesPane
         ...javaClass,
         methods: [...javaClass.methods]
           .sort((left, right) => left.lineStart - right.lineStart || left.id - right.id)
-          .map((method) => ({ ...method, rules: rulesByMethod.get(method.id) ?? [] })),
+          .map((method) => {
+            const methodRules = [...(rulesByMethod.get(method.id) ?? [])].sort((left, right) => {
+              return left.ruleCode.localeCompare(right.ruleCode, undefined, { numeric: true });
+            });
+            return { ...method, rules: methodRules };
+          }),
       }));
-  }, [analysis, rules, servicePath]);
+  }, [analysis, rules, servicePath, sourceTraceByRule]);
   const fileGroups = useMemo(() => {
     const groups = new Map<string, { filePath: string; services: typeof serviceGroups }>();
     serviceGroups.forEach((service) => {
@@ -114,11 +134,11 @@ export function BusinessRulesPanel({ projectId, servicePath }: BusinessRulesPane
     () => new Set(serviceMethods.map((method) => method.id)),
     [serviceMethods],
   );
-  const orphanRules = rules.filter((rule) => rule.methodId == null || !knownMethodIds.has(rule.methodId));
-  const sourceTraceByRule = useMemo(
-    () => buildRuleSourceIndex(analysis, rules),
-    [analysis, rules],
-  );
+  const orphanRules = useMemo(() => {
+    return rules
+      .filter((rule) => rule.methodId == null || !knownMethodIds.has(rule.methodId))
+      .sort((left, right) => left.ruleCode.localeCompare(right.ruleCode, undefined, { numeric: true }));
+  }, [rules, knownMethodIds]);
   const uncoveredDecisionCount = serviceGroups.reduce((total, javaClass) => total
     + javaClass.methods.reduce((methodTotal, method) => {
       const covered = new Set(method.rules
@@ -243,8 +263,29 @@ export function BusinessRulesPanel({ projectId, servicePath }: BusinessRulesPane
     const sourceLineStart = sourceTrace?.branch?.lineStart ?? sourceTrace?.lineStart;
     const sourceLineEnd = sourceTrace?.branch?.lineEnd ?? sourceTrace?.lineEnd;
 
+    const method = (analysis?.classes ?? []).flatMap((c) => c.methods).find((m) => m.id === rule.methodId);
+    const javaClass = (analysis?.classes ?? []).find((c) => c.methods.some((m) => m.id === rule.methodId));
+    const diffType = method
+      ? (getMethodDiff(javaClass?.qualifiedName, method.methodName, method.parameters)
+         || effectiveMethodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
+         || effectiveMethodDiffMap[method.methodName])
+      : undefined;
+    const isAdded = addedRuleIds.has(rule.id) || diffType === 'ADDED';
+    const isDeleted = deletedRuleIds.has(rule.id) || diffType === 'DELETED';
+    const isModified = !isAdded && !isDeleted && (
+      modifiedRuleIds.has(rule.id) || effectiveAffectedRuleIds.has(rule.id) || rule.isModified || diffType === 'MODIFIED'
+    );
+
+    const cardClass = isAdded
+      ? 'rounded-default border-2 border-emerald-500/60 bg-emerald-500/[0.04] p-3 shadow-xs transition-colors'
+      : isDeleted
+        ? 'rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 shadow-xs transition-colors'
+        : isModified
+          ? 'rounded-default border-2 border-amber-500/60 bg-amber-500/[0.04] p-3 shadow-xs transition-colors'
+          : 'rounded-default border border-border-default bg-neutral-secondary-soft p-3';
+
     return (
-      <article key={rule.id} className="rounded-default border border-border-default bg-neutral-secondary-soft p-3">
+      <article key={rule.id} className={cardClass}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -253,6 +294,21 @@ export function BusinessRulesPanel({ projectId, servicePath }: BusinessRulesPane
                 {rule.source}
               </span>
               <SemanticBadge kind="review-status" value={rule.status} />
+              {isAdded && (
+                <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  + MỚI THÊM
+                </span>
+              )}
+              {isDeleted && (
+                <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                  - ĐÃ XÓA
+                </span>
+              )}
+              {isModified && (
+                <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                  ~ CẬP NHẬT THEO CODE
+                </span>
+              )}
             </div>
             {editing ? (
               <textarea
@@ -516,7 +572,12 @@ export function BusinessRulesPanel({ projectId, servicePath }: BusinessRulesPane
                     </summary>
 
                     <div className="ml-3 border-l border-border-default pl-3 sm:ml-5 sm:pl-5">
-                      {javaClass.methods.map((method) => (
+                      {javaClass.methods.map((method) => {
+                        const methodDiff = getMethodDiff(javaClass.qualifiedName, method.methodName, method.parameters)
+                          || effectiveMethodDiffMap[`${javaClass.qualifiedName}#${method.methodName}`]
+                          || effectiveMethodDiffMap[method.methodName];
+
+                        return (
                         <details key={method.id} open className="border-b border-border-default last:border-b-0">
                           <summary className="cursor-pointer py-3 marker:text-body-subtle">
                             <div className="ml-2 inline-flex min-w-0 max-w-[calc(100%-1rem)] items-start gap-3 align-top">
@@ -525,8 +586,25 @@ export function BusinessRulesPanel({ projectId, servicePath }: BusinessRulesPane
                               </span>
                               <div className="min-w-0">
                                 <span className="text-[10px] font-semibold text-body-subtle">{t('Phương thức', 'Method')}</span>
-                                <p className="break-words font-mono text-xs font-semibold text-heading">
-                                  {method.methodName}({method.parameters.map((parameter) => `${parameter.type} ${parameter.name}`).join(', ')})
+                                <p className="break-words font-mono text-xs font-semibold text-heading flex flex-wrap items-center gap-2">
+                                  <span>
+                                    {method.methodName}({method.parameters.map((parameter) => `${parameter.type} ${parameter.name}`).join(', ')})
+                                  </span>
+                                  {methodDiff === 'ADDED' && (
+                                    <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                                      + MỚI THÊM
+                                    </span>
+                                  )}
+                                  {methodDiff === 'MODIFIED' && (
+                                    <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                                      ~ CẬP NHẬT THEO CODE
+                                    </span>
+                                  )}
+                                  {methodDiff === 'DELETED' && (
+                                    <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-rose-600 dark:text-rose-400">
+                                      - ĐÃ XÓA
+                                    </span>
+                                  )}
                                 </p>
                                 <p className="mt-1 text-[11px] text-body-subtle">
                                   {method.returnType} | {t(`Dòng ${method.lineStart}-${method.lineEnd}`, `Lines ${method.lineStart}-${method.lineEnd}`)}
@@ -549,7 +627,25 @@ export function BusinessRulesPanel({ projectId, servicePath }: BusinessRulesPane
                             )}
                           </div>
                         </details>
-                      ))}
+                      );
+                      })}
+                      {deletedMethods
+                        .filter((dm) => dm.qualifiedClassName === javaClass.qualifiedName || dm.className === javaClass.className)
+                        .map((dm) => (
+                          <div key={dm.methodKey} className="my-2 rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 text-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="font-mono font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                                <span className="line-through">{dm.signature}</span>
+                                <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold">
+                                  - ĐÃ XÓA
+                                </span>
+                              </p>
+                            </div>
+                            <p className="mt-1 text-[11px] text-body-subtle">
+                              {dm.reason || t('Phương thức này đã bị xóa trong phiên bản source code mới nhất.', 'This method was removed in the latest source code.')}
+                            </p>
+                          </div>
+                        ))}
                     </div>
                   </details>
                   ))}

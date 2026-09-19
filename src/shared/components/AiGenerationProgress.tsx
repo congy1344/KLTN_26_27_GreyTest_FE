@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, Clock3, ListTree, Loader2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle2, Clock3, Loader2, X } from 'lucide-react';
 import { useLanguage } from '../i18n/language';
 import type { GenerationProgress, GenerationProgressStepStatus } from '../types/generation-progress';
 
@@ -16,63 +16,85 @@ const STEP_STYLES: Record<GenerationProgressStepStatus, string> = {
   FAILED: 'bg-danger-soft text-fg-danger-strong',
 };
 
-const STEP_ITEM_STYLES: Record<GenerationProgressStepStatus, string> = {
-  WAITING: 'border-border-default bg-neutral-secondary-soft',
-  RUNNING: 'border-border-brand bg-brand-softer shadow-sm ring-1 ring-border-brand',
-  COMPLETED: 'border-border-default bg-neutral-secondary-soft',
-  FAILED: 'border-border-danger-subtle bg-danger-soft',
-};
+/** Parse và format thời gian timestamp dạng HH:mm:ss. */
+function formatLogTime(timestamp?: string): string {
+  if (!timestamp) return '';
+  try {
+    const hasTimezone = /(?:z|[+-]\d{2}:\d{2})$/i.test(timestamp);
+    const date = new Date(hasTimezone ? timestamp : `${timestamp}Z`);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  } catch {
+    return '';
+  }
+}
 
-const STEP_FILL_STYLES: Record<GenerationProgressStepStatus, string> = {
-  WAITING: 'bg-neutral-tertiary-medium',
-  RUNNING: 'bg-brand-strong',
-  COMPLETED: 'bg-success',
-  FAILED: 'bg-danger',
-};
-
-/** Hiển thị tiến độ sinh AI trong popover không chặn thao tác trên trang. */
+/** Hiển thị tiến độ sinh AI qua widget nổi ở góc dưới bên phải, giữ nguyên log khi xong hoặc lỗi. */
 export function AiGenerationProgress({
   active,
   label,
   progress,
 }: AiGenerationProgressProps) {
   const { t } = useLanguage();
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const popoverId = useId();
-  const percent = Math.min(Math.max(progress?.percent ?? 0, 0), 100);
-  const hasDeterminateProgress = Boolean(progress && progress.totalSteps > 0);
-  const isTerminal = progress?.status === 'COMPLETED' || progress?.status === 'FAILED';
-  const isRunning = !isTerminal
-    && (active || progress?.status === 'QUEUED' || progress?.status === 'RUNNING');
+  const [floatingDismissed, setFloatingDismissed] = useState(false);
+  // Giữ lại tiến trình mới nhất để dù hoàn thành hay thất bại vẫn giữ nguyên log trên màn hình
+  const [persistedProgress, setPersistedProgress] = useState<GenerationProgress | undefined>(progress);
 
   useEffect(() => {
-    if (!open) return undefined;
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-        buttonRef.current?.focus();
-      }
-    };
-    document.addEventListener('pointerdown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [open]);
+    if (progress && progress.status !== 'IDLE') {
+      setPersistedProgress(progress);
+    }
+  }, [progress]);
+
+  const currentProgress = (progress && progress.status !== 'IDLE') ? progress : persistedProgress;
+  const percent = Math.min(Math.max(currentProgress?.percent ?? 0, 0), 100);
+  const hasDeterminateProgress = Boolean(currentProgress && currentProgress.totalSteps > 0);
+
+  const isCompleted = currentProgress?.status === 'COMPLETED';
+  const isFailed = currentProgress?.status === 'FAILED';
+  const isQueued = currentProgress?.status === 'QUEUED';
+  const isRunning = !isCompleted && !isFailed
+    && (active || isQueued || currentProgress?.status === 'RUNNING');
+
+  // Khi có đợt chạy mới thì tự động mở lại widget nếu trước đó từng bấm đóng
+  useEffect(() => {
+    if (isRunning) {
+      setFloatingDismissed(false);
+    }
+  }, [isRunning]);
+
+  const hasProgress = Boolean(
+    active || (currentProgress && currentProgress.status && currentProgress.status !== 'IDLE')
+  );
+
+  const latestLog = currentProgress?.logs && currentProgress.logs.length > 0
+    ? currentProgress.logs[currentProgress.logs.length - 1]
+    : null;
+  const latestTime = formatLogTime(latestLog?.timestamp);
+
+  const currentMessage = latestLog
+    ? latestLog.message
+    : currentProgress?.steps.find((s) => s.status === 'RUNNING')?.label
+    || (isQueued
+      ? t('Tác vụ đã vào hàng đợi và sẽ tự chạy nền.', 'Task is queued and running in background.')
+      : isCompleted
+        ? t('Tác vụ hoàn thành thành công.', 'Task completed successfully.')
+        : isFailed
+          ? t('Tác vụ thất bại.', 'Task failed.')
+          : t('Đang xử lý...', 'Processing...'));
 
   const announcement = (
     <span role="status" aria-live="polite" className="sr-only">
-      {progress?.status === 'FAILED'
+      {isFailed
         ? `${label}: ${t('thất bại', 'failed')} ${percent}%`
-        : progress?.status === 'COMPLETED'
+        : isCompleted
           ? `${label}: ${t('hoàn tất', 'completed')} 100%`
-          : progress?.status === 'QUEUED'
+          : isQueued
             ? `${label}: ${t('đang chờ worker xử lý', 'queued for processing')}`
           : isRunning
             ? hasDeterminateProgress
@@ -83,139 +105,112 @@ export function AiGenerationProgress({
   );
 
   return (
-    <div ref={rootRef} className="relative flex-none">
+    <>
       {announcement}
-      <button
-        ref={buttonRef}
-        type="button"
-        className="btn btn-secondary px-3"
-        aria-label={isRunning && hasDeterminateProgress
-          ? t(`Log tiến độ ${percent}%`, `Progress log ${percent}%`)
-          : t('Log tiến độ', 'Progress log')}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? popoverId : undefined}
-        onClick={() => setOpen((current) => !current)}
-      >
-        {isRunning ? <Loader2 size={14} className="animate-spin" /> : <ListTree size={14} />}
-        Log
-        {isRunning && hasDeterminateProgress && (
-          <span className="font-mono text-xs font-bold text-fg-brand-strong">{percent}%</span>
-        )}
-      </button>
 
-      {open && (
-        <div
-          id={popoverId}
-          role="dialog"
-          aria-label={t('Chi tiết tiến độ AI', 'AI progress details')}
-          className="absolute right-0 top-full z-40 mt-2 w-[420px] max-w-[calc(100vw-2rem)] rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-xl"
+      {/* Floating dock hiển thị ở góc dưới bên phải; giữ nguyên khi hoàn tất hoặc thất bại */}
+      {hasProgress && !floatingDismissed && (
+        <aside
+          role="complementary"
+          aria-label={t('Tiến trình AI đang chạy', 'Running AI progress')}
+          className="fixed bottom-5 right-5 z-50 w-80 sm:w-96 rounded-xl border border-border-brand/40 bg-neutral-primary-soft/95 p-3.5 shadow-2xl backdrop-blur-md transition-all duration-300 animate-slide-in-up"
         >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-heading">{t('Tiến độ AI', 'AI progress')}</p>
-              <p className="mt-0.5 text-xs text-body-subtle">{label}</p>
+          {/* Header */}
+          <div className="flex items-center justify-between gap-2 border-b border-border-default pb-2">
+            <div className="flex min-w-0 items-center gap-2">
+              {isCompleted ? (
+                <CheckCircle2 size={16} className="text-fg-success-strong shrink-0" />
+              ) : isFailed ? (
+                <AlertCircle size={16} className="text-fg-danger-strong shrink-0" />
+              ) : isQueued ? (
+                <Clock3 size={16} className="text-brand shrink-0" />
+              ) : (
+                <Loader2 size={16} className="animate-spin text-brand shrink-0" />
+              )}
+              <span className="truncate text-xs font-bold text-heading">{label}</span>
             </div>
-            <button
-              type="button"
-              className="rounded-default p-1 text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading"
-              aria-label={t('Đóng log tiến độ', 'Close progress log')}
-              onClick={() => {
-                setOpen(false);
-                buttonRef.current?.focus();
-              }}
-            >
-              <X size={16} />
-            </button>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isCompleted && (
+                <span className="rounded-full bg-success-soft px-1.5 py-0.5 text-[10px] font-semibold text-fg-success-strong">
+                  {t('Hoàn thành', 'Completed')}
+                </span>
+              )}
+              {isFailed && (
+                <span className="rounded-full bg-danger-soft px-1.5 py-0.5 text-[10px] font-semibold text-fg-danger-strong">
+                  {t('Thất bại', 'Failed')}
+                </span>
+              )}
+              <span className="font-mono text-xs font-bold text-fg-brand-strong">{percent}%</span>
+              <button
+                type="button"
+                className="rounded p-1 text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading"
+                title={t('Đóng', 'Close')}
+                aria-label={t('Đóng tiến trình', 'Close progress')}
+                onClick={() => setFloatingDismissed(true)}
+              >
+                <X size={14} />
+              </button>
+            </div>
           </div>
 
-          {!progress || progress.status === 'IDLE' ? (
-            <div className="mt-4 rounded-default bg-neutral-secondary-soft px-3 py-4 text-center text-xs text-body-subtle">
-              {t('Chưa có tiến trình nào', 'No generation has run yet')}
+          {/* Progress bar */}
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-brand-soft">
+            <span
+              className={`block h-full rounded-full transition-[width] duration-300 ease-out ${
+                isCompleted ? 'bg-success' : isFailed ? 'bg-danger' : 'bg-brand'
+              }`}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+
+          {/* Log mới nhất kèm thời gian */}
+          <div className="mt-2 flex items-start justify-between gap-2">
+            <p className="text-xs font-medium leading-snug text-heading line-clamp-2">
+              {currentMessage}
+            </p>
+            {latestTime && (
+              <span className="shrink-0 rounded bg-neutral-secondary-medium/60 px-1.5 py-0.5 font-mono text-[10px] text-body-subtle">
+                {latestTime}
+              </span>
+            )}
+          </div>
+
+          {/* Danh sách các bước */}
+          {currentProgress?.steps && currentProgress.steps.length > 0 && (
+            <div className="mt-2.5 max-h-40 space-y-1.5 overflow-y-auto border-t border-border-default pt-2">
+              {currentProgress.steps.map((step) => (
+                <div key={step.order} className="flex items-center justify-between gap-2 text-[11px]">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <StepIcon status={step.status} />
+                    <span className={`truncate ${step.status === 'RUNNING' ? 'font-semibold text-fg-brand-strong' : 'text-body-subtle'}`}>
+                      {step.label}
+                    </span>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STEP_STYLES[step.status]}`}>
+                    {stepStatusLabel(step.status, t)}
+                  </span>
+                </div>
+              ))}
             </div>
-          ) : (
-            <>
-              <div className="mt-4 flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-heading">{t('Tổng thể', 'Overall')}</p>
-                  <p className="mt-0.5 text-[11px] text-body-subtle">
-                    {t(`${progress.completedSteps}/${progress.totalSteps} bước`, `${progress.completedSteps}/${progress.totalSteps} steps`)}
-                  </p>
-                </div>
-                <span className="font-mono text-2xl font-bold text-fg-brand-strong">{percent}%</span>
-              </div>
-              <div
-                role="progressbar"
-                aria-label={t('Tiến độ tổng thể', 'Overall progress')}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={percent}
-                className="mt-2 h-2.5 overflow-hidden rounded-full bg-brand-soft"
-              >
-                <span
-                  className="generation-progress-fill block h-full rounded-full bg-brand transition-[width] duration-500 ease-out"
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
-
-              <ol className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1" aria-label={t('Các bước pipeline', 'Pipeline steps')}>
-                {progress.steps.length > 0 ? progress.steps.map((step) => (
-                  <li
-                    key={step.order}
-                    aria-current={step.status === 'RUNNING' ? 'step' : undefined}
-                    className={`rounded-default border p-3 transition-colors ${STEP_ITEM_STYLES[step.status]}`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <StepIcon status={step.status} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-xs font-medium text-heading">{step.label}</p>
-                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${STEP_STYLES[step.status]}`}>
-                            {stepStatusLabel(step.status, t)}
-                          </span>
-                        </div>
-                        <div
-                          role="progressbar"
-                          aria-label={step.label}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          aria-valuenow={step.percent}
-                          className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-secondary-medium"
-                        >
-                          <span
-                            className={`block h-full rounded-full transition-colors ${STEP_FILL_STYLES[step.status]}`}
-                            style={{ width: `${step.percent}%` }}
-                          />
-                        </div>
-                        <p className="mt-1 text-right font-mono text-[10px] text-body-subtle">{step.percent}%</p>
-                        {step.status === 'FAILED' && step.errorMessage && (
-                          <p className="mt-2 rounded-default bg-danger-soft px-2 py-1.5 text-[11px] text-fg-danger-strong">
-                            {step.errorMessage}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                )) : (
-                  <li className="text-center text-xs text-body-subtle">
-                    {t('Đang nhận danh sách bước từ backend...', 'Loading pipeline steps...')}
-                  </li>
-                )}
-              </ol>
-
-              {progress.logs.length > 0 && (
-                <div className="mt-4 border-t border-border-default pt-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body-subtle">
-                    {t('Hoạt động gần nhất', 'Latest activity')}
-                  </p>
-                  <p className="mt-1 text-xs text-body">{progress.logs[progress.logs.length - 1].message}</p>
-                </div>
-              )}
-            </>
           )}
-        </div>
+
+          {/* Lịch sử log kèm mốc thời gian */}
+          {currentProgress?.logs && currentProgress.logs.length > 1 && (
+            <div className="mt-2 max-h-24 space-y-1 overflow-y-auto border-t border-border-default pt-1.5 font-mono text-[10px] text-body-subtle">
+              {currentProgress.logs.map((log, index) => (
+                <div key={`${log.timestamp}-${index}`} className="flex items-start gap-1.5">
+                  <span className="shrink-0 text-body-subtle/70">
+                    {formatLogTime(log.timestamp)}
+                  </span>
+                  <span className="break-words text-heading">{log.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </aside>
       )}
-    </div>
+    </>
   );
 }
 

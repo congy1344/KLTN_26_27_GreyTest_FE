@@ -162,10 +162,10 @@ describe('CoveragePanel', () => {
 
     render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
 
-    expect(screen.getByText('UserController.getById')).toBeInTheDocument();
-    expect(screen.getByText(/Ngoài phạm vi sinh Service Unit Test/)).toBeInTheDocument();
-    expect(screen.getByText('Không thể bổ sung')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Không có Service gap/i })).toBeDisabled();
+    expect(screen.queryByText('UserController.getById')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ngoài phạm vi sinh Service Unit Test/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Không thể bổ sung')).not.toBeInTheDocument();
+    expect(screen.getByText('Không có coverage gap cần bổ sung')).toBeVisible();
     expect(mockRefine).not.toHaveBeenCalled();
   });
 });

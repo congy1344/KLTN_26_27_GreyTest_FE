@@ -80,11 +80,8 @@ describe('BusinessRulesPanel', () => {
     mocks.generating = true;
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
-    const generateButton = screen.getByRole('button', { name: 'AI sinh BR' });
-    const logButton = screen.getByRole('button', { name: 'Log tiến độ' });
-    expect(generateButton.parentElement).toContainElement(logButton);
-    fireEvent.click(logButton);
-    expect(screen.getByText('Chưa có tiến trình nào')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'AI sinh BR' })).toBeDisabled();
+    expect(screen.getByRole('complementary')).toBeVisible();
   });
 
   it('shows the background acceptance message without hiding the rule list', () => {

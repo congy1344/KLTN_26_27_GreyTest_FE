@@ -20,9 +20,30 @@ import { useLanguage } from '../../../shared/i18n/language';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
+import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
 
 export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: number; servicePath?: string }) {
   const navigate = useNavigate();
+  const {
+    methodDiffMap,
+    getMethodDiff,
+    affectedUnitTestIds,
+    affectedCaseIds,
+    affectedPlanIds,
+    affectedRuleIds,
+    addedUnitTestIds,
+    modifiedUnitTestIds,
+    deletedUnitTestIds,
+    addedCaseIds,
+    modifiedCaseIds,
+    deletedCaseIds,
+    addedPlanIds,
+    modifiedPlanIds,
+    deletedPlanIds,
+    addedRuleIds,
+    modifiedRuleIds,
+    deletedRuleIds,
+  } = useSourceUpdateImpact(projectId);
   const cases = useTestCases(projectId, servicePath);
   const plans = useTestPlans(projectId, servicePath);
   const rules = useBusinessRules(projectId, servicePath);
@@ -63,13 +84,23 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
   ].filter(Boolean).join(', ');
   const coverageReady = approvedCases.length > 0 && missingCount === 0 && unexpectedCount === 0;
   const normalizedQuery = query.trim().toLowerCase();
-  const visible = useMemo(() => (tests.data ?? []).filter((item) => {
-    if (caseId && String(item.testCaseId) !== caseId) return false;
-    if (!normalizedQuery) return true;
-    const testCase = approvedCaseById.get(item.testCaseId);
-    return [item.testMethodName, item.testClassName, item.packageName, testCase?.caseCode, testCase?.description]
-      .some((value) => value?.toLowerCase().includes(normalizedQuery));
-  }), [tests.data, caseId, normalizedQuery, approvedCaseById]);
+  const visible = useMemo(() => {
+    const list = (tests.data ?? []).filter((item) => {
+      if (caseId && String(item.testCaseId) !== caseId) return false;
+      if (!normalizedQuery) return true;
+      const testCase = approvedCaseById.get(item.testCaseId);
+      return [item.testMethodName, item.testClassName, item.packageName, testCase?.caseCode, testCase?.description]
+        .some((value) => value?.toLowerCase().includes(normalizedQuery));
+    });
+    return list.sort((a, b) => {
+      const tcA = approvedCaseById.get(a.testCaseId)?.caseCode ?? '';
+      const tcB = approvedCaseById.get(b.testCaseId)?.caseCode ?? '';
+      if (tcA && tcB && tcA !== tcB) {
+        return tcA.localeCompare(tcB, undefined, { numeric: true });
+      }
+      return a.testMethodName.localeCompare(b.testMethodName);
+    });
+  }, [tests.data, caseId, normalizedQuery, approvedCaseById]);
   const active = visible.find((item) => item.id === activeId) ?? visible[0];
   const sourceTraceByRule = useMemo(
     () => buildRuleSourceIndex(analysis.data, rules.data ?? []),
@@ -185,18 +216,70 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
             <EmptyState icon={FileCode2} title={t('Chưa có Unit Test', 'No Unit Tests yet')} hint={t('Approve Test Case rồi bấm "AI sinh Unit Test".', 'Approve Test Cases, then select "Generate with AI".')} minHeight="min-h-[200px]" />
           ) : visible.map((item, index) => {
             const testCase = approvedCaseById.get(item.testCaseId);
+            const testPlan = testCase ? (plans.data ?? []).find((p) => p.id === testCase.testPlanId) : null;
+            const ruleIds = testPlan?.coveredRuleIds?.length
+              ? testPlan.coveredRuleIds
+              : testPlan ? [testPlan.businessRuleId] : [];
+            const coveredRules = ruleIds
+              .map((rId) => (rules.data ?? []).find((r) => r.id === rId))
+              .filter((r) => r != null);
+            const ruleDiffs = coveredRules.map((rule) => {
+              const method = (analysis.data?.classes ?? []).flatMap((c) => c.methods).find((m) => m.id === rule?.methodId);
+              const javaClass = (analysis.data?.classes ?? []).find((c) => c.methods.some((m) => m.id === rule?.methodId));
+              return method
+                ? (getMethodDiff(javaClass?.qualifiedName, method.methodName, method.parameters)
+                   || methodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
+                   || methodDiffMap[method.methodName])
+                : undefined;
+            });
+            const hasAdded = addedUnitTestIds.has(item.id) || item.generationType === 'NEW_TEST' || (testCase ? addedCaseIds.has(testCase.id) : false) || (testPlan ? addedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+            const hasDeleted = deletedUnitTestIds.has(item.id) || (testCase ? deletedCaseIds.has(testCase.id) : false) || (testPlan ? deletedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
+            const hasModified = !hasAdded && !hasDeleted && (
+              modifiedUnitTestIds.has(item.id)
+              || item.generationType === 'INCREMENTAL'
+              || item.generationType === 'IMPROVE_EXISTING_TEST'
+              || ruleDiffs.includes('MODIFIED')
+              || affectedUnitTestIds.has(item.id)
+              || (testCase ? modifiedCaseIds.has(testCase.id) || affectedCaseIds.has(testCase.id) : false)
+              || (testPlan ? modifiedPlanIds.has(testPlan.id) || affectedPlanIds.has(testPlan.id) : false)
+              || coveredRules.some((r) => r && (modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)))
+            );
+
+            const diffBorder = hasAdded
+              ? 'border-l-4 border-l-emerald-500 bg-emerald-500/[0.04]'
+              : hasDeleted
+                ? 'border-l-4 border-l-rose-500 bg-rose-500/[0.04]'
+                : hasModified
+                  ? 'border-l-4 border-l-amber-500 bg-amber-500/[0.04]'
+                  : '';
+
             return (
             <button
               key={item.id}
               type="button"
               aria-label={`${testCase?.caseCode ?? `Case ${item.testCaseId}`} ${item.testMethodName}`}
               aria-current={active?.id === item.id ? 'true' : undefined}
-              className={`block w-full border-b border-border-default px-4 py-3 text-left transition-colors last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand ${active?.id === item.id ? 'bg-brand-softer' : 'hover:bg-neutral-secondary-soft/40'}`}
+              className={`block w-full border-b border-border-default px-4 py-3 text-left transition-colors last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand ${diffBorder} ${active?.id === item.id ? 'bg-brand-softer' : 'hover:bg-neutral-secondary-soft/40'}`}
               onClick={() => setActiveId(item.id)}
             >
               <span className="flex items-center gap-2">
                 <span className="text-[11px] font-semibold tabular-nums text-body-subtle">{String(index + 1).padStart(2, '0')}</span>
                 <span className="rounded-full bg-brand-softer px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong">{testCase?.caseCode ?? `#${item.testCaseId}`}</span>
+                {hasAdded && (
+                  <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                    + MỚI THÊM
+                  </span>
+                )}
+                {hasDeleted && (
+                  <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-rose-600 dark:text-rose-400">
+                    - ĐÃ XÓA
+                  </span>
+                )}
+                {hasModified && (
+                  <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                    ~ CẬP NHẬT THEO CODE
+                  </span>
+                )}
                 <span className="ml-auto text-[10px] font-semibold uppercase text-body-subtle">{item.generationType?.replace(/_/g, ' ')}</span>
               </span>
               <span className="mt-2 block break-all font-mono text-xs font-semibold text-heading">{item.testMethodName}</span>
@@ -213,7 +296,61 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
           ) : activeFile ? (
             <div className="space-y-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-body-subtle">{t('Traceability đang kiểm chứng', 'Traceability under review')}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body-subtle">{t('Traceability đang kiểm chứng', 'Traceability under review')}</p>
+                  {(() => {
+                    const activeCase = active ? approvedCaseById.get(active.testCaseId) : null;
+                    const activePlan = activeCase ? (plans.data ?? []).find((p) => p.id === activeCase.testPlanId) : null;
+                    const ruleIds = activePlan?.coveredRuleIds?.length
+                      ? activePlan.coveredRuleIds
+                      : activePlan ? [activePlan.businessRuleId] : [];
+                    const coveredRules = ruleIds
+                      .map((rId) => (rules.data ?? []).find((r) => r.id === rId))
+                      .filter((r) => r != null);
+                    const ruleDiffs = coveredRules.map((rule) => {
+                      const method = (analysis.data?.classes ?? []).flatMap((c) => c.methods).find((m) => m.id === rule?.methodId);
+                      const javaClass = (analysis.data?.classes ?? []).find((c) => c.methods.some((m) => m.id === rule?.methodId));
+                      return method
+                        ? (getMethodDiff(javaClass?.qualifiedName, method.methodName, method.parameters)
+                           || methodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
+                           || methodDiffMap[method.methodName])
+                        : undefined;
+                    });
+                    const hasAdded = (active ? addedUnitTestIds.has(active.id) : false) || active?.generationType === 'NEW_TEST' || (activeCase ? addedCaseIds.has(activeCase.id) : false) || (activePlan ? addedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+                    const hasDeleted = (active ? deletedUnitTestIds.has(active.id) : false) || (activeCase ? deletedCaseIds.has(activeCase.id) : false) || (activePlan ? deletedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
+                    const hasModified = !hasAdded && !hasDeleted && (
+                      (active ? modifiedUnitTestIds.has(active.id) || affectedUnitTestIds.has(active.id) : false)
+                      || active?.generationType === 'INCREMENTAL'
+                      || active?.generationType === 'IMPROVE_EXISTING_TEST'
+                      || ruleDiffs.includes('MODIFIED')
+                      || (activeCase ? modifiedCaseIds.has(activeCase.id) || affectedCaseIds.has(activeCase.id) : false)
+                      || (activePlan ? modifiedPlanIds.has(activePlan.id) || affectedPlanIds.has(activePlan.id) : false)
+                      || coveredRules.some((r) => r && (modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)))
+                    );
+                    if (hasAdded) {
+                      return (
+                        <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                          + MỚI THÊM
+                        </span>
+                      );
+                    }
+                    if (hasDeleted) {
+                      return (
+                        <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                          - ĐÃ XÓA
+                        </span>
+                      );
+                    }
+                    if (hasModified) {
+                      return (
+                        <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                          ~ CẬP NHẬT THEO CODE
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
                 <p className="mt-1 break-words font-mono text-xs font-semibold text-fg-brand-strong">{activeTrace?.label}</p>
                 <p className="mt-1 text-xs text-body-subtle">{approvedCaseById.get(active.testCaseId)?.description}</p>
                 <div className="grid gap-2 lg:grid-cols-2">

@@ -27,6 +27,7 @@ import {
 import type { TestPlan, TestType } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
+import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
 
 interface TestPlansPanelProps {
   projectId: number;
@@ -39,6 +40,18 @@ const TEST_TYPES: TestType[] = ['HAPPY_PATH', 'BOUNDARY', 'EXCEPTION', 'EDGE'];
 export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPlansPanelProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const {
+    methodDiffMap,
+    getMethodDiff,
+    affectedPlanIds,
+    affectedRuleIds,
+    addedPlanIds,
+    modifiedPlanIds,
+    deletedPlanIds,
+    addedRuleIds,
+    modifiedRuleIds,
+    deletedRuleIds,
+  } = useSourceUpdateImpact(projectId);
   const [businessRuleId, setBusinessRuleId] = useState('');
   const [testType, setTestType] = useState<TestType>('HAPPY_PATH');
   const [title, setTitle] = useState('');
@@ -231,13 +244,36 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
           />
         ) : (
           <div className="space-y-2">
-            {plans.map((plan) => {
+            {[...plans].sort((a, b) => a.planCode.localeCompare(b.planCode, undefined, { numeric: true })).map((plan) => {
               const editing = editingPlanId === plan.id;
               const coveredRules = (plan.coveredRuleIds?.length ? plan.coveredRuleIds : [plan.businessRuleId])
                 .map((ruleId) => rules.find((rule) => rule.id === ruleId))
                 .filter((rule): rule is NonNullable<typeof rule> => rule != null);
+              const ruleDiffs = coveredRules.map((rule) => {
+                const method = (analysis?.classes ?? []).flatMap((c) => c.methods).find((m) => m.id === rule.methodId);
+                const javaClass = (analysis?.classes ?? []).find((c) => c.methods.some((m) => m.id === rule.methodId));
+                return method
+                  ? (getMethodDiff(javaClass?.qualifiedName, method.methodName, method.parameters)
+                     || methodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
+                     || methodDiffMap[method.methodName])
+                  : undefined;
+              });
+              const hasAdded = addedPlanIds.has(plan.id) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => addedRuleIds.has(r.id));
+              const hasDeleted = deletedPlanIds.has(plan.id) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => deletedRuleIds.has(r.id));
+              const hasModified = !hasAdded && !hasDeleted && (
+                modifiedPlanIds.has(plan.id) || affectedPlanIds.has(plan.id) || ruleDiffs.includes('MODIFIED') || coveredRules.some((r) => modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id))
+              );
+
+              const cardClass = hasAdded
+                ? 'rounded-default border-2 border-emerald-500/60 bg-emerald-500/[0.04] p-3 shadow-xs transition-colors'
+                : hasDeleted
+                  ? 'rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 shadow-xs transition-colors'
+                  : (hasModified || plan.isModified)
+                    ? 'rounded-default border-2 border-amber-500/60 bg-amber-500/[0.04] p-3 shadow-xs transition-colors'
+                    : 'rounded-default border border-border-default bg-neutral-secondary-soft p-3';
+
               return (
-              <article key={plan.id} className="rounded-default border border-border-default bg-neutral-secondary-soft p-3">
+              <article key={plan.id} className={cardClass}>
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <ClipboardList size={14} className="text-body-subtle" />
                   <span className="font-mono text-xs font-semibold text-heading">{plan.planCode}</span>
@@ -246,6 +282,21 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
                   </span>
                   <SemanticBadge kind="test-type" value={plan.testType} />
                   <SemanticBadge kind="review-status" value={plan.status} />
+                  {hasAdded && (
+                    <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                      + MỚI THÊM
+                    </span>
+                  )}
+                  {hasDeleted && (
+                    <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                      - ĐÃ XÓA
+                    </span>
+                  )}
+                  {(hasModified || plan.isModified) && (
+                    <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                      ~ CẬP NHẬT THEO CODE
+                    </span>
+                  )}
                   {plan.isModified && (
                     <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-fg-warning">
                       {plan.status === 'APPROVED'

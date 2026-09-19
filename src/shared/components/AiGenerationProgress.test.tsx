@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { GenerationProgress } from '../types/generation-progress';
 import { AiGenerationProgress } from './AiGenerationProgress';
@@ -22,21 +22,14 @@ const runningProgress: GenerationProgress = {
 describe('AiGenerationProgress', () => {
   afterEach(cleanup);
 
-  it('always shows a Log button and reports an empty last run', () => {
+  it('does not render any idle header button when generation is inactive', () => {
     render(<AiGenerationProgress active={false} label="Đang sinh Test Plan" />);
 
-    const button = screen.getByRole('button', { name: 'Log tiến độ' });
-    expect(button).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-
-    fireEvent.click(button);
-
-    expect(button).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('dialog', { name: 'Chi tiết tiến độ AI' })).toBeVisible();
-    expect(screen.getByText('Chưa có tiến trình nào')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Log/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
   });
 
-  it('shows a queued background job before its worker starts', () => {
+  it('shows a queued background job in screen reader announcement and floating dock', () => {
     render(
       <AiGenerationProgress
         active={false}
@@ -52,40 +45,50 @@ describe('AiGenerationProgress', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Log tiến độ 0%' })).toBeVisible();
     expect(screen.getByRole('status')).toHaveTextContent('đang chờ worker xử lý');
+    const floatingDock = screen.getByRole('complementary');
+    expect(floatingDock).toBeVisible();
+    expect(within(floatingDock).getByText('0%')).toBeVisible();
+    expect(within(floatingDock).getByText('Đang chờ worker xử lý')).toBeVisible();
   });
 
-  it('shows overall percentage and every pipeline step in the popup', () => {
+  it('displays percentage, steps and log directly in the floating dock without opening buttons', () => {
     render(<AiGenerationProgress active label="Đang sinh Test Plan" progress={runningProgress} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log tiến độ 50%' }));
+    // Không còn nút Log trong header
+    expect(screen.queryByRole('button', { name: /Log/i })).not.toBeInTheDocument();
 
-    expect(screen.getByRole('progressbar', { name: 'Tiến độ tổng thể' }))
-      .toHaveAttribute('aria-valuenow', '50');
-    expect(screen.getByText('1/2 bước')).toBeVisible();
-    expect(screen.getByText('Sinh Test Plan - batch 1/1')).toBeVisible();
-    expect(screen.getByText('Kiểm tra và lưu Test Plan')).toBeVisible();
-    expect(screen.getByText('Hoàn thành')).toBeVisible();
-    expect(screen.getByText('Đang chạy')).toHaveClass('bg-brand', 'text-neutral-primary-soft');
-    expect(screen.getByRole('listitem', { current: 'step' }))
-      .toHaveClass('border-border-brand', 'bg-brand-softer', 'ring-border-brand');
-    expect(screen.getByRole('progressbar', { name: 'Kiểm tra và lưu Test Plan' }).firstElementChild)
-      .toHaveClass('bg-brand-strong');
-    expect(screen.getByRole('progressbar', { name: 'Sinh Test Plan - batch 1/1' }).firstElementChild)
-      .toHaveClass('bg-success');
-    expect(screen.getByText('Đã nhận 3 Test Plan từ AI.')).toBeVisible();
+    // Floating dock hiển thị trực tiếp với đầy đủ thông tin
+    const floatingDock = screen.getByRole('complementary');
+    expect(floatingDock).toBeVisible();
+    expect(within(floatingDock).getByText('50%')).toBeVisible();
+    expect(within(floatingDock).getByText('Sinh Test Plan - batch 1/1')).toBeVisible();
+    expect(within(floatingDock).getByText('Kiểm tra và lưu Test Plan')).toBeVisible();
+    expect(within(floatingDock).getByText('Hoàn thành')).toBeVisible();
+    expect(within(floatingDock).getByText('Đang chạy')).toBeVisible();
+    expect(within(floatingDock).getByText('Đã nhận 3 Test Plan từ AI.')).toBeVisible();
   });
 
-  it('identifies the failed step and displays its short error', () => {
+  it('dismisses the floating dock when clicking X', () => {
+    render(<AiGenerationProgress active label="Đang sinh Test Plan" progress={runningProgress} />);
+
+    const closeButton = screen.getByRole('button', { name: /Đóng/i });
+    expect(closeButton).toBeVisible();
+
+    fireEvent.click(closeButton);
+
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  });
+
+  it('identifies the failed step and displays it in the floating dock', () => {
     render(
       <AiGenerationProgress
-        active={false}
+        active
         label="Đang sinh Unit Test"
         progress={{
           ...runningProgress,
           stage: 'UNIT_TEST',
-          status: 'FAILED',
+          status: 'RUNNING',
           steps: [
             { order: 1, label: 'Sinh Unit Test - batch 1/1', status: 'FAILED', percent: 0, errorMessage: 'Gemini tạm thời hết quota.' },
             { order: 2, label: 'Kiểm tra và lưu Unit Test', status: 'WAITING', percent: 0 },
@@ -94,17 +97,30 @@ describe('AiGenerationProgress', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log tiến độ' }));
-
-    expect(screen.getByText('Lỗi')).toBeVisible();
-    expect(screen.getByText('Đang chờ')).toBeVisible();
-    expect(screen.getByText('Gemini tạm thời hết quota.')).toBeVisible();
+    const floatingDock = screen.getByRole('complementary');
+    expect(within(floatingDock).getByText('Lỗi')).toBeVisible();
+    expect(within(floatingDock).getByText('Đang chờ')).toBeVisible();
   });
 
-  it('does not present a terminal snapshot as still running during the display grace period', () => {
-    const { container } = render(
+  it('announces a failed terminal snapshot to screen readers and keeps dock visible', () => {
+    render(
       <AiGenerationProgress
-        active
+        active={false}
+        label="Đang sinh Test Plan"
+        progress={{ ...runningProgress, status: 'FAILED' }}
+      />,
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Đang sinh Test Plan: thất bại 50%');
+    const floatingDock = screen.getByRole('complementary');
+    expect(floatingDock).toBeVisible();
+    expect(within(floatingDock).getByText('Thất bại')).toBeVisible();
+  });
+
+  it('announces a completed terminal snapshot to screen readers and keeps dock visible', () => {
+    render(
+      <AiGenerationProgress
+        active={false}
         label="Đang sinh Test Plan"
         progress={{
           ...runningProgress,
@@ -116,42 +132,10 @@ describe('AiGenerationProgress', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Log tiến độ' })).toBeVisible();
-    expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Đang sinh Test Plan: hoàn tất 100%');
-  });
-
-  it('announces a failed terminal snapshot to screen readers', () => {
-    render(
-      <AiGenerationProgress
-        active={false}
-        label="Đang sinh Test Plan"
-        progress={{ ...runningProgress, status: 'FAILED' }}
-      />,
-    );
-
-    expect(screen.getByRole('status')).toHaveTextContent('Đang sinh Test Plan: thất bại 50%');
-  });
-
-  it('closes without blocking the page when clicking outside', () => {
-    render(<AiGenerationProgress active label="Đang sinh Test Plan" progress={runningProgress} />);
-    const button = screen.getByRole('button', { name: 'Log tiến độ 50%' });
-    fireEvent.click(button);
-    expect(screen.getByRole('dialog')).toBeVisible();
-
-    fireEvent.pointerDown(document.body);
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('closes with X and returns focus to the Log button', () => {
-    render(<AiGenerationProgress active label="Đang sinh Test Plan" progress={runningProgress} />);
-    const button = screen.getByRole('button', { name: 'Log tiến độ 50%' });
-    fireEvent.click(button);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Đóng log tiến độ' }));
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(button).toHaveFocus();
+    const floatingDock = screen.getByRole('complementary');
+    expect(floatingDock).toBeVisible();
+    expect(within(floatingDock).getAllByText('Hoàn thành').length).toBeGreaterThanOrEqual(1);
+    expect(within(floatingDock).getByText('100%')).toBeVisible();
   });
 });

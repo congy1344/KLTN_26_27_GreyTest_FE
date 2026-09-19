@@ -41,12 +41,14 @@ function stubExports(markdown = '# GreyTest Report — Demo') {
 }
 
 describe('ReportPanel', () => {
-  it('previews backend markdown by default and switches to JSON', () => {
-    stubExports();
+  it('renders backend markdown and switches to JSON', () => {
+    stubExports('# GreyTest Report\n\n## Coverage Overview\n\n| Metric | Value |\n| --- | --- |\n| Requirement Coverage | 100% |');
 
     render(<ReportPanel projectId={7} />);
 
-    expect(screen.getByLabelText(/Report preview/i)).toHaveDisplayValue(/# GreyTest Report/);
+    expect(screen.getByRole('heading', { name: 'GreyTest Report', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Coverage Overview', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('table')).toHaveTextContent('Requirement Coverage');
     expect(screen.getByText('92%')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
 
@@ -54,7 +56,15 @@ describe('ReportPanel', () => {
     fireEvent.click(within(formatGroup).getByRole('button', { name: /JSON/i }));
 
     expect(within(formatGroup).getByRole('button', { name: /JSON/i })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByLabelText(/Report preview/i)).toHaveDisplayValue(/"requirementCoverage":92/);
+    expect(screen.getByLabelText(/Report preview/i)).toHaveTextContent('"requirementCoverage":92');
+  });
+
+  it('does not render remote images from backend markdown', () => {
+    stubExports('![tracking](https://tracker.example/pixel.png)');
+
+    render(<ReportPanel projectId={7} />);
+
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
   it('downloads the active report format with the project-scoped filename', () => {

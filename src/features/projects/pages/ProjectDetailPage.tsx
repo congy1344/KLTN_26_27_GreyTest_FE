@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, Scan, Loader2, GitBranch, Archive, RefreshCw } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useProject, useAnalysis, useAnalyzeProject, useExistingTests } from '../hooks/useProjects';
 import { StatusBadge } from '../components/StatusBadge';
 import { AnalysisResult } from '../components/AnalysisResult';
 import { SourceUpdateModal } from '../components/SourceUpdateModal';
+import { fetchProjectSourceUpdates } from '../api/source-update-api';
+import type { ImpactSummaryDto } from '../types';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { AppShell } from '../../../shared/components/AppShell';
@@ -40,6 +42,37 @@ export function ProjectDetailPage() {
   const { t } = useLanguage();
   const [showReanalyzeConfirm, setShowReanalyzeConfirm] = useState(false);
   const [showSourceUpdateModal, setShowSourceUpdateModal] = useState(false);
+
+  const sourceUpdatesQuery = useQuery({
+    queryKey: ['source-updates', projectId],
+    queryFn: () => fetchProjectSourceUpdates(projectId),
+    enabled: Boolean(projectId),
+  });
+
+  const latestUpdate = useMemo(() => {
+    if (!sourceUpdatesQuery.data || sourceUpdatesQuery.data.length === 0) return null;
+    const active = sourceUpdatesQuery.data.find((u) => !['CANCELLED', 'FAILED'].includes(u.status));
+    return active || sourceUpdatesQuery.data[0];
+  }, [sourceUpdatesQuery.data]);
+
+  const { methodDiffMap, affectedRuleIds } = useMemo(() => {
+    const diffMap: Record<string, 'ADDED' | 'MODIFIED' | 'DELETED'> = {};
+    const ruleIds = new Set<number>();
+    if (latestUpdate?.impactSummary) {
+      try {
+        const impact: ImpactSummaryDto = JSON.parse(latestUpdate.impactSummary);
+        impact.changedMethods?.forEach((m) => {
+          diffMap[m.methodKey] = m.diffType;
+          diffMap[`${m.qualifiedClassName}#${m.methodName}`] = m.diffType;
+          diffMap[m.methodName] = m.diffType;
+        });
+        impact.affectedBusinessRuleIds?.forEach((ruleId) => ruleIds.add(ruleId));
+      } catch {
+        // ignore parse error
+      }
+    }
+    return { methodDiffMap: diffMap, affectedRuleIds: ruleIds };
+  }, [latestUpdate]);
 
   // Regenerate từ pha đầu: cho phân tích lại ở mọi status miễn còn source
   const canAnalyze = project?.sourceAvailable ?? false;
@@ -222,11 +255,11 @@ export function ProjectDetailPage() {
       )}
 
       {analyzeMutation.isSuccess && analyzeMutation.data && (
-        <AnalysisResult data={analyzeMutation.data} existingTests={existingTests} />
+        <AnalysisResult data={analyzeMutation.data} existingTests={existingTests} methodDiffMap={methodDiffMap} />
       )}
 
       {!analyzeMutation.isSuccess && hasAnalysis && !analysisLoading && analysis && (
-        <AnalysisResult data={analysis} existingTests={existingTests} />
+        <AnalysisResult data={analysis} existingTests={existingTests} methodDiffMap={methodDiffMap} />
       )}
 
       {!analyzeMutation.isSuccess && hasAnalysis && analysisLoading && (
@@ -244,18 +277,29 @@ export function ProjectDetailPage() {
         </div>
       )}
 
-      {hasAnalysis && serviceScope.selected && <BusinessRulesPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} servicePath={serviceScope.servicePath} />}
+      {hasAnalysis && serviceScope.selected && (
+        <BusinessRulesPanel
+          key={serviceScope.servicePath ?? 'default'}
+          projectId={projectId}
+          servicePath={serviceScope.servicePath}
+          methodDiffMap={methodDiffMap}
+          affectedRuleIds={affectedRuleIds}
+        />
+      )}
       <SourceUpdateModal
         project={project}
+        servicePath={serviceScope.servicePath}
         isOpen={showSourceUpdateModal}
         onClose={() => setShowSourceUpdateModal(false)}
         onApplied={() => {
           queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['source-updates', projectId] });
           queryClient.invalidateQueries({ queryKey: ['analysis', projectId] });
           queryClient.invalidateQueries({ queryKey: ['business-rules', projectId] });
           queryClient.invalidateQueries({ queryKey: ['test-plans', projectId] });
           queryClient.invalidateQueries({ queryKey: ['test-cases', projectId] });
           queryClient.invalidateQueries({ queryKey: ['unit-tests', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
         }}
       />
       <ConfirmDialog

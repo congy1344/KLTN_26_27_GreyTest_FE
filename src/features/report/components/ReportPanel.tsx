@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
 import { CheckCircle2, ClipboardList, Download, FileJson2, FileText, Link2, ShieldCheck } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
+import remarkGfm from 'remark-gfm';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
@@ -109,13 +112,20 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
                 {t('Thử lại', 'Retry')}
               </button>
             </div>
+          ) : format === 'markdown' ? (
+            <article aria-label="Report preview" className="report-markdown min-h-[430px] max-h-[70vh] overflow-auto p-6">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={{ img: () => null }}
+              >
+                {preview.data ?? ''}
+              </ReactMarkdown>
+            </article>
           ) : (
-            <textarea
-              aria-label="Report preview"
-              className="form-input min-h-[430px] w-full resize-y rounded-none border-0 bg-neutral-primary-soft font-mono text-xs leading-relaxed focus:ring-0"
-              readOnly
-              value={preview.data ?? ''}
-            />
+            <pre aria-label="Report preview" className="min-h-[430px] max-h-[70vh] overflow-auto whitespace-pre-wrap bg-neutral-primary-soft p-6 font-mono text-xs leading-relaxed text-heading">
+              <code>{preview.data ?? ''}</code>
+            </pre>
           )}
         </div>
       </div>

@@ -148,6 +148,7 @@ describe('SourceUpdateModal', () => {
           methodKey: 'com.example.AppointmentService#create(AppointmentRequest)',
           diffType: 'MODIFIED',
           reason: 'Method changed',
+          isServiceMethod: true,
         }],
         affectedServiceMethods: [],
         affectedBusinessRuleIds: [],

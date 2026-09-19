@@ -15,19 +15,35 @@ import type { ProjectStatus } from '../../projects/types';
 import { useAnalysis } from '../../projects/hooks/useProjects';
 import { buildRuleSourceIndex } from '../../projects/utils/source-trace';
 import { useTestPlans } from '../../test-plans/hooks/useTestPlans';
-import type { TestPlan } from '../../test-plans/types';
 import { useUnitTests } from '../../unit-tests/hooks/useUnitTests';
 import { useApproveTestCases, useCreateTestCase, useDeleteTestCase, useGenerateTestCases, useTestCases, useUpdateTestCase } from '../hooks/useTestCases';
 import type { Priority, TestCase, TestType } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
+import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
 
 const TEST_TYPES: TestType[] = ['HAPPY_PATH', 'BOUNDARY', 'EXCEPTION', 'EDGE'];
 const PRIORITIES: Priority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
 export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servicePath }: { projectId: number; projectStatus?: ProjectStatus; servicePath?: string }) {
   const navigate = useNavigate();
+  const {
+    methodDiffMap,
+    getMethodDiff,
+    affectedCaseIds,
+    affectedPlanIds,
+    affectedRuleIds,
+    addedCaseIds,
+    modifiedCaseIds,
+    deletedCaseIds,
+    addedPlanIds,
+    modifiedPlanIds,
+    deletedPlanIds,
+    addedRuleIds,
+    modifiedRuleIds,
+    deletedRuleIds,
+  } = useSourceUpdateImpact(projectId);
   const plans = useTestPlans(projectId, servicePath);
   const rules = useBusinessRules(projectId, servicePath);
   const cases = useTestCases(projectId, servicePath);
@@ -61,7 +77,6 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
   const [editDescription, setEditDescription] = useState('');
   const [editPreconditions, setEditPreconditions] = useState('');
   const [editExpected, setEditExpected] = useState('');
-  const [planToRegenerate, setPlanToRegenerate] = useState<TestPlan | null>(null);
   const [caseToDelete, setCaseToDelete] = useState<TestCase | null>(null);
 
   const approvedPlans = useMemo(() => (plans.data ?? []).filter((p) => p.status === 'APPROVED'), [plans.data]);
@@ -69,10 +84,10 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
     () => buildRuleSourceIndex(analysis.data, rules.data ?? []),
     [analysis.data, rules.data],
   );
-  const plansNeedingCases = useMemo(() => approvedPlans.filter((plan) =>
-    plan.isModified || !(cases.data ?? []).some((testCase) => testCase.testPlanId === plan.id)),
-  [approvedPlans, cases.data]);
-  const visible = useMemo(() => planId ? (cases.data ?? []).filter((c) => String(c.testPlanId) === planId) : (cases.data ?? []), [cases.data, planId]);
+  const visible = useMemo(() => {
+    const list = planId ? (cases.data ?? []).filter((c) => String(c.testPlanId) === planId) : (cases.data ?? []);
+    return [...list].sort((a, b) => a.caseCode.localeCompare(b.caseCode, undefined, { numeric: true }));
+  }, [cases.data, planId]);
   const pending = (cases.data ?? []).filter((c) => c.status === 'PENDING_REVIEW').length;
   const approved = (cases.data ?? []).filter((c) => c.status === 'APPROVED').length;
   const error = plans.error ?? cases.error ?? units.error ?? analysis.error
@@ -187,31 +202,6 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
         <MetricCard icon={Database} label={t('Test Case đã approve', 'Approved Cases')} value={approved} />
       </div>
 
-      {(cases.data ?? []).length > 0 && plansNeedingCases.length > 0 && (
-        <div className="mt-4 rounded-base border border-border-warning-subtle bg-warning-soft p-4">
-          <h4 className="text-sm font-semibold text-fg-warning">
-            {t('Test Plan cần cập nhật Test Case', 'Test Plans requiring updated Test Cases')}
-          </h4>
-          <p className="mt-1 text-xs text-body-subtle">
-            {t('Chỉ Test Case của plan được chọn sẽ bị thay thế; các plan khác được giữ nguyên.', 'Only cases of the selected plan will be replaced; other plans remain unchanged.')}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {plansNeedingCases.map((plan) => (
-              <button
-                key={plan.id}
-                type="button"
-                className="btn btn-secondary"
-                disabled={busy || !units.isSuccess}
-                onClick={() => setPlanToRegenerate(plan)}
-              >
-                <Bot size={14} />
-                {t(`Sinh lại Case · ${plan.planCode}`, `Regenerate Cases · ${plan.planCode}`)}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div id="manual-case-form" className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
         <div className="flex items-center gap-3"><PlusCircle size={16} className="text-fg-brand-strong" /><span className="text-sm font-semibold text-heading">{t('Thêm Test Case thủ công', 'Add a Test Case manually')}</span></div>
         <form onSubmit={handleCreate} className="mt-4 grid gap-3">
@@ -259,8 +249,36 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
             : sourcePlan ? [sourcePlan.businessRuleId] : [])
             .map((ruleId) => (rules.data ?? []).find((rule) => rule.id === ruleId))
             .filter((rule) => rule != null);
+          const ruleDiffs = coveredRules.map((rule) => {
+            const method = (analysis.data?.classes ?? []).flatMap((c) => c.methods).find((m) => m.id === rule?.methodId);
+            const javaClass = (analysis.data?.classes ?? []).find((c) => c.methods.some((m) => m.id === rule?.methodId));
+            return method
+              ? (getMethodDiff(javaClass?.qualifiedName, method.methodName, method.parameters)
+                 || methodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
+                 || methodDiffMap[method.methodName])
+              : undefined;
+          });
+          const hasAdded = addedCaseIds.has(item.id) || (sourcePlan ? addedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+          const hasDeleted = deletedCaseIds.has(item.id) || (sourcePlan ? deletedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
+          const hasModified = !hasAdded && !hasDeleted && (
+            modifiedCaseIds.has(item.id)
+            || affectedCaseIds.has(item.id)
+            || (sourcePlan ? modifiedPlanIds.has(sourcePlan.id) || affectedPlanIds.has(sourcePlan.id) : false)
+            || ruleDiffs.includes('MODIFIED')
+            || coveredRules.some((r) => r && (modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)))
+            || item.isModified
+          );
+
+          const cardClass = hasAdded
+            ? 'rounded-default border-2 border-emerald-500/60 bg-emerald-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
+            : hasDeleted
+              ? 'rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
+              : (hasModified || item.isModified)
+                ? 'rounded-default border-2 border-amber-500/60 bg-amber-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
+                : 'border-t border-border-default px-3 py-3 transition-colors first:border-t-0 hover:bg-neutral-secondary-soft/40';
+
           return (
-            <article key={item.id} className="border-t border-border-default px-3 py-3 transition-colors first:border-t-0 hover:bg-neutral-secondary-soft/40">
+            <article key={item.id} className={cardClass}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs font-semibold text-heading">{item.caseCode}</span>
                 <span className="font-mono text-xs text-body-subtle">
@@ -269,7 +287,26 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
                 </span>
                 <SemanticBadge kind="test-type" value={item.testType} />
                 <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">{item.priority}</span>
-                {item.isModified && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-fg-warning">{t('Đã sửa', 'Modified')}</span>}
+                {hasAdded && (
+                  <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    + MỚI THÊM
+                  </span>
+                )}
+                {hasDeleted && (
+                  <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                    - ĐÃ XÓA
+                  </span>
+                )}
+                {(hasModified || item.isModified) && (
+                  <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                    ~ CẬP NHẬT THEO CODE
+                  </span>
+                )}
+                {item.isModified && !hasModified && (
+                  <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-fg-warning">
+                    {t('Đã sửa', 'Modified')}
+                  </span>
+                )}
                 <SemanticBadge kind="review-status" value={item.status} label={item.status === 'PENDING_REVIEW' ? 'DRAFT' : undefined} />
                 <span className="ml-auto flex gap-1">
                   {editing ? (
@@ -316,31 +353,6 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
           );
         })}
       </div>
-      <ConfirmDialog
-        open={planToRegenerate != null}
-        title={t('Sinh lại Test Case của plan này?', 'Regenerate cases for this plan?')}
-        description={planToRegenerate
-          ? (() => {
-              const targetCases = (cases.data ?? []).filter((item) => item.testPlanId === planToRegenerate.id);
-              const targetCaseIds = new Set(targetCases.map((item) => item.id));
-              const targetUnits = (units.data ?? []).filter((item) => targetCaseIds.has(item.testCaseId));
-              return t(
-                `${planToRegenerate.planCode} sẽ thay thế ${targetCases.length} Test Case và xóa ${targetUnits.length} Unit Test liên quan. Dữ liệu của plan khác được giữ nguyên.`,
-                `${planToRegenerate.planCode} will replace ${targetCases.length} Test Cases and delete ${targetUnits.length} related Unit Tests. Other plans remain unchanged.`,
-              );
-            })()
-          : ''}
-        confirmLabel={t('Sinh lại', 'Regenerate')}
-        cancelLabel={t('Hủy', 'Cancel')}
-        pending={generate.isPending}
-        onCancel={() => setPlanToRegenerate(null)}
-        onConfirm={() => {
-          if (!planToRegenerate) return;
-          const targetPlanId = planToRegenerate.id;
-          setPlanToRegenerate(null);
-          generate.mutate(targetPlanId);
-        }}
-      />
       <ConfirmDialog
         open={caseToDelete != null}
         title={t('Xóa Test Case?', 'Delete Test Case?')}

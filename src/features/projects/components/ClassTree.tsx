@@ -9,6 +9,7 @@ import { displaySourcePath } from '../../../shared/utils/source-path';
 interface ClassTreeProps {
   classes: JavaClassInfo[];
   existingTests?: ExistingTestInfo[];
+  methodDiffMap?: Record<string, 'ADDED' | 'MODIFIED' | 'DELETED'>;
 }
 
 interface TreeEntry {
@@ -16,6 +17,7 @@ interface TreeEntry {
   label: string;
   kind: TreeEntryKind;
   children: TreeEntry[];
+  diffType?: 'ADDED' | 'MODIFIED' | 'DELETED';
 }
 
 type TreeEntryKind = 'folder' | 'java-file' | 'test-file' | 'controller' | 'service'
@@ -80,11 +82,28 @@ function entryIcon(kind: TreeEntryKind) {
   }
 }
 
-function methodDetail(method: JavaMethodInfo) {
+function methodDetail(method: JavaMethodInfo, diffType?: 'ADDED' | 'MODIFIED' | 'DELETED') {
   return (
     <div className="space-y-3">
-      <div className="font-mono text-xs text-body-subtle">
-        {method.visibility.toLowerCase()} {method.returnType} {method.methodName}({method.parameters.map((p) => p.type).join(', ')})
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="font-mono text-xs text-body-subtle">
+          {method.visibility.toLowerCase()} {method.returnType} {method.methodName}({method.parameters.map((p) => p.type).join(', ')})
+        </div>
+        {diffType === 'ADDED' && (
+          <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+            + Phương thức mới thêm từ bản cập nhật
+          </span>
+        )}
+        {diffType === 'MODIFIED' && (
+          <span className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
+            ~ Phương thức đã cập nhật theo mã nguồn mới
+          </span>
+        )}
+        {diffType === 'DELETED' && (
+          <span className="rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
+            - Phương thức đã bị xóa khỏi source code
+          </span>
+        )}
       </div>
       {method.endpoints.length > 0 && (
         <div className="space-y-1 text-xs text-body">
@@ -132,6 +151,21 @@ function renderEntries(entries: TreeEntry[], expandedIds: Set<string>): ReactNod
             {entryIcon(entry.kind)}
           </span>
           <span className="truncate">{entry.label}</span>
+          {entry.diffType === 'ADDED' && (
+            <span className="ml-auto rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+              + MỚI THÊM
+            </span>
+          )}
+          {entry.diffType === 'MODIFIED' && (
+            <span className="ml-auto rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-amber-600 dark:text-amber-400">
+              ~ CẬP NHẬT THEO CODE
+            </span>
+          )}
+          {entry.diffType === 'DELETED' && (
+            <span className="ml-auto rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-rose-600 dark:text-rose-400">
+              - ĐÃ XÓA
+            </span>
+          )}
         </span>
       )}
       slotProps={{ groupTransition: { unmountOnExit: true } }}
@@ -143,7 +177,7 @@ function renderEntries(entries: TreeEntry[], expandedIds: Set<string>): ReactNod
   ));
 }
 
-export function ClassTree({ classes, existingTests = EMPTY_TESTS }: ClassTreeProps) {
+export function ClassTree({ classes, existingTests = EMPTY_TESTS, methodDiffMap }: ClassTreeProps) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const { t } = useLanguage();
   const entries = useMemo(() => {
@@ -153,12 +187,17 @@ export function ClassTree({ classes, existingTests = EMPTY_TESTS }: ClassTreePro
         id: `class:${javaClass.id}`,
         label: javaClass.className,
         kind: classKind(javaClass.classType),
-        children: javaClass.methods.map((method) => ({
-          id: `method:${method.id}`,
-          label: method.methodName,
-          kind: 'method',
-          children: [],
-        })),
+        children: javaClass.methods.map((method) => {
+          const diffType = methodDiffMap?.[`${javaClass.qualifiedName}#${method.methodName}`]
+            || methodDiffMap?.[method.methodName];
+          return {
+            id: `method:${method.id}`,
+            label: method.methodName,
+            kind: 'method',
+            children: [],
+            diffType,
+          };
+        }),
       };
       addPath(root, pathParts(javaClass.filePath), classEntry, 'java-file');
     });
@@ -174,7 +213,7 @@ export function ClassTree({ classes, existingTests = EMPTY_TESTS }: ClassTreePro
       })),
     }, 'test-file'));
     return root;
-  }, [classes, existingTests]);
+  }, [classes, existingTests, methodDiffMap]);
   const rootExpandedItems = useMemo(() => entries.map((entry) => entry.id), [entries]);
   const [expandedItems, setExpandedItems] = useState<string[]>(rootExpandedItems);
   const expandedIds = useMemo(() => new Set(expandedItems), [expandedItems]);
@@ -189,11 +228,17 @@ export function ClassTree({ classes, existingTests = EMPTY_TESTS }: ClassTreePro
       if (`class:${javaClass.id}` === selectedId) {
         return classDetail(javaClass, t('Class source chưa có trong analysis cũ. Bấm Phân tích lại để cập nhật.', 'Class source is missing from the old analysis. Analyze again to update it.'));
       }
-      for (const method of javaClass.methods) if (`method:${method.id}` === selectedId) return methodDetail(method);
+      for (const method of javaClass.methods) {
+        if (`method:${method.id}` === selectedId) {
+          const diffType = methodDiffMap?.[`${javaClass.qualifiedName}#${method.methodName}`]
+            || methodDiffMap?.[method.methodName];
+          return methodDetail(method, diffType);
+        }
+      }
     }
     const test = existingTests.find((item) => `test:${item.id}` === selectedId);
     return test ? <pre className={CODE_BLOCK_CLASS}><code>{test.sourceCode}</code></pre> : null;
-  }, [classes, existingTests, selectedId, t]);
+  }, [classes, existingTests, methodDiffMap, selectedId, t]);
 
   if (!classes.length && !existingTests.length) {
     return <div className="rounded-base border border-border-default bg-neutral-primary-soft p-8 text-center shadow-sm"><p className="text-sm font-semibold text-heading">{t('Chưa có source được trích xuất', 'No source has been extracted')}</p></div>;

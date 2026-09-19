@@ -70,7 +70,7 @@ describe('TestCasesPanel', () => {
     mocks.generating = true;
     render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
 
-    expect(screen.getByRole('button', { name: 'Log tiến độ' })).toBeVisible();
+    expect(screen.getByRole('complementary')).toBeVisible();
   });
 
   it('keeps the draft label while using pending review colors', () => {
@@ -89,7 +89,7 @@ describe('TestCasesPanel', () => {
     expect(screen.getByText('Test Plan đã approve')).toBeVisible();
   });
 
-  it('regenerates only the modified plan after confirmation', () => {
+  it('does not display regeneration banner in TestCasesPanel as it is handled in source update flow', () => {
     mocks.casesData = [sampleCase(1), sampleCase(2)];
     mocks.unitsData = [{ id: 9, testCaseId: 1 }];
     mocks.planModified = true;
@@ -99,28 +99,17 @@ describe('TestCasesPanel', () => {
     expect(screen.getAllByText('UserService.createUser')).not.toHaveLength(0);
     expect(screen.getAllByText('IF-1-TRUE TRUE')).not.toHaveLength(0);
     expect(screen.queryByRole('button', { name: 'AI sinh Case' })).not.toBeInTheDocument();
-    const generateButton = screen.getByRole('button', { name: 'Sinh lại Case · TP-001' });
-    expect(generateButton).toBeEnabled();
-    fireEvent.click(generateButton);
-
-    const dialog = screen.getByRole('dialog', { name: /Sinh lại Test Case của plan này/ });
-    expect(dialog).toHaveTextContent('2 Test Case');
-    expect(dialog).toHaveTextContent('1 Unit Test');
-    expect(dialog).toHaveTextContent('Dữ liệu của plan khác được giữ nguyên');
-    expect(mocks.generate).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Sinh lại' }));
-    expect(mocks.generate).toHaveBeenCalledWith(1);
+    expect(screen.queryByText('Test Plan cần cập nhật Test Case')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Sinh lại Case/ })).not.toBeInTheDocument();
   });
 
-  it('blocks regeneration when related Unit Test data cannot be loaded', () => {
+  it('displays error alert when related queries fail', () => {
     mocks.casesData = [sampleCase(1)];
-    mocks.planModified = true;
     mocks.unitsSuccess = false;
     mocks.unitsError = new Error('Unit Test query failed');
 
     render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="COVERAGE_ANALYZED" /></MemoryRouter>);
 
-    expect(screen.getByRole('button', { name: 'Sinh lại Case · TP-001' })).toBeDisabled();
     expect(screen.getByRole('alert')).toHaveTextContent('Có lỗi xảy ra');
   });
 

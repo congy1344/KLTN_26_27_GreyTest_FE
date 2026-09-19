@@ -84,10 +84,12 @@ export async function fetchSourceUpdate(
 export async function analyzeSourceUpdate(
   projectId: number,
   updateId: number,
+  servicePath?: string | null,
   options?: SourceUpdateRequestOptions,
 ): Promise<SourceUpdateDto> {
+  const query = servicePath ? `?servicePath=${encodeURIComponent(servicePath)}` : '';
   const { data } = await apiClient.post<SourceUpdateDto>(
-    `/projects/${projectId}/source-updates/${updateId}/analyze`,
+    `/projects/${projectId}/source-updates/${updateId}/analyze${query}`,
     undefined,
     requestConfig(options),
   );
