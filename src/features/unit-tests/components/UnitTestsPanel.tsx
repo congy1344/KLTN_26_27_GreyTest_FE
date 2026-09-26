@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Bot, CheckCircle2, Copy, Download, FileCode2, Loader2, ListFilter, Search, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Bot, CheckCircle2, Copy, Download, FileCode2, Loader2, ListFilter, Play, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
@@ -57,20 +57,22 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
   const [caseId, setCaseId] = useState('');
   const [query, setQuery] = useState('');
   const [activeId, setActiveId] = useState<number | null>(null);
+  const [userSelectedMethod, setUserSelectedMethod] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const { t } = useLanguage();
+  const eligibleCases = cases.data ?? [];
   const approvedCases = useMemo(() => (cases.data ?? []).filter((item) => item.status === 'APPROVED'), [cases.data]);
   const approvedCaseById = useMemo(
-    () => new Map(approvedCases.map((item) => [item.id, item])),
-    [approvedCases],
+    () => new Map((cases.data ?? []).map((item) => [item.id, item])),
+    [cases.data],
   );
   const generatedCaseIds = useMemo(
     () => new Set((tests.data ?? []).map((item) => item.testCaseId)),
     [tests.data],
   );
-  const coveredCount = approvedCases.filter((item) => generatedCaseIds.has(item.id)).length;
-  const missingCount = approvedCases.length - coveredCount;
+  const coveredCount = eligibleCases.filter((item) => generatedCaseIds.has(item.id)).length;
+  const missingCount = eligibleCases.length - coveredCount;
   const unexpectedCount = Math.max(0, (tests.data ?? []).length - coveredCount);
   const coverageHint = approvedCases.length === 0
     ? t('Chưa có Test Case được approve', 'No approved Test Cases')
@@ -147,13 +149,50 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Unit Tests</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh JUnit/Mockito từ Test Case đã approve và lưu về backend.', 'AI generates JUnit/Mockito tests from approved Test Cases and persists them in the backend.')}</p></div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
-          <button className="btn btn-brand" disabled={generate.isPending || generationRunning || approvedCases.length === 0} onClick={() => generate.mutate()}>
-            {generate.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} {t('AI sinh Unit Test', 'Generate with AI')}
-          </button>
+          {coveredCount > 0 && missingCount > 0 ? (
+            <>
+              <button
+                className="btn btn-brand"
+                disabled={generate.isPending || generationRunning || missingCount === 0}
+                onClick={() => generate.mutate(true)}
+                title={t(`Tiếp tục sinh cho ${missingCount} Test Case chưa có unit test`, `Continue generating for ${missingCount} remaining Test Cases`)}
+              >
+                {generate.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                {t(`Tiếp tục sinh (${missingCount} case)`, `Continue (${missingCount} cases)`)}
+              </button>
+              <button
+                className="btn btn-secondary"
+                disabled={generate.isPending || generationRunning || eligibleCases.length === 0}
+                onClick={() => generate.mutate(false)}
+                title={t('Xóa toàn bộ Unit Test cũ và sinh lại từ đầu', 'Regenerate all unit tests from scratch')}
+              >
+                <RotateCcw size={14} /> {t('Sinh lại từ đầu', 'Regenerate all')}
+              </button>
+            </>
+          ) : (
+            <button
+              className={coveredCount > 0 && missingCount === 0 ? "btn btn-secondary" : "btn btn-brand"}
+              disabled={generate.isPending || generationRunning || eligibleCases.length === 0}
+              onClick={() => generate.mutate(false)}
+            >
+              {generate.isPending || generationRunning ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : coveredCount > 0 ? (
+                <RotateCcw size={14} />
+              ) : (
+                <Bot size={14} />
+              )}
+              {coveredCount > 0
+                ? t('Sinh lại toàn bộ', 'Regenerate all')
+                : t('AI sinh Unit Test', 'Generate with AI')}
+            </button>
+          )}
           <AiGenerationProgress
+            projectId={projectId}
             active={generate.isPending || generationRunning || generationProgress.showProgress}
             label={t('Tiến trình AI của dự án', 'Project AI progress')}
             progress={generationProgress.projectProgress ?? generationProgress.data}
+            onResume={() => generate.mutate(true)}
           />
           <button
             className="btn btn-brand shrink-0"
@@ -176,18 +215,18 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
         {error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
         {downloadError && <InlineAlert tone="danger">{downloadError}</InlineAlert>}
         {(tests.data ?? []).length > 0 && (coverageReady
-          ? <InlineAlert tone="success">{t('Đã kiểm chứng đủ: mỗi Test Case được approve có đúng một Unit Test.', 'Verified: every approved Test Case has exactly one Unit Test.')}</InlineAlert>
-          : <InlineAlert tone="warning">{t(`Chưa nên sang Coverage: ${coverageWarning}.`, `Not ready for Coverage: ${coverageWarning}.`)}</InlineAlert>)}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <ListFilter size={16} className="mt-0.5 text-fg-brand-strong" />
-            <div>
+          ? <InlineAlert key="coverage-ready" tone="success" autoDismissMs={5000}>{t('Đã kiểm chứng đủ: mỗi Test Case được approve có đúng một Unit Test.', 'Verified: every approved Test Case has exactly one Unit Test.')}</InlineAlert>
+          : <InlineAlert key={coverageWarning} tone="warning" autoDismissMs={5000}>{t(`Chưa nên sang Coverage: ${coverageWarning}.`, `Not ready for Coverage: ${coverageWarning}.`)}</InlineAlert>)}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <ListFilter size={16} className="mt-0.5 shrink-0 text-fg-brand-strong" />
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-heading">{t('Tìm và đối chiếu Unit Test', 'Find and verify Unit Tests')}</p>
-              <p className="mt-0.5 text-xs text-body-subtle">{t('ZIP kèm công cụ tạo jacoco.xml. Giải nén đè vào thư mục module Maven hoặc Gradle (chứa pom.xml/build.gradle) để file test vào đúng src/test/java.', 'ZIP includes a jacoco.xml runner. Extract directly into a Maven or Gradle module root so tests land in src/test/java.')}</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-body-subtle">{t('ZIP kèm công cụ tạo jacoco.xml. Giải nén đè vào thư mục module Maven hoặc Gradle (chứa pom.xml/build.gradle) để file test vào đúng src/test/java.', 'ZIP includes a jacoco.xml runner. Extract directly into a Maven or Gradle module root so tests land in src/test/java.')}</p>
             </div>
           </div>
-          <div className="flex min-w-0 max-w-full">
-            <button className="btn btn-secondary shrink-0" disabled={downloading || (tests.data ?? []).length === 0} onClick={handleDownload}>
+          <div className="shrink-0">
+            <button className="btn btn-secondary w-full sm:w-auto" disabled={downloading || (tests.data ?? []).length === 0} onClick={handleDownload}>
               {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} {t('Tải tất cả file + Coverage (.zip)', 'Download tests + Coverage (.zip)')}
             </button>
           </div>
@@ -196,9 +235,9 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
           <label className="relative block">
             <span className="sr-only">{t('Tìm theo case, class hoặc method', 'Search by case, class, or method')}</span>
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-body-subtle" />
-            <input aria-label={t('Tìm Unit Test', 'Search Unit Tests')} className="form-input pl-9" value={query} onChange={(event) => { setQuery(event.target.value); setActiveId(null); }} placeholder={t('Tìm TC-001, UserServiceTest, method...', 'Search TC-001, UserServiceTest, method...')} />
+            <input aria-label={t('Tìm Unit Test', 'Search Unit Tests')} className="form-input pl-9" value={query} onChange={(event) => { setQuery(event.target.value); setActiveId(null); setUserSelectedMethod(false); }} placeholder={t('Tìm TC-001, UserServiceTest, method...', 'Search TC-001, UserServiceTest, method...')} />
           </label>
-          <select aria-label={t('Lọc Test Case', 'Filter by Test Case')} className="form-input" value={caseId} onChange={(event) => { setCaseId(event.target.value); setActiveId(null); }}>
+          <select aria-label={t('Lọc Test Case', 'Filter by Test Case')} className="form-input" value={caseId} onChange={(event) => { setCaseId(event.target.value); setActiveId(null); setUserSelectedMethod(false); }}>
             <option value="">{t('Tất cả Test Case đã approve', 'All approved Test Cases')}</option>
             {approvedCases.map((item) => <option key={item.id} value={item.id}>{item.caseCode} - {item.description}</option>)}
           </select>
@@ -260,7 +299,10 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
               aria-label={`${testCase?.caseCode ?? `Case ${item.testCaseId}`} ${item.testMethodName}`}
               aria-current={active?.id === item.id ? 'true' : undefined}
               className={`block w-full border-b border-border-default px-4 py-3 text-left transition-colors last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand ${diffBorder} ${active?.id === item.id ? 'bg-brand-softer' : 'hover:bg-neutral-secondary-soft/40'}`}
-              onClick={() => setActiveId(item.id)}
+              onClick={() => {
+                setUserSelectedMethod(true);
+                setActiveId(item.id);
+              }}
             >
               <span className="flex items-center gap-2">
                 <span className="text-[11px] font-semibold tabular-nums text-body-subtle">{String(index + 1).padStart(2, '0')}</span>
@@ -359,7 +401,7 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
                   ))}
                 </div>
               </div>
-              <UnitTestFileView file={activeFile} highlightMethod={active.testMethodName} />
+              <UnitTestFileView file={activeFile} highlightMethod={active.testMethodName} autoScroll={userSelectedMethod} />
             </div>
           ) : (
             <div className="flex min-h-[360px] items-center justify-center text-sm text-body-subtle">{t('Không tìm thấy file test.', 'Test file not found.')}</div>
@@ -370,7 +412,15 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
   );
 }
 
-function UnitTestFileView({ file, highlightMethod }: { file: UnitTestFile; highlightMethod: string }) {
+function UnitTestFileView({
+  file,
+  highlightMethod,
+  autoScroll = false,
+}: {
+  file: UnitTestFile;
+  highlightMethod: string;
+  autoScroll?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const highlightedLineRef = useRef<HTMLLIElement>(null);
   const { t } = useLanguage();
@@ -390,8 +440,9 @@ function UnitTestFileView({ file, highlightMethod }: { file: UnitTestFile; highl
   }, [file.sourceCode, highlightMethod]);
 
   useEffect(() => {
+    if (!autoScroll) return;
     highlightedLineRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' });
-  }, [file.filePath, highlightedLine, highlightMethod]);
+  }, [file.filePath, highlightedLine, highlightMethod, autoScroll]);
 
   const copy = async () => {
     if (!navigator.clipboard) return;

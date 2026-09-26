@@ -8,6 +8,7 @@ import {
   Loader2,
   MessageSquarePlus,
   Pencil,
+  Play,
   Save,
   Sparkles,
   Trash2,
@@ -35,7 +36,7 @@ import {
   useUpdateBusinessRule,
 } from '../hooks/useBusinessRules';
 import type { BusinessRule, BusinessRuleReview } from '../types';
-import { splitBusinessRuleText } from '../utils/business-rule-text';
+import { cleanAiText, splitBusinessRuleText } from '../utils/business-rule-text';
 import { useLanguage } from '../../../shared/i18n/language';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
@@ -119,12 +120,15 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
     });
     return [...groups.values()];
   }, [serviceGroups]);
+
   const serviceMethods = useMemo(() => serviceGroups.flatMap((javaClass) =>
     javaClass.methods.map((method) => ({
       id: method.id,
       filePath: javaClass.filePath,
+      className: javaClass.className,
       label: `${displaySourcePath(javaClass.filePath)} | ${javaClass.className}.${method.methodName} (L${method.lineStart})`,
     }))), [serviceGroups]);
+
   const selectedMethod = serviceGroups
     .flatMap((javaClass) => javaClass.methods)
     .find((method) => method.id === Number(methodId));
@@ -217,7 +221,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
 
   const handleStartEdit = (rule: BusinessRule) => {
     setEditingRuleId(rule.id);
-    setEditDescription(rule.description);
+    setEditDescription(cleanAiText(rule.description));
   };
 
   const handleSaveEdit = (rule: BusinessRule) => {
@@ -317,7 +321,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
                 onChange={(event) => setEditDescription(event.target.value)}
               />
             ) : (
-              <p className="text-sm leading-relaxed text-heading">{rule.description}</p>
+              <p className="text-sm leading-relaxed text-heading">{cleanAiText(rule.description)}</p>
             )}
             {sourceLineStart != null && sourceLineEnd != null && (
               <p className="mt-2 font-mono text-[11px] font-semibold text-body-subtle">
@@ -426,14 +430,42 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
           <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
-            <button className="btn btn-secondary" disabled={pending} onClick={handleGenerate}>
-              {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
-              {t('AI sinh BR', 'Generate BRs with AI')}
-            </button>
+            {rules.length > 0 && (uncoveredDecisionCount > 0 || generationProgress.data?.status === 'PAUSED') ? (
+              <button
+                className="btn btn-brand"
+                disabled={pending}
+                onClick={handleGenerate}
+                title={t(
+                  uncoveredDecisionCount > 0
+                    ? `Tiếp tục sinh Business Rule cho ${uncoveredDecisionCount} nhánh/quyết định còn thiếu`
+                    : 'Tiếp tục sinh Business Rule từ tiến trình trước',
+                  uncoveredDecisionCount > 0
+                    ? `Continue generating Business Rules for ${uncoveredDecisionCount} remaining branches/decisions`
+                    : 'Resume Business Rule generation from previous progress'
+                )}
+              >
+                {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                {t(
+                  uncoveredDecisionCount > 0
+                    ? `Tiếp tục sinh (${uncoveredDecisionCount} nhánh còn thiếu)`
+                    : 'Tiếp tục sinh',
+                  uncoveredDecisionCount > 0
+                    ? `Continue (${uncoveredDecisionCount} missing)`
+                    : 'Resume generation'
+                )}
+              </button>
+            ) : (
+              <button className="btn btn-secondary" disabled={pending} onClick={handleGenerate}>
+                {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
+                {t('AI sinh BR', 'Generate BRs with AI')}
+              </button>
+            )}
             <AiGenerationProgress
+              projectId={projectId}
               active={generateMutation.isPending || generationRunning || generationProgress.showProgress}
               label={t('Tiến trình AI của dự án', 'Project AI progress')}
               progress={generationProgress.projectProgress ?? generationProgress.data}
+              onResume={handleGenerate}
             />
           </div>
           <button className="btn btn-secondary" disabled={pending || dirtyRuleCount === 0} onClick={handleReview}>

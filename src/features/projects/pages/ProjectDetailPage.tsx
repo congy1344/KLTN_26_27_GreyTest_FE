@@ -62,9 +62,11 @@ export function ProjectDetailPage() {
       try {
         const impact: ImpactSummaryDto = JSON.parse(latestUpdate.impactSummary);
         impact.changedMethods?.forEach((m) => {
-          diffMap[m.methodKey] = m.diffType;
-          diffMap[`${m.qualifiedClassName}#${m.methodName}`] = m.diffType;
-          diffMap[m.methodName] = m.diffType;
+          if (m.diffType !== 'UNCHANGED') {
+            diffMap[m.methodKey] = m.diffType;
+            diffMap[`${m.qualifiedClassName}#${m.methodName}`] = m.diffType;
+            diffMap[m.methodName] = m.diffType;
+          }
         });
         impact.affectedBusinessRuleIds?.forEach((ruleId) => ruleIds.add(ruleId));
       } catch {
@@ -213,6 +215,9 @@ export function ProjectDetailPage() {
           )}
         </div>
       </header>
+      {hasAnalysis && serviceScope.selected && workflowStatus && (
+        <ProjectWorkflowTabs projectId={projectId} active="analysis" status={workflowStatus} servicePath={serviceScope.servicePath} />
+      )}
       {hasAnalysis && <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
       {hasAnalysis && serviceScope.isError && (
         <div className="mb-6 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4 shadow-sm">
@@ -237,9 +242,6 @@ export function ProjectDetailPage() {
             </p>
           </div>
         </div>
-      )}
-      {hasAnalysis && serviceScope.selected && workflowStatus && (
-        <ProjectWorkflowTabs projectId={projectId} active="analysis" status={workflowStatus} servicePath={serviceScope.servicePath} />
       )}
 
       {analyzeMutation.isPending && (

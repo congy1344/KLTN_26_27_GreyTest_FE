@@ -50,10 +50,10 @@ export function CoveragePage() {
         backTo={projectWorkflowPath(projectId, 'unit-tests', serviceScope.servicePath)}
         backLabel="Unit Test"
       />
-      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       {serviceScope.selected && status && (
         <>
           <ProjectWorkflowTabs projectId={projectId} active="coverage" status={status} servicePath={serviceScope.servicePath} />
+          <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
           <CoveragePanel projectId={projectId} projectStatus={status} servicePath={serviceScope.servicePath} />
         </>
       )}

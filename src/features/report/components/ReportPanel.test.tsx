@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReportPanel } from './ReportPanel';
 
 const mockUseReportExport = vi.fn();
@@ -11,6 +12,17 @@ vi.mock('../hooks/useReport', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../hooks/useReport')>()),
   useReportExport: (projectId: number, format: string) => mockUseReportExport(projectId, format),
 }));
+
+function renderReportPanel(props: { projectId: number; servicePath?: string }) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <ReportPanel {...props} />
+    </QueryClientProvider>,
+  );
+}
 
 afterEach(() => {
   cleanup();
@@ -44,7 +56,7 @@ describe('ReportPanel', () => {
   it('renders backend markdown and switches to JSON', () => {
     stubExports('# GreyTest Report\n\n## Coverage Overview\n\n| Metric | Value |\n| --- | --- |\n| Requirement Coverage | 100% |');
 
-    render(<ReportPanel projectId={7} />);
+    renderReportPanel({ projectId: 7 });
 
     expect(screen.getByRole('heading', { name: 'GreyTest Report', level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Coverage Overview', level: 2 })).toBeInTheDocument();
@@ -62,7 +74,7 @@ describe('ReportPanel', () => {
   it('does not render remote images from backend markdown', () => {
     stubExports('![tracking](https://tracker.example/pixel.png)');
 
-    render(<ReportPanel projectId={7} />);
+    renderReportPanel({ projectId: 7 });
 
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
@@ -80,7 +92,7 @@ describe('ReportPanel', () => {
       tagName === 'a' ? anchor : originalCreateElement(tagName, options)
     )) as typeof document.createElement);
 
-    render(<ReportPanel projectId={7} />);
+    renderReportPanel({ projectId: 7 });
 
     const formatGroup = screen.getByRole('group', { name: /Report format/i });
     fireEvent.click(within(formatGroup).getByRole('button', { name: /JSON/i }));

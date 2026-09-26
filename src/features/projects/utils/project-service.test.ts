@@ -17,6 +17,11 @@ describe('project service scope', () => {
     const filePath = 'statistics-service/src/main/java/com/example/StatisticsService.java';
     expect(belongsToService(filePath, 'statistics-service')).toBe(true);
     expect(belongsToService(filePath, 'account-service')).toBe(false);
+
+    // Also supports matching individual Service class in single-module projects
+    const hmsPath = 'HMS/src/main/java/com/example/HMS/service/DoctorService.java';
+    expect(belongsToService(hmsPath, 'DoctorService')).toBe(true);
+    expect(belongsToService(hmsPath, 'PatientService')).toBe(false);
   });
 
   it('keeps the selected service while navigating between workflow steps', () => {

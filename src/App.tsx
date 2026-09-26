@@ -1,4 +1,5 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { ProjectsPage } from './features/projects/pages/ProjectsPage';
 import { ProjectDetailPage } from './features/projects/pages/ProjectDetailPage';
@@ -15,6 +16,18 @@ import { AdminUsersPage } from './features/admin/pages/AdminUsersPage';
 import { AdminUserDetailPage } from './features/admin/pages/AdminUserDetailPage';
 import { AdminActivityPage } from './features/admin/pages/AdminActivityPage';
 import { AdminLoginPage } from './features/admin/pages/AdminLoginPage';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  }, [pathname]);
+
+  return null;
+}
 
 function RequireAuth({ children }: { children: ReactNode }) {
   if (!localStorage.getItem('greytest.token')) {
@@ -34,6 +47,7 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />

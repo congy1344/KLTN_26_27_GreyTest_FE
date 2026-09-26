@@ -13,8 +13,12 @@ export async function createTestPlan(projectId: number, input: CreateTestPlanInp
   return data;
 }
 
-export async function generateTestPlans(projectId: number, servicePath?: string): Promise<GenerationJobAccepted> {
-  const { data } = await apiClient.post<GenerationJobAccepted>(`/projects/${projectId}/test-plans/generate`, undefined, { params: serviceParams(servicePath) });
+export async function generateTestPlans(projectId: number, servicePath?: string, resume = false): Promise<GenerationJobAccepted> {
+  const { data } = await apiClient.post<GenerationJobAccepted>(
+    `/projects/${projectId}/test-plans/generate`,
+    undefined,
+    { params: { ...serviceParams(servicePath), resume } },
+  );
   return data;
 }
 

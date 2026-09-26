@@ -12,6 +12,10 @@ import { ReportPage } from './ReportPage';
 
 vi.mock('../../projects/hooks/useProjects', () => ({
   useProject: vi.fn(),
+  useCompleteProject: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+  })),
 }));
 vi.mock('../../projects/hooks/useProjectServiceScope', () => ({ useProjectServiceScope: vi.fn() }));
 

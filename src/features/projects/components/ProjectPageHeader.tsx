@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Archive, ArrowLeft, GitBranch } from 'lucide-react';
 import type { Project } from '../types';
@@ -18,6 +18,18 @@ interface ProjectPageHeaderProps {
 export function ProjectPageHeader({ project, titlePrefix, subtitle, backTo, backLabel, actions }: ProjectPageHeaderProps) {
   const location = useLocation();
   const workflowNotice = (location.state as { workflowNotice?: string } | null)?.workflowNotice;
+  const [showNotice, setShowNotice] = useState(Boolean(workflowNotice));
+
+  useEffect(() => {
+    setShowNotice(Boolean(workflowNotice));
+    if (!workflowNotice) return;
+
+    const timer = setTimeout(() => {
+      setShowNotice(false);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [workflowNotice]);
 
   return (
     <>
@@ -56,8 +68,8 @@ export function ProjectPageHeader({ project, titlePrefix, subtitle, backTo, back
           </div>
         </div>
       </header>
-      {workflowNotice && (
-        <div className="mb-6" aria-live="polite">
+      {workflowNotice && showNotice && (
+        <div className="mb-6 animate-fade-in transition-opacity duration-300" aria-live="polite">
           <InlineAlert tone="success">{workflowNotice}</InlineAlert>
         </div>
       )}

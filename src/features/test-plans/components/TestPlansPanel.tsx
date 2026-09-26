@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, CheckCircle2, ClipboardList, Loader2, Pencil, PlusCircle, Save, Trash2, X } from 'lucide-react';
+import { Bot, CheckCircle2, ClipboardList, Loader2, Pencil, Play, PlusCircle, RotateCcw, Save, Trash2, X } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
@@ -68,7 +68,18 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
   const { data: analysis } = useAnalysis(projectId);
   const { data: allCases = [] } = useTestCases(projectId, servicePath);
   const { data: allUnits = [] } = useUnitTests(projectId, servicePath);
-  const approvedRules = rules.filter((rule) => rule.status === 'APPROVED');
+  const eligibleRules = rules;
+  const coveredRuleIds = useMemo(() => {
+    const set = new Set<number>();
+    plans.forEach((plan) => {
+      if (plan.businessRuleId) set.add(plan.businessRuleId);
+      plan.coveredRuleIds?.forEach((id) => set.add(id));
+    });
+    return set;
+  }, [plans]);
+  const coveredRuleCount = eligibleRules.filter((rule) => coveredRuleIds.has(rule.id)).length;
+  const missingRuleCount = eligibleRules.length - coveredRuleCount;
+
   const sourceTraceByRule = useMemo(
     () => buildRuleSourceIndex(analysis, rules),
     [analysis, rules],
@@ -86,11 +97,11 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
     || updateMutation.isPending || deleteMutation.isPending;
   const mutationError = createMutation.error ?? generateMutation.error ?? approveMutation.error
     ?? updateMutation.error ?? deleteMutation.error;
-  // Regenerate được ở mọi pha từ BR_APPROVED trở đi (khớp guard backend); confirm sẽ cảnh báo dữ liệu pha sau
-  const PLAN_EDITABLE: ProjectStatus[] = ['BR_APPROVED', 'PLAN_PENDING_REVIEW', 'PLAN_APPROVED', 'CASE_PENDING_REVIEW', 'CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED'];
+  // Regenerate được ở mọi pha từ BR trở đi; confirm sẽ cảnh báo dữ liệu pha sau
+  const PLAN_EDITABLE: ProjectStatus[] = ['BR_PENDING_REVIEW', 'BR_APPROVED', 'PLAN_PENDING_REVIEW', 'PLAN_APPROVED', 'CASE_PENDING_REVIEW', 'CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED'];
   const canGenerate = PLAN_EDITABLE.includes(projectStatus);
   const canEdit = PLAN_EDITABLE.includes(projectStatus);
-  const canCreate = canEdit && approvedRules.length > 0 && Boolean(businessRuleId);
+  const canCreate = canEdit && eligibleRules.length > 0 && Boolean(businessRuleId);
 
   const handleCreate = (event: FormEvent) => {
     event.preventDefault();
@@ -111,12 +122,12 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
     );
   };
 
-  const handleGenerate = () => {
-    if (plans.length > 0) {
+  const handleGenerate = (resume = false) => {
+    if (!resume && plans.length > 0) {
       setShowRegenerateConfirm(true);
       return;
     }
-    generateMutation.mutate();
+    generateMutation.mutate(resume);
   };
 
   const handleStartEdit = (plan: TestPlan) => {
@@ -152,18 +163,50 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
           <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
-            <button
-              className="btn btn-secondary"
-              disabled={pending || !canGenerate || approvedRules.length === 0}
-              onClick={handleGenerate}
-            >
-              {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
-              {t('AI sinh Plan', 'Generate with AI')}
-            </button>
+            {coveredRuleCount > 0 && missingRuleCount > 0 ? (
+              <>
+                <button
+                  className="btn btn-brand"
+                  disabled={pending || !canGenerate || missingRuleCount === 0}
+                  onClick={() => handleGenerate(true)}
+                  title={t(
+                    `Tiếp tục sinh Test Plan cho ${missingRuleCount} Business Rule mới/chưa có plan`,
+                    `Continue generating Test Plans for ${missingRuleCount} remaining Business Rules`
+                  )}
+                >
+                  {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                  {t(`Tiếp tục sinh (${missingRuleCount} rule mới)`, `Continue (${missingRuleCount} new rules)`)}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  disabled={pending || !canGenerate || eligibleRules.length === 0}
+                  onClick={() => handleGenerate(false)}
+                  title={t('Xóa toàn bộ Test Plan cũ và sinh lại từ đầu', 'Regenerate all test plans from scratch')}
+                >
+                  <RotateCcw size={14} /> {t('Sinh lại từ đầu', 'Regenerate all')}
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn btn-secondary"
+                disabled={pending || !canGenerate || eligibleRules.length === 0}
+                onClick={() => handleGenerate(false)}
+                title={coveredRuleCount > 0 ? t('Xóa toàn bộ Test Plan cũ và sinh lại từ đầu', 'Regenerate all test plans from scratch') : undefined}
+              >
+                {generateMutation.isPending || generationRunning ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Bot size={14} />
+                )}
+                {t('AI sinh Plan', 'Generate with AI')}
+              </button>
+            )}
             <AiGenerationProgress
+              projectId={projectId}
               active={generateMutation.isPending || generationRunning || generationProgress.showProgress}
               label={t('Tiến trình AI của dự án', 'Project AI progress')}
               progress={generationProgress.projectProgress ?? generationProgress.data}
+              onResume={() => handleGenerate(true)}
             />
           </div>
           <button
@@ -188,10 +231,10 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
               className="form-input"
               value={businessRuleId}
               onChange={(event) => setBusinessRuleId(event.target.value)}
-              disabled={pending || approvedRules.length === 0}
+              disabled={pending || eligibleRules.length === 0}
             >
               <option value="">{t('Chọn anchor Business Rule', 'Select anchor Business Rule')}</option>
-              {approvedRules.map((rule) => (
+              {eligibleRules.map((rule) => (
                 <option key={rule.id} value={rule.id}>
                   {rule.ruleCode}{rule.sourceBranchId ? ` | ${rule.sourceBranchId}` : ''} | {rule.description}
                 </option>
@@ -401,7 +444,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
         onCancel={() => setShowRegenerateConfirm(false)}
         onConfirm={() => {
           setShowRegenerateConfirm(false);
-          generateMutation.mutate();
+          generateMutation.mutate(false);
         }}
       />
       <ConfirmDialog

@@ -17,5 +17,9 @@ export function modulePathFromFile(filePath: string) {
 }
 
 export function belongsToService(filePath: string, servicePath?: string) {
-  return !servicePath || modulePathFromFile(filePath) === servicePath;
+  if (!servicePath) return true;
+  if (modulePathFromFile(filePath) === servicePath) return true;
+  const normalized = filePath.replace(/\\/g, '/');
+  const baseName = normalized.split('/').pop()?.replace(/\.java$/, '') ?? '';
+  return baseName === servicePath;
 }

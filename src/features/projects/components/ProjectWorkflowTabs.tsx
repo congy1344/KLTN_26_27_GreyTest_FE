@@ -43,7 +43,9 @@ const disabledDescriptions: Record<string, [string, string]> = {
 
 export function ProjectWorkflowTabs({ projectId, active, status, servicePath }: ProjectWorkflowTabsProps) {
   const { t } = useLanguage();
-  const currentWorkflowStep = getCurrentWorkflowStep(status);
+  const currentWorkflowStep = active === 'report' && canOpenReport(status) && status !== 'COMPLETED'
+    ? 'report'
+    : getCurrentWorkflowStep(status);
   const enabledByTab: Record<string, boolean> = {
     analysis: true,
     'test-plans': canOpenTestPlans(status),
@@ -61,7 +63,7 @@ export function ProjectWorkflowTabs({ projectId, active, status, servicePath }: 
         const to = projectWorkflowPath(projectId, tab.id === 'analysis' ? undefined : tab.id, servicePath);
         const isDisabled = !enabledByTab[tab.id];
         const isCurrent = isActive && !isDisabled;
-        const isCompleted = isWorkflowStepCompleted(tab.id, status);
+        const isCompleted = isWorkflowStepCompleted(tab.id, status, active);
         const isWorkflowCurrent = currentWorkflowStep === tab.id && status !== 'COMPLETED' && status !== 'FAILED';
         const isFailedStep = currentWorkflowStep === tab.id && status === 'FAILED';
         const workflowState = isDisabled

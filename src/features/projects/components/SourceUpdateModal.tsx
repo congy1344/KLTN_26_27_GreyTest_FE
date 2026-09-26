@@ -583,7 +583,6 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     }
   }
 
-  const hasPendingReviews = updateDraft?.items?.some((item) => item.reviewStatus === 'PENDING') ?? false;
   const canApply = updateDraft?.status === 'ANALYZED' || updateDraft?.status === 'READY_TO_APPLY';
 
   return (

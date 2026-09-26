@@ -2,7 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GenerationProgress } from '../types/generation-progress';
 import { AiGenerationProgress } from './AiGenerationProgress';
 
@@ -20,7 +20,10 @@ const runningProgress: GenerationProgress = {
 };
 
 describe('AiGenerationProgress', () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    window.sessionStorage.clear();
+  });
 
   it('does not render any idle header button when generation is inactive', () => {
     render(<AiGenerationProgress active={false} label="Đang sinh Test Plan" />);
@@ -80,6 +83,20 @@ describe('AiGenerationProgress', () => {
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
   });
 
+  it('shows a restore pill button when dismissed and re-opens dock when clicked', () => {
+    render(<AiGenerationProgress active label="Đang sinh Test Plan" progress={runningProgress} />);
+
+    const closeButton = screen.getByRole('button', { name: /Đóng/i });
+    fireEvent.click(closeButton);
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+
+    const restoreButton = screen.getByRole('button', { name: /Mở lại log AI/i });
+    expect(restoreButton).toBeVisible();
+
+    fireEvent.click(restoreButton);
+    expect(screen.getByRole('complementary')).toBeVisible();
+  });
+
   it('identifies the failed step and displays it in the floating dock', () => {
     render(
       <AiGenerationProgress
@@ -137,5 +154,128 @@ describe('AiGenerationProgress', () => {
     expect(floatingDock).toBeVisible();
     expect(within(floatingDock).getAllByText('Hoàn thành').length).toBeGreaterThanOrEqual(1);
     expect(within(floatingDock).getByText('100%')).toBeVisible();
+  });
+
+  it('keeps dock dismissed when navigating to another feature with the same progress', () => {
+    const completedProgress: GenerationProgress = {
+      ...runningProgress,
+      status: 'COMPLETED',
+      percent: 100,
+      completedSteps: 2,
+    };
+
+    const { unmount } = render(
+      <AiGenerationProgress
+        projectId={1}
+        active={false}
+        label="Tiến trình AI"
+        progress={completedProgress}
+      />,
+    );
+
+    const closeButton = screen.getByRole('button', { name: /Đóng/i });
+    expect(closeButton).toBeVisible();
+    fireEvent.click(closeButton);
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+
+    unmount();
+
+    // Giả lập chuyển sang màn hình chức năng khác (component mới mount lại với cùng progress)
+    render(
+      <AiGenerationProgress
+        projectId={1}
+        active={false}
+        label="Tiến trình AI"
+        progress={completedProgress}
+      />,
+    );
+
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  });
+
+  it('re-opens the dock when a new generation starts', () => {
+    const completedProgress: GenerationProgress = {
+      ...runningProgress,
+      status: 'COMPLETED',
+      percent: 100,
+      completedSteps: 2,
+    };
+
+    const { unmount } = render(
+      <AiGenerationProgress
+        projectId={1}
+        active={false}
+        label="Tiến trình AI"
+        progress={completedProgress}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Đóng/i }));
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    unmount();
+
+    // Bắt đầu đợt sinh mới với active={true}
+    render(
+      <AiGenerationProgress
+        projectId={1}
+        active={true}
+        label="Tiến trình AI mới"
+        progress={{ ...runningProgress, stage: 'UNIT_TEST', status: 'RUNNING' }}
+      />,
+    );
+
+    expect(screen.getByRole('complementary')).toBeVisible();
+  });
+
+  it('preserves minimized state across remounts for the same project', () => {
+    const { unmount } = render(
+      <AiGenerationProgress
+        projectId={1}
+        active={true}
+        label="Tiến trình AI"
+        progress={runningProgress}
+      />,
+    );
+
+    const minimizeButton = screen.getByRole('button', { name: /Thu nhỏ/i });
+    fireEvent.click(minimizeButton);
+    expect(screen.getByRole('button', { name: /Mở rộng/i })).toBeVisible();
+    unmount();
+
+    // Giả lập chuyển sang màn hình chức năng khác
+    render(
+      <AiGenerationProgress
+        projectId={1}
+        active={true}
+        label="Tiến trình AI"
+        progress={runningProgress}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Mở rộng/i })).toBeVisible();
+  });
+
+  it('renders paused state with badge and resume button, and triggers onResume', () => {
+    const handleResume = vi.fn();
+    render(
+      <AiGenerationProgress
+        active={false}
+        label="Tiến trình AI"
+        progress={{
+          ...runningProgress,
+          status: 'PAUSED',
+          percent: 50,
+        }}
+        onResume={handleResume}
+      />,
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('đã tạm dừng');
+    expect(screen.getByText('Đã tạm dừng')).toBeVisible();
+
+    const resumeBtn = screen.getByRole('button', { name: /Tiếp tục sinh/i });
+    expect(resumeBtn).toBeVisible();
+    fireEvent.click(resumeBtn);
+    expect(handleResume).toHaveBeenCalledTimes(1);
   });
 });

@@ -98,10 +98,18 @@ export function canOpenTraceability(status: ProjectStatus) {
   return WORKFLOW_LOCKS_DISABLED || TRACEABILITY_READY_STATUSES.includes(status);
 }
 
-export function isWorkflowStepCompleted(step: WorkflowStepId, status: ProjectStatus) {
+export function isWorkflowStepCompleted(
+  step: WorkflowStepId,
+  status: ProjectStatus,
+  activeStep?: WorkflowStepId,
+) {
+  if (status === 'COMPLETED') return true;
   const currentIndex = WORKFLOW_STEPS.indexOf(CURRENT_STEP_BY_STATUS[status]);
   const stepIndex = WORKFLOW_STEPS.indexOf(step);
-  return stepIndex < currentIndex || (status === 'COMPLETED' && step === 'report');
+  if (activeStep === 'report' && step === 'traceability' && canOpenReport(status)) {
+    return true;
+  }
+  return stepIndex < currentIndex;
 }
 
 export function getCurrentWorkflowStep(status: ProjectStatus) {

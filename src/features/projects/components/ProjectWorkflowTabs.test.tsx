@@ -44,6 +44,19 @@ describe('ProjectWorkflowTabs', () => {
     expect(screen.getByRole('link', { name: /06.*Traceability/ })).toHaveAttribute('aria-current', 'page');
   });
 
+  it('advances in-progress stage to report and marks traceability completed when user opens report step', () => {
+    render(
+      <MemoryRouter>
+        <ProjectWorkflowTabs projectId={7} active="report" status="COVERAGE_ANALYZED" />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByText('Hoàn thành')).toHaveLength(6);
+    expect(screen.getByRole('link', { name: /^06.*Traceability/ })).not.toHaveTextContent('Đang thực hiện');
+    expect(screen.getByRole('link', { name: /^07.*Đang thực hiện.*Report/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^07.*Report/ })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('highlights only the workflow page selected by the user', () => {
     render(
       <MemoryRouter>

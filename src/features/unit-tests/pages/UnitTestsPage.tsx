@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '../../../shared/components/AppShell';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
@@ -20,6 +21,12 @@ export function UnitTestsPage() {
   const { t } = useLanguage();
   const serviceScope = useProjectServiceScope(projectId, project?.status !== undefined && project.status !== 'UPLOADED');
   const status = serviceScope.selected?.status ?? project?.status;
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  }, [projectId, serviceScope.servicePath]);
 
   if (isLoading || serviceScope.isLoading) {
     return (
@@ -50,10 +57,10 @@ export function UnitTestsPage() {
         backTo={projectWorkflowPath(projectId, 'test-cases', serviceScope.servicePath)}
         backLabel="Test Case"
       />
-      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       {serviceScope.selected && status && (
         <>
           <ProjectWorkflowTabs projectId={projectId} active="unit-tests" status={status} servicePath={serviceScope.servicePath} />
+          <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
           <UnitTestsPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} servicePath={serviceScope.servicePath} />
         </>
       )}

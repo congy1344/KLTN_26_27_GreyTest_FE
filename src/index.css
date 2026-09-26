@@ -217,9 +217,15 @@
     transition: background-color 0.3s cubic-bezier(0.32,0.72,0,1), color 0.3s cubic-bezier(0.32,0.72,0,1);
   }
 
-  /* Custom scrollbar */
+  /* Custom scrollbar - đồng bộ Light / Dark và tương thích Windows */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--neutral-quaternary) transparent;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
@@ -228,11 +234,34 @@
 
   ::-webkit-scrollbar-thumb {
     background: var(--neutral-quaternary);
-    border-radius: 3px;
+    border-radius: 9999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--gray);
+    background: var(--quaternary-medium);
+  }
+
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--neutral-quaternary) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--neutral-quaternary);
+    border-radius: 9999px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--quaternary-medium);
   }
 }
 
@@ -449,30 +478,72 @@
 
   .report-markdown table {
     width: 100%;
-    margin: 16px 0;
+    margin: 0;
+    border: none;
+    border-spacing: 0;
+    border-collapse: collapse;
+  }
+
+  /* Bảng đứng độc lập nếu không có khung bọc ngoài */
+  .report-markdown > table {
+    margin: 14px 0;
     border: 1px solid var(--border-default);
     border-radius: var(--radius-default);
-    border-spacing: 0;
     border-collapse: separate;
     overflow: hidden;
   }
 
   .report-markdown th,
   .report-markdown td {
-    padding: 10px 12px;
+    padding: 10px 14px;
     border-bottom: 1px solid var(--border-default);
     text-align: left;
     vertical-align: top;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  /* Đường kẻ phân chia dọc ở giữa các cột */
+  .report-markdown th:not(:last-child),
+  .report-markdown td:not(:last-child) {
+    border-right: 1px solid var(--border-default);
   }
 
   .report-markdown th {
     background: var(--neutral-secondary-soft);
     color: var(--heading);
     font-weight: 700;
+    white-space: nowrap;
   }
 
   .report-markdown tr:last-child td {
     border-bottom: 0;
+  }
+
+  .report-markdown tr:hover td {
+    background: rgba(0, 0, 0, 0.015);
+  }
+
+  /* Chống rớt dòng cho các ô mã (BR-022, TC-001), chỉ số, trạng thái */
+  .report-markdown td:first-child {
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  .report-markdown table:has(th:nth-child(3):last-child) td:nth-child(2) {
+    white-space: nowrap;
+  }
+
+  .report-markdown table:has(th:nth-child(4):last-child) td:nth-child(1),
+  .report-markdown table:has(th:nth-child(4):last-child) td:nth-child(2),
+  .report-markdown table:has(th:nth-child(4):last-child) td:nth-child(3) {
+    white-space: nowrap;
+  }
+
+  .report-markdown table:has(th:nth-child(5):last-child) td:nth-child(2),
+  .report-markdown table:has(th:nth-child(5):last-child) td:nth-child(3),
+  .report-markdown table:has(th:nth-child(5):last-child) td:nth-child(4) {
+    white-space: nowrap;
   }
 
   .report-markdown code:not(pre code) {
@@ -545,4 +616,28 @@
   .delay-2 { animation-delay: 0.12s; }
   .delay-3 { animation-delay: 0.18s; }
   .delay-4 { animation-delay: 0.24s; }
+
+  /* Transition êm cho vùng main & footer khi widget log AI mở ra hoặc thu gọn */
+  main,
+  footer > div {
+    transition: margin 0.3s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @media (min-width: 1280px) {
+    body.ai-progress-dock-open main,
+    body.ai-progress-dock-open footer > div {
+      margin-left: 2rem !important;
+      margin-right: 480px !important;
+      max-width: none !important;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    body.ai-progress-dock-open main,
+    body.ai-progress-dock-open footer > div {
+      margin-left: 3rem !important;
+      margin-right: 490px !important;
+      max-width: 1400px !important;
+    }
+  }
 }

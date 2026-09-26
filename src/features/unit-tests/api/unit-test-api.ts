@@ -13,8 +13,12 @@ export async function fetchUnitTestFiles(projectId: number, servicePath?: string
   return data;
 }
 
-export async function generateUnitTests(projectId: number, servicePath?: string) {
-  const { data } = await apiClient.post<GenerationJobAccepted>(`/projects/${projectId}/unit-tests/generate`, undefined, { params: serviceParams(servicePath) });
+export async function generateUnitTests(projectId: number, servicePath?: string, resume?: boolean) {
+  const params: Record<string, string> = { ...serviceParams(servicePath) };
+  if (resume) {
+    params.resume = 'true';
+  }
+  const { data } = await apiClient.post<GenerationJobAccepted>(`/projects/${projectId}/unit-tests/generate`, undefined, { params });
   return data;
 }
 

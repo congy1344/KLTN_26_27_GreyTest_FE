@@ -50,10 +50,10 @@ export function TestPlansPage() {
         backTo={projectWorkflowPath(projectId, undefined, serviceScope.servicePath)}
         backLabel="Analysis & Business Rules"
       />
-      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       {serviceScope.selected && status && (
         <>
           <ProjectWorkflowTabs projectId={projectId} active="test-plans" status={status} servicePath={serviceScope.servicePath} />
+          <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
           <TestPlansPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} projectStatus={status} servicePath={serviceScope.servicePath} />
         </>
       )}

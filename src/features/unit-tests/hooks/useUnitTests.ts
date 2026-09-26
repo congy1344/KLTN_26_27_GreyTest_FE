@@ -15,7 +15,7 @@ export function useUnitTestFiles(projectId: number, servicePath?: string) {
 export function useGenerateUnitTests(projectId: number, servicePath?: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: () => generateUnitTests(projectId, servicePath),
+    mutationFn: (resume?: boolean) => generateUnitTests(projectId, servicePath, resume),
     onSuccess: () => client.invalidateQueries({
       queryKey: ['generation-progress', projectId, 'UNIT_TEST'],
     }),

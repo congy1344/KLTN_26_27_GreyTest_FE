@@ -8,11 +8,11 @@ export async function fetchTestCases(projectId: number, servicePath?: string) {
   return data;
 }
 
-export async function generateTestCases(projectId: number, planId?: number, servicePath?: string) {
+export async function generateTestCases(projectId: number, planId?: number, servicePath?: string, resume = false) {
   const { data } = await apiClient.post<GenerationJobAccepted>(
     `/projects/${projectId}/test-cases/generate`,
     undefined,
-    { params: { ...serviceParams(servicePath), ...(planId == null ? {} : { planId }) } },
+    { params: { ...serviceParams(servicePath), ...(planId == null ? {} : { planId }), resume } },
   );
   return data;
 }

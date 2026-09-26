@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchGenerationProgress } from '../api/generation-progress-api';
+import {
+  fetchGenerationProgress,
+  pauseGenerationOnUnload,
+  pauseGenerationProgress,
+} from '../api/generation-progress-api';
 import type { GenerationProgressStage } from '../types/generation-progress';
 
 const TERMINAL_DISPLAY_MS = 5_000;
@@ -21,6 +25,23 @@ export function useGenerationProgress(
   const trackedProjectStage = useRef<GenerationProgressStage | null>(null);
   const [tracking, setTracking] = useState(false);
   const queryKey = ['generation-progress', projectId, stage] as const;
+
+  // Tự động tạm dừng tác vụ ở batch hiện tại khi người dùng đóng tab hoặc thoát trang
+  useEffect(() => {
+    const isStageRunning = active || isActiveStatus(queryClient.getQueryData<{ status?: string }>(queryKey)?.status);
+    if (!isStageRunning || projectId <= 0) return undefined;
+
+    const handleUnload = () => {
+      pauseGenerationOnUnload(projectId, stage);
+    };
+
+    window.addEventListener('pagehide', handleUnload);
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('pagehide', handleUnload);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [active, projectId, queryClient, queryKey, stage]);
 
   useEffect(() => {
     if (active && !wasActive.current) {
@@ -57,14 +78,27 @@ export function useGenerationProgress(
     })),
   });
   const siblingProgress = siblingQueries.map((sibling) => sibling.data);
+  const allProgress = [query.data, ...siblingProgress].filter(Boolean);
   const activeSibling = siblingProgress
     .find((progress) => isActiveStatus(progress?.status));
   const currentlyActive = isActiveStatus(query.data?.status) ? query.data : activeSibling;
   if (currentlyActive) trackedProjectStage.current = currentlyActive.stage;
-  const trackedProgress = [query.data, ...siblingProgress]
+  const trackedProgress = allProgress
     .find((progress) => progress?.stage === trackedProjectStage.current);
-  // Giữ snapshot terminal của stage đã chạy để effect refresh dữ liệu và popup không nhảy về log cũ.
-  const projectProgress = currentlyActive ?? trackedProgress ?? query.data;
+
+  // Khi không có tác vụ nào đang chạy, ưu tiên giữ snapshot của stage gần nhất có log
+  const latestFinishedProgress = allProgress
+    .filter((p) => p && p.status !== 'IDLE' && (p.logs?.length ?? 0) > 0)
+    .sort((a, b) => {
+      const timeA = a?.logs?.[a.logs.length - 1]?.timestamp || '';
+      const timeB = b?.logs?.[b.logs.length - 1]?.timestamp || '';
+      return timeB.localeCompare(timeA);
+    })[0];
+
+  const projectProgress = currentlyActive
+    ?? trackedProgress
+    ?? (query.data && query.data.status !== 'IDLE' ? query.data : latestFinishedProgress)
+    ?? query.data;
   const projectRunning = isActiveStatus(projectProgress?.status);
 
   useEffect(() => {
@@ -92,5 +126,20 @@ export function useGenerationProgress(
     });
   }, [projectId, projectProgress, queryClient]);
 
-  return { ...query, showProgress: active || tracking, projectProgress, projectRunning };
+  const pause = async () => {
+    const updated = await pauseGenerationProgress(projectId, stage);
+    queryClient.setQueryData(queryKey, updated);
+    return updated;
+  };
+
+  const isPaused = query.data?.status === 'PAUSED';
+
+  return {
+    ...query,
+    showProgress: active || tracking || isPaused,
+    projectProgress,
+    projectRunning,
+    isPaused,
+    pause,
+  };
 }

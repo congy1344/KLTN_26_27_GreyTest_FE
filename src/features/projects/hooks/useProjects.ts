@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   analyzeProject,
   cloneGithub,
+  completeProject,
   deleteProject,
   fetchAnalysis,
   fetchExistingTests,
@@ -79,5 +80,17 @@ export function useAnalyzeProject() {
     mutationFn: analyzeProject,
     // Re-analyze xóa toàn bộ BR/Plan/Case/Unit Test/coverage → làm mới mọi cache
     onSuccess: () => queryClient.invalidateQueries(),
+  });
+}
+
+export function useCompleteProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (projectId: number) => completeProject(projectId),
+    onSuccess: (project) => {
+      queryClient.setQueryData(['project', project.id], project);
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project-services', project.id] });
+    },
   });
 }

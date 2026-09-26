@@ -108,6 +108,24 @@ describe('UnitTestsPanel', () => {
     expect(screen.getByText('Coverage destination')).toBeInTheDocument();
   });
 
+  it('does not scroll automatically on initial render', () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java' },
+    ];
+    mocks.files = [{
+      testClassName: 'UserServiceTest',
+      filePath: 'UserServiceTest.java',
+      sourceCode: 'class UserServiceTest {\n  void firstMethod() {}\n}',
+      testCount: 1,
+      caseCodes: ['TC-001'],
+    }];
+
+    renderPanel();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
   it('moves the code preview to the selected test method', () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });

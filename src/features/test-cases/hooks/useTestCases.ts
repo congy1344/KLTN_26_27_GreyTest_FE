@@ -11,7 +11,19 @@ export function useTestCases(projectId: number, servicePath?: string) {
 export function useGenerateTestCases(projectId: number, servicePath?: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (planId?: number) => generateTestCases(projectId, planId, servicePath),
+    mutationFn: (variables?: number | boolean | { planId?: number; resume?: boolean }) => {
+      let planId: number | undefined;
+      let resume = false;
+      if (typeof variables === 'number') {
+        planId = variables;
+      } else if (typeof variables === 'boolean') {
+        resume = variables;
+      } else if (variables) {
+        planId = variables.planId;
+        resume = variables.resume ?? false;
+      }
+      return generateTestCases(projectId, planId, servicePath, resume);
+    },
     onSuccess: () => client.invalidateQueries({
       queryKey: ['generation-progress', projectId, 'TEST_CASE'],
     }),
@@ -24,6 +36,10 @@ export function useApproveTestCases(projectId: number, servicePath?: string) {
     mutationFn: () => approveTestCases(projectId, servicePath),
     onSuccess: (data) => {
       client.setQueryData(key(projectId, servicePath), data);
+      client.setQueryData(['project', projectId], (old: unknown) => {
+        if (!old || typeof old !== 'object') return old;
+        return { ...old, status: 'CASE_APPROVED' };
+      });
       client.invalidateQueries({ queryKey: ['project-services', projectId] });
       return client.invalidateQueries({ queryKey: ['project', projectId] });
     },

@@ -185,6 +185,7 @@ export interface MethodDiffItem {
   afterSource: string | null;
   callerMethods: string[];
   isServiceMethod: boolean;
+  servicePath?: string;
 }
 
 export interface ImpactSummaryDto {

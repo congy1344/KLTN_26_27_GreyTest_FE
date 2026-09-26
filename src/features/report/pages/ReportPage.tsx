@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '../../../shared/components/AppShell';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
@@ -5,7 +6,7 @@ import { ErrorState } from '../../../shared/components/ErrorState';
 import { ProjectWorkflowTabs } from '../../projects/components/ProjectWorkflowTabs';
 import { ProjectPageHeader } from '../../projects/components/ProjectPageHeader';
 import { ProjectServiceSelector } from '../../projects/components/ProjectServiceSelector';
-import { useProject } from '../../projects/hooks/useProjects';
+import { useCompleteProject, useProject } from '../../projects/hooks/useProjects';
 import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceScope';
 import { canOpenReport } from '../../projects/utils/project-workflow';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
@@ -16,9 +17,16 @@ export function ReportPage() {
   const { id } = useParams<{ id: string }>();
   const projectId = Number(id);
   const { data: project, isLoading, error } = useProject(projectId);
+  const completeMutation = useCompleteProject();
   const { t } = useLanguage();
   const serviceScope = useProjectServiceScope(projectId, project?.status !== undefined && project.status !== 'UPLOADED');
-  const status = serviceScope.selected?.status ?? project?.status;
+  const status = project?.status === 'COMPLETED' ? 'COMPLETED' : (serviceScope.selected?.status ?? project?.status);
+
+  useEffect(() => {
+    if (project && project.status === 'COVERAGE_ANALYZED') {
+      completeMutation.mutate(projectId);
+    }
+  }, [project?.status, projectId]);
 
   if (isLoading || serviceScope.isLoading) {
     return (
@@ -50,8 +58,8 @@ export function ReportPage() {
         backLabel="Traceability"
       />
 
-      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       <ProjectWorkflowTabs projectId={projectId} active="report" status={status ?? project.status} servicePath={serviceScope.servicePath} />
+      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       <ReportPanel projectId={projectId} servicePath={serviceScope.servicePath} />
     </AppShell>
   );

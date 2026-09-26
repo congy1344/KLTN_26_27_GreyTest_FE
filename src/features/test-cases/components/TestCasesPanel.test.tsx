@@ -98,7 +98,7 @@ describe('TestCasesPanel', () => {
 
     expect(screen.getAllByText('UserService.createUser')).not.toHaveLength(0);
     expect(screen.getAllByText('IF-1-TRUE TRUE')).not.toHaveLength(0);
-    expect(screen.queryByRole('button', { name: 'AI sinh Case' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'AI sinh Case' })).toBeInTheDocument();
     expect(screen.queryByText('Test Plan cần cập nhật Test Case')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Sinh lại Case/ })).not.toBeInTheDocument();
   });

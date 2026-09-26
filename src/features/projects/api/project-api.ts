@@ -46,3 +46,8 @@ export async function fetchExistingTests(id: number): Promise<ExistingTestInfo[]
   const { data } = await apiClient.get<ExistingTestInfo[]>(`/projects/${id}/existing-tests`);
   return data;
 }
+
+export async function completeProject(id: number): Promise<Project> {
+  const { data } = await apiClient.post<Project>(`/projects/${id}/complete`);
+  return data;
+}

@@ -40,7 +40,7 @@ export function useCreateTestPlan(projectId: number, servicePath?: string) {
 export function useGenerateTestPlans(projectId: number, servicePath?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => generateTestPlans(projectId, servicePath),
+    mutationFn: (resume?: boolean) => generateTestPlans(projectId, servicePath, Boolean(resume)),
     onSuccess: () => queryClient.invalidateQueries({
       queryKey: ['generation-progress', projectId, 'TEST_PLAN'],
     }),

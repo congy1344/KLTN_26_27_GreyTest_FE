@@ -10,7 +10,13 @@ import { useProject } from '../../projects/hooks/useProjects';
 import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceScope';
 import { TraceabilityPage } from './TraceabilityPage';
 
-vi.mock('../../projects/hooks/useProjects', () => ({ useProject: vi.fn() }));
+vi.mock('../../projects/hooks/useProjects', () => ({
+  useProject: vi.fn(),
+  useCompleteProject: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+  })),
+}));
 vi.mock('../../projects/hooks/useProjectServiceScope', () => ({ useProjectServiceScope: vi.fn() }));
 vi.mock('../../../shared/components/AppShell', () => ({
   AppShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -52,10 +58,9 @@ function renderPage(status: Project['status']) {
 
 it('continues from traceability to the final report step', () => {
   renderPage('COVERAGE_ANALYZED');
-  expect(screen.getByRole('link', { name: /Tiếp tục đến Report/i }))
-    .toHaveAttribute('href', '/projects/105/report?servicePath=billing-service');
-    expect(screen.getByRole('link', { name: /^05.*Coverage/ }))
-      .toHaveAttribute('href', '/projects/105/coverage?servicePath=billing-service');
+  expect(screen.getByRole('button', { name: /Tiếp tục đến Report/i })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /^05.*Coverage/ }))
+    .toHaveAttribute('href', '/projects/105/coverage?servicePath=billing-service');
 });
 
 it('does not offer report before coverage is analyzed', () => {

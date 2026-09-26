@@ -1,4 +1,4 @@
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ArrowRight, FileText } from 'lucide-react';
 import { AppShell } from '../../../shared/components/AppShell';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
@@ -6,7 +6,7 @@ import { ErrorState } from '../../../shared/components/ErrorState';
 import { ProjectWorkflowTabs } from '../../projects/components/ProjectWorkflowTabs';
 import { ProjectPageHeader } from '../../projects/components/ProjectPageHeader';
 import { ProjectServiceSelector } from '../../projects/components/ProjectServiceSelector';
-import { useProject } from '../../projects/hooks/useProjects';
+import { useCompleteProject, useProject } from '../../projects/hooks/useProjects';
 import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceScope';
 import { canOpenReport, canOpenTraceability } from '../../projects/utils/project-workflow';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
@@ -16,10 +16,19 @@ import { useLanguage } from '../../../shared/i18n/language';
 export function TraceabilityPage() {
   const { id } = useParams<{ id: string }>();
   const projectId = Number(id);
+  const navigate = useNavigate();
   const { data: project, isLoading, error } = useProject(projectId);
+  const completeMutation = useCompleteProject();
   const { t } = useLanguage();
   const serviceScope = useProjectServiceScope(projectId, project?.status !== undefined && project.status !== 'UPLOADED');
-  const status = serviceScope.selected?.status ?? project?.status;
+  const status = project?.status === 'COMPLETED' ? 'COMPLETED' : (serviceScope.selected?.status ?? project?.status);
+
+  const handleContinueToReport = () => {
+    if (project && project.status === 'COVERAGE_ANALYZED') {
+      completeMutation.mutate(projectId);
+    }
+    navigate(projectWorkflowPath(projectId, 'report', serviceScope.servicePath));
+  };
 
   if (isLoading || serviceScope.isLoading) {
     return (
@@ -51,8 +60,8 @@ export function TraceabilityPage() {
         backLabel="Coverage"
       />
 
-      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       <ProjectWorkflowTabs projectId={projectId} active="traceability" status={status ?? project.status} servicePath={serviceScope.servicePath} />
+      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       <TraceabilityMatrix projectId={projectId} servicePath={serviceScope.servicePath} />
 
       {canOpenReport(status ?? project.status) && <div className="mt-6 rounded-base border border-border-brand-subtle bg-brand-softer p-4 shadow-sm animate-fade-in">
@@ -66,10 +75,14 @@ export function TraceabilityPage() {
               </p>
             </div>
           </div>
-          <Link to={projectWorkflowPath(projectId, 'report', serviceScope.servicePath)} className="btn btn-brand shrink-0">
+          <button
+            type="button"
+            onClick={handleContinueToReport}
+            className="btn btn-brand shrink-0"
+          >
             {t('Tiếp tục đến Report', 'Continue to Report')}
             <ArrowRight size={14} strokeWidth={1.8} />
-          </Link>
+          </button>
         </div>
       </div>}
     </AppShell>

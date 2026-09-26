@@ -7,10 +7,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GenerationProgress, GenerationProgressStage } from '../types/generation-progress';
 import { useGenerationProgress } from './useGenerationProgress';
 
-const mocks = vi.hoisted(() => ({ fetchProgress: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  fetchProgress: vi.fn(),
+  pauseProgress: vi.fn(),
+  pauseOnUnload: vi.fn(),
+}));
 
 vi.mock('../api/generation-progress-api', () => ({
   fetchGenerationProgress: mocks.fetchProgress,
+  pauseGenerationProgress: mocks.pauseProgress,
+  pauseGenerationOnUnload: mocks.pauseOnUnload,
 }));
 
 const running: GenerationProgress = {
@@ -202,5 +208,22 @@ describe('useGenerationProgress', () => {
 
     await waitFor(() => expect(result.current.projectProgress?.status).toBe('COMPLETED'));
     await waitFor(() => expect(client.getQueryState(['test-plans', 7])?.isInvalidated).toBe(true));
+  });
+
+  it('calls pauseGenerationOnUnload when beforeunload or pagehide fires while active', async () => {
+    mocks.fetchProgress.mockResolvedValue(running);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { unmount } = renderHook(
+      () => useGenerationProgress(7, 'TEST_CASE', true),
+      { wrapper },
+    );
+
+    window.dispatchEvent(new Event('beforeunload'));
+    expect(mocks.pauseOnUnload).toHaveBeenCalledWith(7, 'TEST_CASE');
+
+    unmount();
   });
 });

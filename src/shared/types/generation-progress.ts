@@ -1,5 +1,5 @@
 export type GenerationProgressStage = 'BUSINESS_RULE' | 'TEST_PLAN' | 'TEST_CASE' | 'UNIT_TEST';
-export type GenerationProgressStatus = 'IDLE' | 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+export type GenerationProgressStatus = 'IDLE' | 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PAUSED';
 export type GenerationProgressStepStatus = 'WAITING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 
 export interface GenerationProgressLog {

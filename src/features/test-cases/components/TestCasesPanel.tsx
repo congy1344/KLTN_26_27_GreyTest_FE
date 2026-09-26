@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, CheckCircle2, ClipboardCheck, Database, FileText, ListFilter, Loader2, Pencil, PlusCircle, Save, Trash2, X } from 'lucide-react';
+import { Bot, CheckCircle2, ClipboardCheck, Database, FileText, ListFilter, Loader2, Pencil, Play, PlusCircle, RotateCcw, Save, Trash2, X } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
@@ -79,7 +79,16 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
   const [editExpected, setEditExpected] = useState('');
   const [caseToDelete, setCaseToDelete] = useState<TestCase | null>(null);
 
+  const eligiblePlans = plans.data ?? [];
   const approvedPlans = useMemo(() => (plans.data ?? []).filter((p) => p.status === 'APPROVED'), [plans.data]);
+  const plansWithCases = useMemo(() => {
+    const set = new Set<number>();
+    (cases.data ?? []).forEach((c) => set.add(c.testPlanId));
+    return set;
+  }, [cases.data]);
+  const coveredPlanCount = eligiblePlans.filter((p) => plansWithCases.has(p.id)).length;
+  const missingPlanCount = eligiblePlans.length - coveredPlanCount;
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const sourceTraceByRule = useMemo(
     () => buildRuleSourceIndex(analysis.data, rules.data ?? []),
     [analysis.data, rules.data],
@@ -164,8 +173,12 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
     setCaseToDelete(item);
   };
 
-  const handleGenerate = () => {
-    generate.mutate(undefined);
+  const handleGenerate = (resume = false) => {
+    if (!resume && (cases.data ?? []).length > 0) {
+      setShowRegenerateConfirm(true);
+      return;
+    }
+    generate.mutate(resume);
   };
 
   return (
@@ -173,26 +186,71 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Test Cases</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh từ Test Plan đã approve và lưu trực tiếp về backend.', 'AI generates Test Cases from approved Test Plans and persists them in the backend.')}</p></div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
-          {cases.isSuccess && (cases.data ?? []).length === 0 && (
-            <button className="btn btn-secondary" disabled={busy || approvedPlans.length === 0} onClick={handleGenerate}>
-              {generate.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />} {t('AI sinh Case', 'Generate with AI')}
+          {coveredPlanCount > 0 && missingPlanCount > 0 ? (
+            <>
+              <button
+                className="btn btn-brand"
+                disabled={busy || missingPlanCount === 0}
+                onClick={() => handleGenerate(true)}
+                title={t(
+                  `Tiếp tục sinh Test Case cho ${missingPlanCount} Test Plan mới/chưa có case`,
+                  `Continue generating Test Cases for ${missingPlanCount} remaining Test Plans`
+                )}
+              >
+                {generate.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                {t(`Tiếp tục sinh (${missingPlanCount} plan mới)`, `Continue (${missingPlanCount} new plans)`)}
+              </button>
+              <button
+                className="btn btn-secondary"
+                disabled={busy || eligiblePlans.length === 0}
+                onClick={() => handleGenerate(false)}
+                title={t('Xóa toàn bộ Test Case cũ và sinh lại từ đầu', 'Regenerate all test cases from scratch')}
+              >
+                <RotateCcw size={14} /> {t('Sinh lại từ đầu', 'Regenerate all')}
+              </button>
+            </>
+          ) : (
+            <button
+              className="btn btn-secondary"
+              disabled={busy || eligiblePlans.length === 0}
+              onClick={() => handleGenerate(false)}
+              title={coveredPlanCount > 0 ? t('Xóa toàn bộ Test Case cũ và sinh lại từ đầu', 'Regenerate all test cases from scratch') : undefined}
+            >
+              {generate.isPending || generationRunning ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Bot size={14} />
+              )}
+              {t('AI sinh Case', 'Generate with AI')}
             </button>
           )}
           <AiGenerationProgress
+            projectId={projectId}
             active={generate.isPending || generationRunning || generationProgress.showProgress}
             label={t('Tiến trình AI của dự án', 'Project AI progress')}
             progress={generationProgress.projectProgress ?? generationProgress.data}
+            onResume={() => handleGenerate(true)}
           />
           <button
             className="btn btn-brand"
-            disabled={busy || pending === 0}
-            onClick={() => approve.mutate(undefined, {
-              onSuccess: () => navigate(projectWorkflowPath(projectId, 'unit-tests', servicePath), {
-                state: { workflowNotice: t('Đã duyệt Test Case. Chuyển sang bước Unit Test.', 'Test Cases approved. Continue with Unit Tests.') },
-              }),
-            })}
+            disabled={busy || (cases.data ?? []).length === 0}
+            onClick={() => {
+              const targetUrl = projectWorkflowPath(projectId, 'unit-tests', servicePath);
+              if (pending > 0) {
+                approve.mutate(undefined, {
+                  onSuccess: () => navigate(targetUrl, {
+                    state: { workflowNotice: t('Đã duyệt Test Case. Chuyển sang bước Unit Test.', 'Test Cases approved. Continue with Unit Tests.') },
+                  }),
+                });
+              } else {
+                navigate(targetUrl, {
+                  state: { workflowNotice: t('Chuyển sang bước Unit Test.', 'Continue to Unit Tests.') },
+                });
+              }
+            }}
           >
-            <CheckCircle2 size={14} /> Approve
+            {approve.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            {pending > 0 ? 'Approve' : t('Tiếp tục sang Unit Test', 'Continue to Unit Tests')}
           </button>
         </div>
       </div>
@@ -206,9 +264,9 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
         <div className="flex items-center gap-3"><PlusCircle size={16} className="text-fg-brand-strong" /><span className="text-sm font-semibold text-heading">{t('Thêm Test Case thủ công', 'Add a Test Case manually')}</span></div>
         <form onSubmit={handleCreate} className="mt-4 grid gap-3">
           <div className="grid gap-3 md:grid-cols-3">
-            <select className="form-input" aria-label={t('Chọn Test Plan', 'Select Test Plan')} value={formPlanId} onChange={(e) => setFormPlanId(e.target.value)} disabled={busy || approvedPlans.length === 0}>
+            <select className="form-input" aria-label={t('Chọn Test Plan', 'Select Test Plan')} value={formPlanId} onChange={(e) => setFormPlanId(e.target.value)} disabled={busy || eligiblePlans.length === 0}>
               <option value="">{t('Chọn Test Plan', 'Select Test Plan')}</option>
-              {approvedPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.planCode} - {plan.title}</option>)}
+              {eligiblePlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.planCode} - {plan.title}</option>)}
             </select>
             <select className="form-input" aria-label="Test type" value={formType} onChange={(e) => setFormType(e.target.value as TestType)} disabled={busy}>
               {TEST_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
@@ -353,6 +411,22 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
           );
         })}
       </div>
+      <ConfirmDialog
+        open={showRegenerateConfirm}
+        title={t('Sinh lại Test Case?', 'Regenerate Test Cases?')}
+        description={t(
+          'Thao tác này sẽ xoá toàn bộ Test Case và Unit Test hiện có của project và gọi AI sinh lại từ đầu. Bạn có chắc chắn muốn tiếp tục?',
+          'This will delete all existing Test Cases and Unit Tests for this project and regenerate them with AI. Are you sure you want to continue?'
+        )}
+        confirmLabel={t('Sinh lại', 'Regenerate')}
+        cancelLabel={t('Hủy', 'Cancel')}
+        pending={generate.isPending}
+        onCancel={() => setShowRegenerateConfirm(false)}
+        onConfirm={() => {
+          setShowRegenerateConfirm(false);
+          generate.mutate(false);
+        }}
+      />
       <ConfirmDialog
         open={caseToDelete != null}
         title={t('Xóa Test Case?', 'Delete Test Case?')}
