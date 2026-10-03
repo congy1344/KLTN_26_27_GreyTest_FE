@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchActivities, fetchAdminUser, fetchAdminUsers, fetchOverview, fetchServiceHealth,
-  fetchTopUsers, fetchTrend, updateUserQuota, updateUserRole, updateUserStatus,
+  fetchTopUsers, fetchTrend, updateUserQuota, updateUserRole, updateUserStatus, updateUserTier,
 } from '../api/admin-api';
-import type { ActivityFilters, UserFilters, UserRole } from '../types';
+import type { ActivityFilters, UserFilters, UserRole, UserTier } from '../types';
 
 const ADMIN_KEY = ['admin'];
 
@@ -33,8 +33,9 @@ export function useAdminUserMutations() {
   const client = useQueryClient();
   const refresh = () => client.invalidateQueries({ queryKey: ADMIN_KEY });
   return {
-    status: useMutation({ mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) => updateUserStatus(id, enabled), onSuccess: refresh }),
+    status: useMutation({ mutationFn: ({ id, enabled, reason }: { id: number; enabled: boolean; reason?: string }) => updateUserStatus(id, enabled, reason), onSuccess: refresh }),
     role: useMutation({ mutationFn: ({ id, role }: { id: number; role: UserRole }) => updateUserRole(id, role), onSuccess: refresh }),
-    quota: useMutation({ mutationFn: ({ id, limit }: { id: number; limit: number }) => updateUserQuota(id, limit), onSuccess: refresh }),
+    tier: useMutation({ mutationFn: ({ id, tier }: { id: number; tier: UserTier }) => updateUserTier(id, tier), onSuccess: refresh }),
+    quota: useMutation({ mutationFn: ({ id, limit }: { id: number; limit: number | null }) => updateUserQuota(id, limit), onSuccess: refresh }),
   };
 }

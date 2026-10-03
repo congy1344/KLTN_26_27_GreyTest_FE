@@ -7,7 +7,7 @@ import { ThemeToggle } from './ThemeToggle';
 
 interface AppShellProps {
   children: React.ReactNode;
-  maxWidth?: 'default' | 'wide';
+  maxWidth?: 'default' | 'wide' | 'full';
   homeTo?: string;
   logoutTo?: string;
   showAdminShortcut?: boolean;
@@ -20,7 +20,12 @@ export function AppShell({
   logoutTo = '/login',
   showAdminShortcut = true,
 }: AppShellProps) {
-  const widthClass = maxWidth === 'wide' ? 'max-w-6xl' : 'max-w-5xl';
+  const widthClass =
+    maxWidth === 'full'
+      ? 'max-w-[1600px]'
+      : maxWidth === 'wide'
+        ? 'max-w-7xl'
+        : 'max-w-5xl';
   const navigate = useNavigate();
   const { data: user } = useCurrentUser();
   const logout = useLogout();

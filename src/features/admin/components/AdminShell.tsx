@@ -7,7 +7,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const item = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-2 rounded-default px-3 py-2 text-sm font-semibold ${isActive ? 'bg-brand-softer text-fg-brand-strong' : 'text-body hover:bg-neutral-secondary'}`;
   return (
-    <AppShell maxWidth="wide" homeTo="/admin" logoutTo="/admin/login" showAdminShortcut={false}>
+    <AppShell maxWidth="full" homeTo="/admin" logoutTo="/admin/login" showAdminShortcut={false}>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-fg-brand">GreyTest Operations</p>

@@ -16,6 +16,8 @@ import { AdminUsersPage } from './features/admin/pages/AdminUsersPage';
 import { AdminUserDetailPage } from './features/admin/pages/AdminUserDetailPage';
 import { AdminActivityPage } from './features/admin/pages/AdminActivityPage';
 import { AdminLoginPage } from './features/admin/pages/AdminLoginPage';
+import { UpgradeToProModal } from './shared/components/UpgradeToProModal';
+import { AccountDisabledModal } from './shared/components/AccountDisabledModal';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -48,6 +50,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <UpgradeToProModal />
+      <AccountDisabledModal />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />

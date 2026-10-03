@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { Beaker, Loader2, LogIn, ShieldCheck, UserPlus } from 'lucide-react';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Beaker, Loader2, LogIn, ShieldAlert, ShieldCheck, UserPlus } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { useLogin, useRegister } from '../hooks/useAuth';
 import { useLanguage } from '../../../shared/i18n/language';
@@ -9,6 +9,8 @@ import { ThemeToggle } from '../../../shared/components/ThemeToggle';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const wasDisabled = searchParams.get('disabled') === 'true';
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -73,6 +75,13 @@ export function LoginPage() {
             {t('Đăng ký', 'Register')}
           </button>
         </div>
+
+        {wasDisabled && !error && (
+          <div role="alert" className="mb-4 flex items-center gap-2.5 rounded-default border border-border-danger-subtle bg-danger-soft p-3 text-sm font-medium text-fg-danger-strong animate-fade-in">
+            <ShieldAlert size={18} className="shrink-0" />
+            <span>{t('Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.', 'Your account has been disabled. Please contact an administrator.')}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (

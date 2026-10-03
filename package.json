@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run --pool=forks --poolOptions.forks.singleFork=true"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -1,7 +1,7 @@
 import { apiClient } from '../../../shared/api/api-client';
 import type {
   ActivityFilters, ActivityLog, AdminOverview, AdminUser, AdminUserDetail,
-  PageResult, ServiceHealth, TopUser, TrendPoint, UsageQuota, UserFilters, UserRole,
+  PageResult, ServiceHealth, TopUser, TrendPoint, UsageQuota, UserFilters, UserRole, UserTier,
 } from '../types';
 
 export async function fetchAdminUsers(filters: UserFilters): Promise<PageResult<AdminUser>> {
@@ -12,15 +12,19 @@ export async function fetchAdminUser(id: number): Promise<AdminUserDetail> {
   return (await apiClient.get(`/admin/users/${id}`)).data;
 }
 
-export async function updateUserStatus(id: number, enabled: boolean): Promise<AdminUser> {
-  return (await apiClient.patch(`/admin/users/${id}/status`, { enabled })).data;
+export async function updateUserStatus(id: number, enabled: boolean, reason?: string): Promise<AdminUser> {
+  return (await apiClient.patch(`/admin/users/${id}/status`, { enabled, reason })).data;
 }
 
 export async function updateUserRole(id: number, role: UserRole): Promise<AdminUser> {
   return (await apiClient.patch(`/admin/users/${id}/role`, { role })).data;
 }
 
-export async function updateUserQuota(id: number, quotaLimit: number): Promise<UsageQuota> {
+export async function updateUserTier(id: number, tier: UserTier): Promise<AdminUser> {
+  return (await apiClient.patch(`/admin/users/${id}/tier`, { tier })).data;
+}
+
+export async function updateUserQuota(id: number, quotaLimit: number | null): Promise<UsageQuota> {
   return (await apiClient.patch(`/admin/users/${id}/quota`, { quotaLimit })).data;
 }
 
