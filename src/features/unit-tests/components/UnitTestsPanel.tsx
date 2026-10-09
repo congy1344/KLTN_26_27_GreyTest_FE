@@ -61,11 +61,11 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const { t } = useLanguage();
-  const eligibleCases = cases.data ?? [];
   const approvedCases = useMemo(() => (cases.data ?? []).filter((item) => item.status === 'APPROVED'), [cases.data]);
+  const eligibleCases = approvedCases;
   const approvedCaseById = useMemo(
-    () => new Map((cases.data ?? []).map((item) => [item.id, item])),
-    [cases.data],
+    () => new Map(approvedCases.map((item) => [item.id, item])),
+    [approvedCases],
   );
   const generatedCaseIds = useMemo(
     () => new Set((tests.data ?? []).map((item) => item.testCaseId)),
@@ -205,6 +205,9 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
           </button>
         </div>
       </div>
+      {(cases.data ?? []).length > 0 && eligibleCases.length === 0 && (
+        <p className="mb-3 text-xs text-fg-warning">{t('Hãy approve Test Case trước khi sinh Unit Test.', 'Approve Test Cases before generating Unit Tests.')}</p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard icon={CheckCircle2} label={t('Test Case đã approve', 'Approved Cases')} value={approvedCases.length} />
         <MetricCard icon={FileCode2} label={t('Test file', 'Test Files')} value={(files.data ?? []).length} />

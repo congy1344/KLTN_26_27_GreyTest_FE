@@ -68,7 +68,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
   const { data: analysis } = useAnalysis(projectId);
   const { data: allCases = [] } = useTestCases(projectId, servicePath);
   const { data: allUnits = [] } = useUnitTests(projectId, servicePath);
-  const eligibleRules = rules;
+  const eligibleRules = rules.filter((rule) => rule.status === 'APPROVED');
   const coveredRuleIds = useMemo(() => {
     const set = new Set<number>();
     plans.forEach((plan) => {
@@ -101,11 +101,11 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
   const PLAN_EDITABLE: ProjectStatus[] = ['BR_PENDING_REVIEW', 'BR_APPROVED', 'PLAN_PENDING_REVIEW', 'PLAN_APPROVED', 'CASE_PENDING_REVIEW', 'CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED'];
   const canGenerate = PLAN_EDITABLE.includes(projectStatus);
   const canEdit = PLAN_EDITABLE.includes(projectStatus);
-  const canCreate = canEdit && eligibleRules.length > 0 && Boolean(businessRuleId);
+  const canCreate = canEdit && eligibleRules.some((rule) => rule.id === Number(businessRuleId));
 
   const handleCreate = (event: FormEvent) => {
     event.preventDefault();
-    if (!title.trim() || !description.trim() || !businessRuleId) return;
+    if (!canCreate || !title.trim() || !description.trim()) return;
     createMutation.mutate(
       {
         businessRuleId: Number(businessRuleId),
@@ -160,6 +160,9 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-heading">Test Plans</h3>
           <p className="mt-1 text-xs text-body-subtle">{t('Sinh Test Plan theo method/feature từ Business Rule đã approve.', 'Generate Test Plans by method or feature from approved Business Rules.')}</p>
+          {rules.length > 0 && eligibleRules.length === 0 && (
+            <p className="mt-1 text-xs text-fg-warning">{t('Hãy approve Business Rule trước khi sinh Test Plan.', 'Approve Business Rules before generating Test Plans.')}</p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
           <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">

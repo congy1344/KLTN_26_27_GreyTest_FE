@@ -75,6 +75,28 @@ describe('UnitTestsPanel', () => {
     expect(screen.getByText('Test Case đã approve')).toBeVisible();
   });
 
+  it('requires approved cases before generating unit tests', () => {
+    mocks.cases[0].status = 'PENDING_REVIEW';
+    renderPanel();
+
+    expect(screen.getByRole('button', { name: 'AI sinh Unit Test' })).toBeDisabled();
+    expect(screen.getByText('Hãy approve Test Case trước khi sinh Unit Test.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'AI sinh Unit Test' }));
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it('uses only approved cases for filters and generation coverage', () => {
+    mocks.cases.push({ ...mocks.cases[0], id: 2, caseCode: 'TC-002', description: 'Pending case', status: 'PENDING_REVIEW' });
+    mocks.tests = [{ id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java' }];
+    renderPanel();
+
+    expect(screen.getByRole('button', { name: 'Sinh lại toàn bộ' })).toBeEnabled();
+    expect(screen.queryByRole('option', { name: /TC-002/ })).not.toBeInTheDocument();
+    expect(screen.getByText('1/1')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Tiếp tục sinh/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tiếp tục đến Coverage/ })).toBeEnabled();
+  });
+
   it('disables ZIP download until tests exist', () => {
     renderPanel();
     expect(screen.getByRole('button', { name: /Tải tất cả file/ })).toBeDisabled();

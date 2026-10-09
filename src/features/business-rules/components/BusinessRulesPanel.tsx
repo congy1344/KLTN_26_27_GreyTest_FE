@@ -185,8 +185,9 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
     return new Map(reviewResult?.reviewedRules.map((review) => [review.ruleId, review]) ?? []);
   }, [reviewResult]);
   const unresolvedSuggestionCount = rules.filter((rule) => {
-    const reviewSuggestion = reviewByRuleId.get(rule.id)?.suggestedDescription;
-    return (rule.suggestedDescription?.trim() || reviewSuggestion?.trim())
+    const review = reviewByRuleId.get(rule.id);
+    return review?.verdict !== 'SOURCE_MISMATCH' && !rule.reviewNote?.startsWith('SOURCE_MISMATCH:')
+      && (rule.suggestedDescription?.trim() || review?.suggestedDescription?.trim())
       && !dismissedSuggestionIds.has(rule.id);
   }).length;
 
@@ -259,9 +260,12 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
 
   const renderRule = (rule: BusinessRule) => {
     const review = reviewByRuleId.get(rule.id);
+    const sourceMismatch = review?.verdict === 'SOURCE_MISMATCH'
+      || rule.reviewNote?.startsWith('SOURCE_MISMATCH:');
+    const mismatchLabel = t('BR không khớp với code', 'BR differs from code');
     const suggestedDescription = rule.suggestedDescription?.trim()
       || review?.suggestedDescription?.trim();
-    const showSuggestion = suggestedDescription && !dismissedSuggestionIds.has(rule.id);
+    const showSuggestion = !sourceMismatch && suggestedDescription && !dismissedSuggestionIds.has(rule.id);
     const editing = editingRuleId === rule.id;
     const sourceTrace = sourceTraceByRule.get(rule.id);
     const sourceLineStart = sourceTrace?.branch?.lineStart ?? sourceTrace?.lineStart;
@@ -382,12 +386,16 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
         </div>
 
         {rule.reviewNote && (
-          <p className="mt-2 text-xs leading-relaxed text-body-subtle">{rule.reviewNote}</p>
+          <p className="mt-2 text-xs leading-relaxed text-body-subtle">
+            {rule.reviewNote.startsWith('SOURCE_MISMATCH:')
+              ? `${mismatchLabel}:${rule.reviewNote.slice('SOURCE_MISMATCH:'.length)}`
+              : rule.reviewNote}
+          </p>
         )}
 
         {(review || showSuggestion) && (
           <div className="mt-3 rounded-default border border-border-warning-subtle bg-warning-soft p-3 text-xs text-fg-warning">
-            {review && <p className="font-semibold">{review.verdict}: {review.reason}</p>}
+            {review && <p className="font-semibold">{review.verdict === 'SOURCE_MISMATCH' ? mismatchLabel : review.verdict}: {review.reason}</p>}
             {showSuggestion && (
               <div className="mt-2 space-y-2">
                 <p className="leading-relaxed text-heading">{suggestedDescription}</p>
