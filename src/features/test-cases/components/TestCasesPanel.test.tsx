@@ -130,4 +130,26 @@ describe('TestCasesPanel', () => {
       testData: {},
     });
   });
+
+  it('hides diff badges when projectStatus is past case step', () => {
+    const modifiedCase = { ...sampleCase(1), isModified: true };
+    mocks.casesData = [modifiedCase];
+
+    // Ở bước pending review của case -> hiển thị badge sửa
+    const { unmount } = render(
+      <MemoryRouter>
+        <TestCasesPanel projectId={105} projectStatus="CASE_PENDING_REVIEW" />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('~ CẬP NHẬT THEO CODE')).toBeInTheDocument();
+    unmount();
+
+    // Đã qua bước case (đã approve hoặc sinh test) -> ẩn badge
+    render(
+      <MemoryRouter>
+        <TestCasesPanel projectId={105} projectStatus="CASE_APPROVED" />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText('~ CẬP NHẬT THEO CODE')).not.toBeInTheDocument();
+  });
 });

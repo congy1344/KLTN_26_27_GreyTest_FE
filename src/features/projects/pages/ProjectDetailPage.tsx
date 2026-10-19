@@ -286,6 +286,7 @@ export function ProjectDetailPage() {
           servicePath={serviceScope.servicePath}
           methodDiffMap={methodDiffMap}
           affectedRuleIds={affectedRuleIds}
+          projectStatus={project?.status}
         />
       )}
       <SourceUpdateModal

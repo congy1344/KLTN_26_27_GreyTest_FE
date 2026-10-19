@@ -1,4 +1,4 @@
-export type UserTier = 'FREE' | 'PRO';
+export type UserTier = 'FREE' | 'PLUS' | 'PRO';
 
 export interface AuthUser {
   id: number;
@@ -20,4 +20,14 @@ export interface LoginRequest {
 
 export interface RegisterRequest extends LoginRequest {
   fullName: string;
+}
+
+export interface UserQuota {
+  tier: UserTier;
+  limit: number | null;
+  used: number;
+  remaining: number | null;
+  periodStart: string;
+  resetDate: string;
+  exceeded: boolean;
 }

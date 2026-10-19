@@ -107,7 +107,7 @@ describe('AiGenerationProgress', () => {
           stage: 'UNIT_TEST',
           status: 'RUNNING',
           steps: [
-            { order: 1, label: 'Sinh Unit Test - batch 1/1', status: 'FAILED', percent: 0, errorMessage: 'Gemini tạm thời hết quota.' },
+            { order: 1, label: 'Sinh Unit Test - batch 1/1', status: 'FAILED', percent: 0, errorMessage: 'Hệ thống AI tạm thời hết hạn mức.' },
             { order: 2, label: 'Kiểm tra và lưu Unit Test', status: 'WAITING', percent: 0 },
           ],
         }}
@@ -117,6 +117,7 @@ describe('AiGenerationProgress', () => {
     const floatingDock = screen.getByRole('complementary');
     expect(within(floatingDock).getByText('Lỗi')).toBeVisible();
     expect(within(floatingDock).getByText('Đang chờ')).toBeVisible();
+    expect(within(floatingDock).getByText('Hệ thống AI tạm thời hết hạn mức.')).toBeVisible();
   });
 
   it('announces a failed terminal snapshot to screen readers and keeps dock visible', () => {

@@ -11,6 +11,7 @@ import {
   Loader2,
   Pause,
   Play,
+  Sparkles,
   Terminal,
   X,
 } from 'lucide-react';
@@ -538,6 +539,22 @@ export function AiGenerationProgress({
                       </span>
                     </div>
                   )}
+                  {isFailed && (/quota/i.test(currentMessage) || /hết quota/i.test(currentMessage)) && (
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('quota-exceeded'));
+                          }
+                        }}
+                        className="btn !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer font-bold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700"
+                      >
+                        <Sparkles size={13} className="text-amber-300" />
+                        <span>{t('Nâng cấp lên gói PRO', 'Upgrade to PRO')}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
                 {executionTimeText && (
                   <span
@@ -560,21 +577,28 @@ export function AiGenerationProgress({
                   {currentProgress.steps.map((step) => (
                     <div
                       key={step.order}
-                      className="flex items-center justify-between gap-2.5 text-[11px] rounded-lg px-2.5 py-1.5 bg-neutral-primary-soft border border-border-default-subtle shadow-2xs transition-colors"
+                      className="flex items-start justify-between gap-2.5 text-[11px] rounded-lg px-2.5 py-1.5 bg-neutral-primary-soft border border-border-default-subtle shadow-2xs transition-colors"
                       title={step.label}
                     >
-                      <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex min-w-0 items-start gap-2">
                         <StepIcon status={step.status} />
-                        <span
-                          className={`truncate ${
-                            step.status === 'RUNNING'
-                              ? 'font-semibold text-fg-brand-strong'
-                              : 'text-body'
-                          }`}
-                          title={step.label}
-                        >
-                          {step.label}
-                        </span>
+                        <div className="min-w-0">
+                          <span
+                            className={`block truncate ${
+                              step.status === 'RUNNING'
+                                ? 'font-semibold text-fg-brand-strong'
+                                : 'text-body'
+                            }`}
+                            title={step.label}
+                          >
+                            {step.label}
+                          </span>
+                          {step.status === 'FAILED' && step.errorMessage && (
+                            <span className="mt-0.5 block whitespace-normal break-words text-[10px] font-normal leading-relaxed text-fg-danger-strong">
+                              {step.errorMessage}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <span
                         className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium ${

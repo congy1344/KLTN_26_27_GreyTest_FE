@@ -26,8 +26,9 @@ import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpac
 const TEST_TYPES: TestType[] = ['HAPPY_PATH', 'BOUNDARY', 'EXCEPTION', 'EDGE'];
 const PRIORITIES: Priority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
-export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servicePath }: { projectId: number; projectStatus?: ProjectStatus; servicePath?: string }) {
+export function TestCasesPanel({ projectId, projectStatus, servicePath }: { projectId: number; projectStatus?: ProjectStatus; servicePath?: string }) {
   const navigate = useNavigate();
+  const isPastCases = Boolean(projectStatus && ['CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED'].includes(projectStatus));
   const {
     methodDiffMap,
     getMethodDiff,
@@ -95,8 +96,44 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
   );
   const visible = useMemo(() => {
     const list = planId ? (cases.data ?? []).filter((c) => String(c.testPlanId) === planId) : (cases.data ?? []);
-    return [...list].sort((a, b) => a.caseCode.localeCompare(b.caseCode, undefined, { numeric: true }));
-  }, [cases.data, planId]);
+    const getCaseDiffPriority = (item: TestCase) => {
+      if (isPastCases) return 0;
+      const sourcePlan = (plans.data ?? []).find((plan) => plan.id === item.testPlanId);
+      const coveredRules = (sourcePlan?.coveredRuleIds?.length
+        ? sourcePlan.coveredRuleIds
+        : sourcePlan ? [sourcePlan.businessRuleId] : [])
+        .map((ruleId) => (rules.data ?? []).find((rule) => rule.id === ruleId))
+        .filter((rule) => rule != null);
+      const ruleDiffs = coveredRules.map((rule) => {
+        const method = (analysis.data?.classes ?? []).flatMap((c) => c.methods).find((m) => m.id === rule?.methodId);
+        const javaClass = (analysis.data?.classes ?? []).find((c) => c.methods.some((m) => m.id === rule?.methodId));
+        return method
+          ? (getMethodDiff(javaClass?.qualifiedName, method.methodName, method.parameters)
+             || methodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
+             || methodDiffMap[method.methodName])
+          : undefined;
+      });
+      const hasAdded = addedCaseIds.has(item.id) || (sourcePlan ? addedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+      if (hasAdded) return 2;
+      const hasModified = modifiedCaseIds.has(item.id)
+        || affectedCaseIds.has(item.id)
+        || (sourcePlan ? modifiedPlanIds.has(sourcePlan.id) || affectedPlanIds.has(sourcePlan.id) : false)
+        || ruleDiffs.includes('MODIFIED')
+        || coveredRules.some((r) => r && (modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)))
+        || item.isModified;
+      if (hasModified) return 1;
+      return 0;
+    };
+
+    return [...list].sort((a, b) => {
+      const priorityA = getCaseDiffPriority(a);
+      const priorityB = getCaseDiffPriority(b);
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA;
+      }
+      return a.caseCode.localeCompare(b.caseCode, undefined, { numeric: true });
+    });
+  }, [cases.data, planId, plans.data, rules.data, analysis.data, isPastCases, addedCaseIds, modifiedCaseIds, affectedCaseIds, addedPlanIds, modifiedPlanIds, affectedPlanIds, addedRuleIds, modifiedRuleIds, affectedRuleIds, methodDiffMap, getMethodDiff]);
   const pending = (cases.data ?? []).filter((c) => c.status === 'PENDING_REVIEW').length;
   const approved = (cases.data ?? []).filter((c) => c.status === 'APPROVED').length;
   const error = plans.error ?? cases.error ?? units.error ?? analysis.error
@@ -316,9 +353,9 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
                  || methodDiffMap[method.methodName])
               : undefined;
           });
-          const hasAdded = addedCaseIds.has(item.id) || (sourcePlan ? addedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
-          const hasDeleted = deletedCaseIds.has(item.id) || (sourcePlan ? deletedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
-          const hasModified = !hasAdded && !hasDeleted && (
+          const hasAdded = !isPastCases && (addedCaseIds.has(item.id) || (sourcePlan ? addedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
+          const hasDeleted = !isPastCases && (deletedCaseIds.has(item.id) || (sourcePlan ? deletedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id)));
+          const hasModified = !isPastCases && !hasAdded && !hasDeleted && (
             modifiedCaseIds.has(item.id)
             || affectedCaseIds.has(item.id)
             || (sourcePlan ? modifiedPlanIds.has(sourcePlan.id) || affectedPlanIds.has(sourcePlan.id) : false)
@@ -331,7 +368,7 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
             ? 'rounded-default border-2 border-emerald-500/60 bg-emerald-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
             : hasDeleted
               ? 'rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
-              : (hasModified || item.isModified)
+              : (hasModified || (!isPastCases && item.isModified))
                 ? 'rounded-default border-2 border-amber-500/60 bg-amber-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
                 : 'border-t border-border-default px-3 py-3 transition-colors first:border-t-0 hover:bg-neutral-secondary-soft/40';
 
@@ -355,12 +392,12 @@ export function TestCasesPanel({ projectId, projectStatus: _projectStatus, servi
                     - ĐÃ XÓA
                   </span>
                 )}
-                {(hasModified || item.isModified) && (
+                {(hasModified || (!isPastCases && item.isModified)) && (
                   <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
                     ~ CẬP NHẬT THEO CODE
                   </span>
                 )}
-                {item.isModified && !hasModified && (
+                {item.isModified && !isPastCases && !hasModified && (
                   <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-fg-warning">
                     {t('Đã sửa', 'Modified')}
                   </span>

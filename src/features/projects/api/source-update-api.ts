@@ -7,7 +7,7 @@ import type {
   SourceUpdateReviewStatus,
 } from '../types';
 
-export const SOURCE_UPDATE_TIMEOUT_MS = 120_000;
+export const SOURCE_UPDATE_TIMEOUT_MS = 300_000;
 
 export interface SourceUpdateRequestOptions {
   signal?: AbortSignal;

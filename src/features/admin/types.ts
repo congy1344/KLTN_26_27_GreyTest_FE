@@ -1,5 +1,5 @@
 export type UserRole = 'USER' | 'ADMIN';
-export type UserTier = 'FREE' | 'PRO';
+export type UserTier = 'FREE' | 'PLUS' | 'PRO';
 export type ActivityAction =
   | 'GENERATE_BUSINESS_RULE' | 'REVIEW_BUSINESS_RULE' | 'GENERATE_TEST_PLAN'
   | 'GENERATE_TEST_CASE' | 'GENERATE_UNIT_TEST' | 'COVERAGE_REFINEMENT'

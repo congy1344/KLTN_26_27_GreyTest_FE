@@ -53,6 +53,93 @@ describe('SourceUpdateModal', () => {
     cleanup();
   });
 
+  it('reports a generate-all timeout even when the draft can be fetched again', async () => {
+    const draft = { id: 11, items: [], impactSummary: null, status: 'ANALYZED' };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    mocks.fetch.mockResolvedValue(draft);
+    mocks.generate.mockReturnValue(new Promise(() => undefined));
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sinh Tất Cả' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Business Rule');
+    expect(screen.getByRole('alert')).toHaveTextContent('quá thời gian chờ');
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '10');
+    expect(screen.getByRole('button', { name: 'Sinh Tất Cả' })).toBeEnabled();
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Đã đồng bộ lại trạng thái source update từ server.')).not.toBeInTheDocument();
+  });
+
+  it('keeps the failing stage and backend reason visible when generate-all stops', async () => {
+    const draft = { id: 11, items: [], impactSummary: null, status: 'ANALYZED' };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    mocks.generate.mockResolvedValueOnce(draft).mockRejectedValueOnce(new Error('Hết quota LLM'));
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sinh Tất Cả' }));
+    await act(async () => undefined);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Test Plan');
+    expect(screen.getByRole('alert')).toHaveTextContent('Hết quota LLM');
+    expect(screen.getByRole('region', { name: 'Nội dung cập nhật source' }))
+      .not.toContainElement(screen.getByRole('alert'));
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '35');
+    expect(screen.getByRole('button', { name: '✓ Đã sinh BR' })).toBeEnabled();
+    expect(mocks.generate).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows the timeout immediately while checking the draft is also stalled', async () => {
+    mocks.fetchProject.mockResolvedValue([{ id: 11, items: [], impactSummary: null, status: 'ANALYZED' }]);
+    mocks.fetch.mockReturnValue(new Promise(() => undefined));
+    mocks.generate.mockReturnValue(new Promise(() => undefined));
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Sinh Tất Cả' }));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Business Rule');
+    expect(screen.getByRole('button', { name: 'Sinh Tất Cả' })).toBeEnabled();
+  });
+
+  it('does not mark a timed-out single stage as completed from an older ready draft', async () => {
+    const draft = { id: 11, items: [], impactSummary: null, status: 'READY_TO_APPLY' };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    mocks.fetch.mockResolvedValue(draft);
+    mocks.generate.mockReturnValue(new Promise(() => undefined));
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+
+    fireEvent.click(screen.getByRole('button', { name: '1. Sinh BR' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Business Rule');
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '5');
+    expect(screen.getByRole('button', { name: '1. Sinh BR' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: '✓ Đã sinh BR' })).not.toBeInTheDocument();
+  });
+
+  it('shows generate-all success outside the scrolling draft content', async () => {
+    const draft = { id: 11, items: [], impactSummary: null, status: 'ANALYZED' };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    mocks.generate.mockResolvedValue(draft);
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sinh Tất Cả' }));
+    await act(async () => undefined);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Đã sinh thành công toàn bộ');
+    expect(screen.getByRole('region', { name: 'Nội dung cập nhật source' }))
+      .not.toContainElement(screen.getByRole('status'));
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
+    expect(mocks.generate.mock.calls.map((call) => call[2]))
+      .toEqual(['BUSINESS_RULE', 'TEST_PLAN', 'TEST_CASE', 'UNIT_TEST']);
+  });
+
   it('shows upload progress percentage while the source update is running', async () => {
     mocks.createZip.mockImplementation((_projectId: number, _file: File, options: { onUploadProgress?: (percent: number) => void }) => {
       options.onUploadProgress?.(50);

@@ -102,6 +102,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
   const canGenerate = PLAN_EDITABLE.includes(projectStatus);
   const canEdit = PLAN_EDITABLE.includes(projectStatus);
   const canCreate = canEdit && eligibleRules.length > 0 && Boolean(businessRuleId);
+  const isPastPlans = ['PLAN_APPROVED', 'CASE_PENDING_REVIEW', 'CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED'].includes(projectStatus);
 
   const handleCreate = (event: FormEvent) => {
     event.preventDefault();
@@ -153,6 +154,38 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
   const handleDelete = (plan: TestPlan) => {
     setPlanToDelete(plan);
   };
+
+  const sortedPlans = useMemo(() => {
+    const getPlanDiffPriority = (plan: TestPlan) => {
+      if (isPastPlans) return 0;
+      const coveredRules = (plan.coveredRuleIds?.length ? plan.coveredRuleIds : [plan.businessRuleId])
+        .map((ruleId) => rules.find((rule) => rule.id === ruleId))
+        .filter((rule): rule is NonNullable<typeof rule> => rule != null);
+      const ruleDiffs = coveredRules.map((rule) => {
+        const method = (analysis?.classes ?? []).flatMap((c) => c.methods).find((m) => m.id === rule.methodId);
+        const javaClass = (analysis?.classes ?? []).find((c) => c.methods.some((m) => m.id === rule.methodId));
+        return method
+          ? (getMethodDiff(javaClass?.qualifiedName, method.methodName, method.parameters)
+             || methodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
+             || methodDiffMap[method.methodName])
+          : undefined;
+      });
+      const hasAdded = addedPlanIds.has(plan.id) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => addedRuleIds.has(r.id));
+      if (hasAdded) return 2;
+      const hasModified = modifiedPlanIds.has(plan.id) || affectedPlanIds.has(plan.id) || ruleDiffs.includes('MODIFIED') || coveredRules.some((r) => modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)) || plan.isModified;
+      if (hasModified) return 1;
+      return 0;
+    };
+
+    return [...plans].sort((a, b) => {
+      const priorityA = getPlanDiffPriority(a);
+      const priorityB = getPlanDiffPriority(b);
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA;
+      }
+      return a.planCode.localeCompare(b.planCode, undefined, { numeric: true });
+    });
+  }, [plans, rules, analysis, isPastPlans, addedPlanIds, modifiedPlanIds, affectedPlanIds, addedRuleIds, modifiedRuleIds, affectedRuleIds, methodDiffMap, getMethodDiff]);
 
   return (
     <section className="mt-8 animate-fade-in">
@@ -287,7 +320,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
           />
         ) : (
           <div className="space-y-2">
-            {[...plans].sort((a, b) => a.planCode.localeCompare(b.planCode, undefined, { numeric: true })).map((plan) => {
+            {sortedPlans.map((plan) => {
               const editing = editingPlanId === plan.id;
               const coveredRules = (plan.coveredRuleIds?.length ? plan.coveredRuleIds : [plan.businessRuleId])
                 .map((ruleId) => rules.find((rule) => rule.id === ruleId))
@@ -301,9 +334,9 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
                      || methodDiffMap[method.methodName])
                   : undefined;
               });
-              const hasAdded = addedPlanIds.has(plan.id) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => addedRuleIds.has(r.id));
-              const hasDeleted = deletedPlanIds.has(plan.id) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => deletedRuleIds.has(r.id));
-              const hasModified = !hasAdded && !hasDeleted && (
+              const hasAdded = !isPastPlans && (addedPlanIds.has(plan.id) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => addedRuleIds.has(r.id)));
+              const hasDeleted = !isPastPlans && (deletedPlanIds.has(plan.id) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => deletedRuleIds.has(r.id)));
+              const hasModified = !isPastPlans && !hasAdded && !hasDeleted && (
                 modifiedPlanIds.has(plan.id) || affectedPlanIds.has(plan.id) || ruleDiffs.includes('MODIFIED') || coveredRules.some((r) => modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id))
               );
 
@@ -311,7 +344,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
                 ? 'rounded-default border-2 border-emerald-500/60 bg-emerald-500/[0.04] p-3 shadow-xs transition-colors'
                 : hasDeleted
                   ? 'rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 shadow-xs transition-colors'
-                  : (hasModified || plan.isModified)
+                  : (hasModified || (!isPastPlans && plan.isModified))
                     ? 'rounded-default border-2 border-amber-500/60 bg-amber-500/[0.04] p-3 shadow-xs transition-colors'
                     : 'rounded-default border border-border-default bg-neutral-secondary-soft p-3';
 
@@ -335,12 +368,12 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
                       - ĐÃ XÓA
                     </span>
                   )}
-                  {(hasModified || plan.isModified) && (
+                  {(hasModified || (!isPastPlans && plan.isModified)) && (
                     <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
                       ~ CẬP NHẬT THEO CODE
                     </span>
                   )}
-                  {plan.isModified && (
+                  {plan.isModified && !isPastPlans && (
                     <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-fg-warning">
                       {plan.status === 'APPROVED'
                         ? t('Cần sinh lại Test Case', 'Test Cases need regeneration')

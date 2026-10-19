@@ -1,12 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminLogin, fetchCurrentUser, login, register } from '../api/auth-api';
+import { adminLogin, fetchCurrentUser, fetchUserQuota, login, register } from '../api/auth-api';
 
 const AUTH_KEY = ['auth', 'me'];
+export const USER_QUOTA_KEY = ['user', 'quota'];
 
 export function useCurrentUser() {
   return useQuery({
     queryKey: AUTH_KEY,
     queryFn: fetchCurrentUser,
+    enabled: Boolean(localStorage.getItem('greytest.token')),
+    retry: false,
+  });
+}
+
+/** Lấy thông tin hạn mức sử dụng AI quota của người dùng hiện tại */
+export function useUserQuota() {
+  return useQuery({
+    queryKey: USER_QUOTA_KEY,
+    queryFn: fetchUserQuota,
     enabled: Boolean(localStorage.getItem('greytest.token')),
     retry: false,
   });
