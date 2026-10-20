@@ -22,7 +22,7 @@ import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { useAnalysis } from '../../projects/hooks/useProjects';
-import type { SourceBranchInfo } from '../../projects/types';
+import type { ProjectStatus, SourceBranchInfo } from '../../projects/types';
 import { buildRuleSourceIndex, sourceDecisionId } from '../../projects/utils/source-trace';
 import { useTestPlans } from '../../test-plans/hooks/useTestPlans';
 import {
@@ -48,6 +48,7 @@ interface BusinessRulesPanelProps {
   servicePath?: string;
   methodDiffMap?: Record<string, 'ADDED' | 'MODIFIED' | 'DELETED'>;
   affectedRuleIds?: Set<number>;
+  projectStatus?: ProjectStatus;
 }
 
 
@@ -61,8 +62,9 @@ function sourceDecisions(branches: SourceBranchInfo[]) {
   });
 }
 
-export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affectedRuleIds }: BusinessRulesPanelProps) {
+export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affectedRuleIds, projectStatus }: BusinessRulesPanelProps) {
   const navigate = useNavigate();
+  const isPastRules = Boolean(projectStatus && ['BR_APPROVED', 'PLAN_PENDING_REVIEW', 'PLAN_APPROVED', 'CASE_PENDING_REVIEW', 'CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED'].includes(projectStatus));
   const { t } = useLanguage();
   const impactData = useSourceUpdateImpact(projectId);
   const effectiveMethodDiffMap = methodDiffMap ?? impactData.methodDiffMap;
@@ -97,20 +99,49 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
     });
     return [...(analysis?.classes ?? [])]
       .filter((javaClass) => javaClass.classType === 'SERVICE' && belongsToService(javaClass.filePath, servicePath))
-      .sort((left, right) => left.filePath.localeCompare(right.filePath)
-        || left.qualifiedName.localeCompare(right.qualifiedName))
+      .sort((left, right) => {
+        const classHasDiff = (c: typeof left) => c.methods.some((m) => {
+          const diff = getMethodDiff(c.qualifiedName, m.methodName, m.parameters)
+            || effectiveMethodDiffMap[`${c.qualifiedName}#${m.methodName}`]
+            || effectiveMethodDiffMap[m.methodName];
+          return diff === 'ADDED' || diff === 'MODIFIED';
+        });
+        const leftHasDiff = classHasDiff(left);
+        const rightHasDiff = classHasDiff(right);
+        if (leftHasDiff !== rightHasDiff) return leftHasDiff ? -1 : 1;
+        return left.filePath.localeCompare(right.filePath)
+          || left.qualifiedName.localeCompare(right.qualifiedName);
+      })
       .map((javaClass) => ({
         ...javaClass,
         methods: [...javaClass.methods]
-          .sort((left, right) => left.lineStart - right.lineStart || left.id - right.id)
+          .sort((left, right) => {
+            const leftDiff = getMethodDiff(javaClass.qualifiedName, left.methodName, left.parameters)
+              || effectiveMethodDiffMap[`${javaClass.qualifiedName}#${left.methodName}`]
+              || effectiveMethodDiffMap[left.methodName];
+            const rightDiff = getMethodDiff(javaClass.qualifiedName, right.methodName, right.parameters)
+              || effectiveMethodDiffMap[`${javaClass.qualifiedName}#${right.methodName}`]
+              || effectiveMethodDiffMap[right.methodName];
+            const isDiffPriority = (diff?: string) => (!isPastRules && diff === 'ADDED') ? 2 : (!isPastRules && diff === 'MODIFIED') ? 1 : 0;
+            if (isDiffPriority(leftDiff) !== isDiffPriority(rightDiff)) {
+              return isDiffPriority(rightDiff) - isDiffPriority(leftDiff);
+            }
+            return left.lineStart - right.lineStart || left.id - right.id;
+          })
           .map((method) => {
             const methodRules = [...(rulesByMethod.get(method.id) ?? [])].sort((left, right) => {
+              const leftAdded = !isPastRules && addedRuleIds.has(left.id);
+              const rightAdded = !isPastRules && addedRuleIds.has(right.id);
+              if (leftAdded !== rightAdded) return leftAdded ? -1 : 1;
+              const leftMod = !isPastRules && (modifiedRuleIds.has(left.id) || effectiveAffectedRuleIds.has(left.id));
+              const rightMod = !isPastRules && (modifiedRuleIds.has(right.id) || effectiveAffectedRuleIds.has(right.id));
+              if (leftMod !== rightMod) return leftMod ? -1 : 1;
               return left.ruleCode.localeCompare(right.ruleCode, undefined, { numeric: true });
             });
             return { ...method, rules: methodRules };
           }),
       }));
-  }, [analysis, rules, servicePath, sourceTraceByRule]);
+  }, [analysis, rules, servicePath, sourceTraceByRule, isPastRules, addedRuleIds, modifiedRuleIds, effectiveAffectedRuleIds, effectiveMethodDiffMap, getMethodDiff]);
   const fileGroups = useMemo(() => {
     const groups = new Map<string, { filePath: string; services: typeof serviceGroups }>();
     serviceGroups.forEach((service) => {
@@ -278,9 +309,9 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
          || effectiveMethodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
          || effectiveMethodDiffMap[method.methodName])
       : undefined;
-    const isAdded = addedRuleIds.has(rule.id) || diffType === 'ADDED';
-    const isDeleted = deletedRuleIds.has(rule.id) || diffType === 'DELETED';
-    const isModified = !isAdded && !isDeleted && (
+    const isAdded = !isPastRules && (addedRuleIds.has(rule.id) || diffType === 'ADDED');
+    const isDeleted = !isPastRules && (deletedRuleIds.has(rule.id) || diffType === 'DELETED');
+    const isModified = !isPastRules && !isAdded && !isDeleted && (
       modifiedRuleIds.has(rule.id) || effectiveAffectedRuleIds.has(rule.id) || rule.isModified || diffType === 'MODIFIED'
     );
 

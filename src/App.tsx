@@ -19,6 +19,8 @@ import { AdminLoginPage } from './features/admin/pages/AdminLoginPage';
 import { UpgradeToProModal } from './shared/components/UpgradeToProModal';
 import { AccountDisabledModal } from './shared/components/AccountDisabledModal';
 import { AuthSessionListener } from './shared/components/AuthSessionListener';
+import { ProfilePage } from './features/auth/pages/ProfilePage';
+import { VnpayReturnPage } from './features/payment/pages/VnpayReturnPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -57,6 +59,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        <Route path="/payment/vnpay-return" element={<RequireAuth><VnpayReturnPage /></RequireAuth>} />
         <Route path="/projects" element={<RequireAuth><ProjectsPage /></RequireAuth>} />
         <Route path="/projects/:id" element={<RequireAuth><ProjectDetailPage /></RequireAuth>} />
         <Route path="/projects/:id/test-plans" element={<RequireAuth><TestPlansPage /></RequireAuth>} />

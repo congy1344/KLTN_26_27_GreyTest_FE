@@ -121,6 +121,22 @@ export function useGenerationProgress(
     const completionId = `${projectId}:${projectProgress.stage}:${projectProgress.status}:${lastLog?.timestamp ?? 'terminal'}`;
     if (refreshedCompletion.current === completionId) return;
     refreshedCompletion.current = completionId;
+
+    if (projectProgress.status === 'FAILED') {
+      const isQuotaError =
+        projectProgress.logs?.some((l) =>
+          /quota/i.test(l.message) || /vượt hạn mức/i.test(l.message) || /hết quota/i.test(l.message)
+        ) ||
+        projectProgress.steps?.some(
+          (s) =>
+            s.status === 'FAILED' &&
+            (/quota/i.test(s.errorMessage || '') || /hết quota/i.test(s.errorMessage || ''))
+        );
+      if (isQuotaError && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('quota-exceeded'));
+      }
+    }
+
     queryClient.invalidateQueries({
       predicate: (cachedQuery) => cachedQuery.queryKey[0] !== 'generation-progress',
     });

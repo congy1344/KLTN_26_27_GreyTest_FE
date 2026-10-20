@@ -19,7 +19,7 @@ function readInitialTheme(): Theme {
   } catch {
     // Trình duyệt có thể chặn Web Storage; theme hệ thống vẫn là fallback an toàn.
   }
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
 }
 
 function applyTheme(theme: Theme) {

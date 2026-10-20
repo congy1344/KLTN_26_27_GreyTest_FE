@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UpgradeToProModal } from './UpgradeToProModal';
@@ -26,16 +26,12 @@ describe('UpgradeToProModal', () => {
     cleanup();
   });
 
-  it('opens when quota-exceeded event is dispatched and allows upgrading to Pro', async () => {
+  it('opens when quota-exceeded event is dispatched and allows selecting tier and paying via VNPay', async () => {
     vi.mocked(apiClient.post).mockResolvedValueOnce({
       data: {
-        tier: 'PRO',
-        limit: 1000,
-        used: 100,
-        remaining: 900,
-        periodStart: '2026-10-01',
-        resetDate: '2026-11-01',
-        exceeded: false,
+        paymentUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?token=123',
+        orderId: 'VNP_TEST_123',
+        amount: 2000,
       },
     });
 
@@ -46,7 +42,7 @@ describe('UpgradeToProModal', () => {
     );
 
     // Initial state: modal is closed
-    expect(screen.queryByText('Nâng cấp lên gói PRO')).not.toBeInTheDocument();
+    expect(screen.queryByText('Chọn gói mở rộng hạn mức AI')).not.toBeInTheDocument();
 
     // Trigger event
     act(() => {
@@ -54,18 +50,80 @@ describe('UpgradeToProModal', () => {
     });
 
     // Modal is now open
-    expect(screen.getByText('Nâng cấp lên gói PRO')).toBeInTheDocument();
-    expect(screen.getByText(/100 lượt gọi AI/i)).toBeInTheDocument();
-    expect(screen.getByText('1.000')).toBeInTheDocument();
+    expect(screen.getByText('Chọn gói mở rộng hạn mức AI')).toBeInTheDocument();
+    expect(screen.getByText('Gói PLUS')).toBeInTheDocument();
+    expect(screen.getByText('Gói PRO')).toBeInTheDocument();
+    expect(screen.getByText('200 lượt gọi AI')).toBeInTheDocument();
+    expect(screen.getByText('300 lượt gọi AI')).toBeInTheDocument();
 
-    // Click upgrade
-    const upgradeButton = screen.getByRole('button', { name: /Nâng cấp lên PRO ngay/i });
-    fireEvent.click(upgradeButton);
+    // Select PRO tier (default is PRO)
+    const payButton = screen.getByRole('button', { name: /Thanh toán qua VNPay/i });
+    expect(payButton).toBeInTheDocument();
 
-    expect(apiClient.post).toHaveBeenCalledWith('/user/upgrade-pro');
+    fireEvent.click(payButton);
 
-    await waitFor(() => {
-      expect(screen.getByText('Nâng cấp thành công!')).toBeInTheDocument();
+    expect(apiClient.post).toHaveBeenCalledWith('/payment/create-vnpay-url', {
+      tier: 'PRO',
     });
+  });
+
+  it('allows selecting PLUS tier and initiating payment', async () => {
+    vi.mocked(apiClient.post).mockResolvedValueOnce({
+      data: {
+        paymentUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?token=456',
+        orderId: 'VNP_TEST_456',
+        amount: 1000,
+      },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UpgradeToProModal initialTier="PLUS" />
+      </QueryClientProvider>
+    );
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('quota-exceeded'));
+    });
+
+    // Click PLUS tier card
+    const plusOption = screen.getByText('Gói PLUS');
+    fireEvent.click(plusOption);
+
+    const payButton = screen.getByRole('button', { name: /Thanh toán qua VNPay/i });
+    expect(payButton).toBeInTheDocument();
+
+    fireEvent.click(payButton);
+
+    expect(apiClient.post).toHaveBeenCalledWith('/payment/create-vnpay-url', {
+      tier: 'PLUS',
+    });
+  });
+
+  it('displays clear active plan indicator when user is currently on PRO tier', () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UpgradeToProModal open={true} currentTier="PRO" />
+      </QueryClientProvider>
+    );
+
+    // Kiểm tra hiển thị gói hiện tại
+    expect(screen.getByText('Gói Chuyên Nghiệp (PRO)')).toBeInTheDocument();
+    expect(screen.getByText('Gói thấp hơn gói PRO hiện tại')).toBeInTheDocument();
+    expect(screen.getByText('Đang sử dụng')).toBeInTheDocument();
+    expect(screen.getByText(/Gói hiện tại • Gia hạn thêm 1 tuần/i)).toBeInTheDocument();
+  });
+
+  it('displays clear active plan indicator when user is currently on PLUS tier', () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UpgradeToProModal open={true} currentTier="PLUS" />
+      </QueryClientProvider>
+    );
+
+    // Kiểm tra hiển thị gói hiện tại
+    expect(screen.getByText('Gói Tiêu Chuẩn (PLUS)')).toBeInTheDocument();
+    expect(screen.getByText('Đang sử dụng')).toBeInTheDocument();
+    expect(screen.getByText(/Gói hiện tại • Gia hạn thêm 1 tuần/i)).toBeInTheDocument();
   });
 });

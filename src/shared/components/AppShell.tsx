@@ -1,4 +1,4 @@
-import { Beaker, ShieldCheck, Sparkles } from 'lucide-react';
+import { Beaker, ShieldCheck, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCurrentUser, useLogout } from '../../features/auth/hooks/useAuth';
 import { useLanguage } from '../i18n/language';
@@ -58,10 +58,23 @@ export function AppShell({
             {showAdminShortcut && user?.role === 'ADMIN' && <Link to="/admin" className="btn btn-secondary px-3 py-1.5 text-[12px]"><ShieldCheck size={14} /> Admin</Link>}
             <ThemeToggle />
             <LanguageToggle />
-            <span className="hidden items-center gap-2 rounded-full border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-[12px] font-medium text-heading shadow-xs sm:inline-flex">
-              <Sparkles size={13} strokeWidth={1.8} className="text-fg-brand" />
-              {user?.fullName ?? 'AI QA Agent'}
-            </span>
+            <Link
+              to="/profile"
+              className="group hidden items-center gap-2 rounded-full border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-[12px] font-medium text-heading shadow-xs transition-all duration-200 hover:border-brand-primary hover:bg-neutral-secondary-soft hover:shadow-sm sm:inline-flex"
+              title={t('Xem hồ sơ cá nhân và quản lý gói', 'View profile and subscription')}
+            >
+              <User size={13} strokeWidth={1.8} className="text-body-subtle transition-colors group-hover:text-heading" />
+              <span className="max-w-[160px] truncate">{user?.fullName ?? 'Người dùng'}</span>
+              {user?.tier === 'PRO' ? (
+                <span className="rounded-full bg-gradient-to-r from-purple-500/20 to-indigo-500/20 px-1.5 py-0.2 text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                  PRO
+                </span>
+              ) : (
+                <span className="rounded-full bg-neutral-secondary px-1.5 py-0.2 text-[10px] font-semibold text-body-subtle">
+                  FREE
+                </span>
+              )}
+            </Link>
             <button type="button" onClick={handleLogout} className="btn btn-secondary px-3 py-1.5 text-[12px]">
               {t('Đăng xuất', 'Log out')}
             </button>

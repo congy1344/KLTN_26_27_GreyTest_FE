@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Bot, CheckCircle2, Copy, Download, FileCode2, Loader2, ListFilter, Play, RotateCcw, Search, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Bot, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileCode2, Loader2, ListFilter, Play, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
@@ -15,15 +15,33 @@ import { useAnalysis } from '../../projects/hooks/useProjects';
 import { buildRuleSourceIndex } from '../../projects/utils/source-trace';
 import { downloadUnitTestsZip } from '../api/unit-test-api';
 import { useGenerateUnitTests, useUnitTestFiles, useUnitTests } from '../hooks/useUnitTests';
-import type { UnitTestFile } from '../types';
+import type { UnitTest, UnitTestFile } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
+import type { ProjectStatus } from '../../projects/types';
 
-export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: number; servicePath?: string }) {
+const PAGE_SIZE = 8;
+
+export function UnitTestsPanel({
+  projectId = 0,
+  servicePath,
+  projectStatus,
+}: {
+  projectId?: number;
+  servicePath?: string;
+  projectStatus?: ProjectStatus;
+}) {
   const navigate = useNavigate();
+  const coverageNavigatedKey = `greytest.unit-tests-coverage-navigated.${projectId}${servicePath ? `.${servicePath}` : ''}`;
+  const [coverageNavigated, setCoverageNavigated] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(coverageNavigatedKey) === 'true';
+  });
+
+  const isCoverageVisited = coverageNavigated || projectStatus === 'COVERAGE_ANALYZED' || projectStatus === 'COMPLETED';
   const {
     methodDiffMap,
     getMethodDiff,
@@ -59,6 +77,7 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
   const [activeId, setActiveId] = useState<number | null>(null);
   const [userSelectedMethod, setUserSelectedMethod] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [downloadError, setDownloadError] = useState('');
   const { t } = useLanguage();
   const approvedCases = useMemo(() => (cases.data ?? []).filter((item) => item.status === 'APPROVED'), [cases.data]);
@@ -94,7 +113,54 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
       return [item.testMethodName, item.testClassName, item.packageName, testCase?.caseCode, testCase?.description]
         .some((value) => value?.toLowerCase().includes(normalizedQuery));
     });
+
+    const getUnitTestDiffPriority = (item: UnitTest) => {
+      const testCase = (cases.data ?? []).find((c) => c.id === item.testCaseId);
+      const testPlan = (plans.data ?? []).find((p) => p.id === testCase?.testPlanId);
+      const ruleIds = testPlan?.coveredRuleIds?.length
+        ? testPlan.coveredRuleIds
+        : testPlan ? [testPlan.businessRuleId] : [];
+      const coveredRules = ruleIds.map((rId) => (rules.data ?? []).find((r) => r.id === rId)).filter(Boolean);
+      const ruleDiffs = coveredRules.map((rule) => {
+        if (!rule?.methodId) return undefined;
+        const method = (analysis.data?.classes ?? []).flatMap((c) => c.methods).find((m) => m.id === rule.methodId);
+        const javaClass = (analysis.data?.classes ?? []).find((c) => c.methods.some((m) => m.id === rule.methodId));
+        return method
+          ? (getMethodDiff(javaClass?.qualifiedName, method.methodName, method.parameters)
+             || methodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
+             || methodDiffMap[method.methodName])
+          : undefined;
+      });
+
+      if (isCoverageVisited) return 0;
+
+      const hasAdded = addedUnitTestIds.has(item.id)
+        || item.generationType === 'NEW_TEST'
+        || (testCase ? addedCaseIds.has(testCase.id) : false)
+        || (testPlan ? addedPlanIds.has(testPlan.id) : false)
+        || ruleDiffs.includes('ADDED')
+        || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+      if (hasAdded) return 2;
+
+      const hasModified = modifiedUnitTestIds.has(item.id)
+        || item.generationType === 'INCREMENTAL'
+        || item.generationType === 'IMPROVE_EXISTING_TEST'
+        || ruleDiffs.includes('MODIFIED')
+        || affectedUnitTestIds.has(item.id)
+        || (testCase ? modifiedCaseIds.has(testCase.id) || affectedCaseIds.has(testCase.id) : false)
+        || (testPlan ? modifiedPlanIds.has(testPlan.id) || affectedPlanIds.has(testPlan.id) : false)
+        || coveredRules.some((r) => r && (modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)));
+      if (hasModified) return 1;
+
+      return 0;
+    };
+
     return list.sort((a, b) => {
+      const priorityA = getUnitTestDiffPriority(a);
+      const priorityB = getUnitTestDiffPriority(b);
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA;
+      }
       const tcA = approvedCaseById.get(a.testCaseId)?.caseCode ?? '';
       const tcB = approvedCaseById.get(b.testCaseId)?.caseCode ?? '';
       if (tcA && tcB && tcA !== tcB) {
@@ -102,7 +168,34 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
       }
       return a.testMethodName.localeCompare(b.testMethodName);
     });
-  }, [tests.data, caseId, normalizedQuery, approvedCaseById]);
+  }, [
+    tests.data,
+    caseId,
+    normalizedQuery,
+    approvedCaseById,
+    cases.data,
+    plans.data,
+    rules.data,
+    analysis.data,
+    isCoverageVisited,
+    addedUnitTestIds,
+    modifiedUnitTestIds,
+    affectedUnitTestIds,
+    addedCaseIds,
+    modifiedCaseIds,
+    affectedCaseIds,
+    addedPlanIds,
+    modifiedPlanIds,
+    affectedPlanIds,
+    addedRuleIds,
+    modifiedRuleIds,
+    affectedRuleIds,
+    methodDiffMap,
+    getMethodDiff,
+  ]);
+  const totalPages = Math.ceil(visible.length / PAGE_SIZE) || 1;
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedVisible = visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const active = visible.find((item) => item.id === activeId) ?? visible[0];
   const sourceTraceByRule = useMemo(
     () => buildRuleSourceIndex(analysis.data, rules.data ?? []),
@@ -144,6 +237,32 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
     }
   };
 
+  const handleGenerate = (incremental: boolean) => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(coverageNavigatedKey);
+      } catch {
+        // ignore
+      }
+    }
+    setCoverageNavigated(false);
+    generate.mutate(incremental);
+  };
+
+  const handleContinueToCoverage = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(coverageNavigatedKey, 'true');
+      } catch {
+        // ignore
+      }
+    }
+    setCoverageNavigated(true);
+    navigate(projectWorkflowPath(projectId, 'coverage', servicePath), {
+      state: { workflowNotice: t('Unit Test đã sẵn sàng. Chuyển sang bước Coverage.', 'Unit Tests are ready. Continue with Coverage.') },
+    });
+  };
+
   return (
     <section className="mt-8 animate-fade-in">
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -154,7 +273,7 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
               <button
                 className="btn btn-brand"
                 disabled={generate.isPending || generationRunning || missingCount === 0}
-                onClick={() => generate.mutate(true)}
+                onClick={() => handleGenerate(true)}
                 title={t(`Tiếp tục sinh cho ${missingCount} Test Case chưa có unit test`, `Continue generating for ${missingCount} remaining Test Cases`)}
               >
                 {generate.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
@@ -163,7 +282,7 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
               <button
                 className="btn btn-secondary"
                 disabled={generate.isPending || generationRunning || eligibleCases.length === 0}
-                onClick={() => generate.mutate(false)}
+                onClick={() => handleGenerate(false)}
                 title={t('Xóa toàn bộ Unit Test cũ và sinh lại từ đầu', 'Regenerate all unit tests from scratch')}
               >
                 <RotateCcw size={14} /> {t('Sinh lại từ đầu', 'Regenerate all')}
@@ -173,7 +292,7 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
             <button
               className={coveredCount > 0 && missingCount === 0 ? "btn btn-secondary" : "btn btn-brand"}
               disabled={generate.isPending || generationRunning || eligibleCases.length === 0}
-              onClick={() => generate.mutate(false)}
+              onClick={() => handleGenerate(false)}
             >
               {generate.isPending || generationRunning ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -192,14 +311,12 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
             active={generate.isPending || generationRunning || generationProgress.showProgress}
             label={t('Tiến trình AI của dự án', 'Project AI progress')}
             progress={generationProgress.projectProgress ?? generationProgress.data}
-            onResume={() => generate.mutate(true)}
+            onResume={() => handleGenerate(true)}
           />
           <button
             className="btn btn-brand shrink-0"
             disabled={generate.isPending || generationRunning || !coverageReady}
-            onClick={() => navigate(projectWorkflowPath(projectId, 'coverage', servicePath), {
-              state: { workflowNotice: t('Unit Test đã sẵn sàng. Chuyển sang bước Coverage.', 'Unit Tests are ready. Continue with Coverage.') },
-            })}
+            onClick={handleContinueToCoverage}
           >
             {t('Tiếp tục đến Coverage', 'Continue to Coverage')} <ArrowRight size={14} />
           </button>
@@ -246,18 +363,28 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
           </select>
         </div>
       </div>
-      <div className="mt-4 grid items-start gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <div className="overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft shadow-sm xl:sticky xl:top-4">
-          <div className="flex items-center justify-between border-b border-border-default px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-body-subtle">{t('Danh sách method', 'Method index')}</p>
-            <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-xs font-semibold text-heading">{visible.length}</span>
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-stretch">
+        <div className="flex flex-col justify-between rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+          <div>
+            <div className="flex items-center justify-between border-b border-border-default pb-3">
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-body-subtle">{t('Danh sách method', 'Method index')}</p>
+              <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-xs font-semibold text-heading">{visible.length}</span>
+            </div>
+            {totalPages > 1 && (
+              <span className="text-[11px] font-mono text-body-subtle">
+                {t(`Trang ${safePage}/${totalPages}`, `Page ${safePage}/${totalPages}`)}
+              </span>
+            )}
           </div>
+          <div className="mt-3 space-y-2">
           {tests.isLoading ? (
             <LoadingState label={t('Đang tải Unit Test...', 'Loading Unit Tests...')} minHeight="min-h-[160px]" />
           ) : visible.length === 0 ? (
             <EmptyState icon={FileCode2} title={t('Chưa có Unit Test', 'No Unit Tests yet')} hint={t('Approve Test Case rồi bấm "AI sinh Unit Test".', 'Approve Test Cases, then select "Generate with AI".')} minHeight="min-h-[200px]" />
-          ) : visible.map((item, index) => {
-            const testCase = approvedCaseById.get(item.testCaseId);
+          ) : paginatedVisible.map((item, index) => {
+              const overallIndex = (safePage - 1) * PAGE_SIZE + index;
+              const testCase = approvedCaseById.get(item.testCaseId);
             const testPlan = testCase ? (plans.data ?? []).find((p) => p.id === testCase.testPlanId) : null;
             const ruleIds = testPlan?.coveredRuleIds?.length
               ? testPlan.coveredRuleIds
@@ -274,9 +401,9 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
                    || methodDiffMap[method.methodName])
                 : undefined;
             });
-            const hasAdded = addedUnitTestIds.has(item.id) || item.generationType === 'NEW_TEST' || (testCase ? addedCaseIds.has(testCase.id) : false) || (testPlan ? addedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
-            const hasDeleted = deletedUnitTestIds.has(item.id) || (testCase ? deletedCaseIds.has(testCase.id) : false) || (testPlan ? deletedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
-            const hasModified = !hasAdded && !hasDeleted && (
+            const hasAdded = !isCoverageVisited && (addedUnitTestIds.has(item.id) || item.generationType === 'NEW_TEST' || (testCase ? addedCaseIds.has(testCase.id) : false) || (testPlan ? addedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
+            const hasDeleted = !isCoverageVisited && (deletedUnitTestIds.has(item.id) || (testCase ? deletedCaseIds.has(testCase.id) : false) || (testPlan ? deletedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id)));
+            const hasModified = !isCoverageVisited && !hasAdded && !hasDeleted && (
               modifiedUnitTestIds.has(item.id)
               || item.generationType === 'INCREMENTAL'
               || item.generationType === 'IMPROVE_EXISTING_TEST'
@@ -308,7 +435,7 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
               }}
             >
               <span className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold tabular-nums text-body-subtle">{String(index + 1).padStart(2, '0')}</span>
+                <span className="text-[11px] font-semibold tabular-nums text-body-subtle">{String(overallIndex + 1).padStart(2, '0')}</span>
                 <span className="rounded-full bg-brand-softer px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong">{testCase?.caseCode ?? `#${item.testCaseId}`}</span>
                 {hasAdded && (
                   <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
@@ -325,22 +452,76 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
                     ~ CẬP NHẬT THEO CODE
                   </span>
                 )}
-                <span className="ml-auto text-[10px] font-semibold uppercase text-body-subtle">{item.generationType?.replace(/_/g, ' ')}</span>
+                {!isCoverageVisited && item.generationType && (
+                  <span className="ml-auto text-[10px] font-semibold uppercase text-body-subtle">{item.generationType.replace(/_/g, ' ')}</span>
+                )}
               </span>
               <span className="mt-2 block break-all font-mono text-xs font-semibold text-heading">{item.testMethodName}</span>
               <span className="mt-1 block truncate text-xs text-body-subtle">{item.testClassName}</span>
               {testCase?.description && <span className="mt-1 block line-clamp-2 text-[11px] leading-relaxed text-body-subtle">{testCase.description}</span>}
             </button>
           );})}
+            </div>
+          </div>
+          {totalPages > 1 && (
+            <div className="mt-auto flex shrink-0 items-center justify-between border-t border-border-default bg-neutral-primary-soft/90 px-3 py-2 text-xs">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-body hover:bg-neutral-secondary-medium disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                aria-label={t('Trang trước', 'Previous page')}
+              >
+                <ChevronLeft size={14} />
+                <span>{t('Trước', 'Prev')}</span>
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                  const isCurrent = pageNum === safePage;
+                  if (totalPages > 6 && Math.abs(pageNum - safePage) > 1 && pageNum !== 1 && pageNum !== totalPages) {
+                    if (pageNum === 2 || pageNum === totalPages - 1) {
+                      return <span key={pageNum} className="px-1 text-body-subtle">…</span>;
+                    }
+                    return null;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`h-6 min-w-6 rounded px-1.5 text-center font-mono text-[11px] transition-colors ${
+                        isCurrent
+                          ? 'bg-brand-soft text-fg-brand-strong font-bold border border-border-brand-subtle'
+                          : 'text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading'
+                      }`}
+                      aria-current={isCurrent ? 'page' : undefined}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-body hover:bg-neutral-secondary-medium disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                aria-label={t('Trang sau', 'Next page')}
+              >
+                <span>{t('Sau', 'Next')}</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
         </div>
-        <div className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+        <div className="flex min-w-0 flex-col rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
           {!active ? (
-            <div className="flex min-h-[360px] items-center justify-center text-sm text-body-subtle">{t('Chọn method để xem file test.', 'Select a method to view its test file.')}</div>
+            <div className="flex min-h-[360px] flex-1 items-center justify-center text-sm text-body-subtle">{t('Chọn method để xem file test.', 'Select a method to view its test file.')}</div>
           ) : files.isLoading ? (
             <LoadingState label={t('Đang gộp file test...', 'Merging test files...')} minHeight="min-h-[360px]" />
           ) : activeFile ? (
-            <div className="space-y-3">
-              <div>
+            <div className="flex flex-1 min-h-0 flex-col space-y-3">
+              <div className="shrink-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-body-subtle">{t('Traceability đang kiểm chứng', 'Traceability under review')}</p>
                   {(() => {
@@ -361,9 +542,9 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
                            || methodDiffMap[method.methodName])
                         : undefined;
                     });
-                    const hasAdded = (active ? addedUnitTestIds.has(active.id) : false) || active?.generationType === 'NEW_TEST' || (activeCase ? addedCaseIds.has(activeCase.id) : false) || (activePlan ? addedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
-                    const hasDeleted = (active ? deletedUnitTestIds.has(active.id) : false) || (activeCase ? deletedCaseIds.has(activeCase.id) : false) || (activePlan ? deletedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
-                    const hasModified = !hasAdded && !hasDeleted && (
+                    const hasAdded = !isCoverageVisited && ((active ? addedUnitTestIds.has(active.id) : false) || active?.generationType === 'NEW_TEST' || (activeCase ? addedCaseIds.has(activeCase.id) : false) || (activePlan ? addedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
+                    const hasDeleted = !isCoverageVisited && ((active ? deletedUnitTestIds.has(active.id) : false) || (activeCase ? deletedCaseIds.has(activeCase.id) : false) || (activePlan ? deletedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id)));
+                    const hasModified = !isCoverageVisited && !hasAdded && !hasDeleted && (
                       (active ? modifiedUnitTestIds.has(active.id) || affectedUnitTestIds.has(active.id) : false)
                       || active?.generationType === 'INCREMENTAL'
                       || active?.generationType === 'IMPROVE_EXISTING_TEST'
@@ -404,10 +585,25 @@ export function UnitTestsPanel({ projectId = 0, servicePath }: { projectId?: num
                   ))}
                 </div>
               </div>
-              <UnitTestFileView file={activeFile} highlightMethod={active.testMethodName} autoScroll={userSelectedMethod} />
+              <UnitTestFileView
+                file={activeFile}
+                highlightMethod={active.testMethodName}
+                autoScroll={userSelectedMethod}
+                onSelectCaseCode={(code) => {
+                  const targetIndex = visible.findIndex(
+                    (t) => approvedCaseById.get(t.testCaseId)?.caseCode === code && t.filePath === activeFile.filePath
+                  );
+                  if (targetIndex >= 0) {
+                    const targetPage = Math.floor(targetIndex / PAGE_SIZE) + 1;
+                    setCurrentPage(targetPage);
+                    setUserSelectedMethod(true);
+                    setActiveId(visible[targetIndex].id);
+                  }
+                }}
+              />
             </div>
           ) : (
-            <div className="flex min-h-[360px] items-center justify-center text-sm text-body-subtle">{t('Không tìm thấy file test.', 'Test file not found.')}</div>
+            <div className="flex min-h-[360px] flex-1 items-center justify-center text-sm text-body-subtle">{t('Không tìm thấy file test.', 'Test file not found.')}</div>
           )}
         </div>
       </div>
@@ -419,10 +615,12 @@ function UnitTestFileView({
   file,
   highlightMethod,
   autoScroll = false,
+  onSelectCaseCode,
 }: {
   file: UnitTestFile;
   highlightMethod: string;
   autoScroll?: boolean;
+  onSelectCaseCode?: (code: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const highlightedLineRef = useRef<HTMLLIElement>(null);
@@ -454,8 +652,8 @@ function UnitTestFileView({
   };
 
   return (
-    <>
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <div className="flex flex-1 min-h-0 flex-col">
+      <div className="shrink-0 mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-heading">{file.testClassName}</p>
           <p className="truncate font-mono text-xs text-body-subtle" title={file.filePath}>
@@ -466,31 +664,41 @@ function UnitTestFileView({
               {t(`${file.testCount} @Test method`, `${file.testCount} @Test methods`)}
             </span>
             {file.caseCodes.map((code) => (
-              <span key={code} className="rounded-full bg-brand-softer px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong">{code}</span>
+              <button
+                key={code}
+                type="button"
+                onClick={() => onSelectCaseCode?.(code)}
+                className="rounded-full bg-brand-softer hover:bg-brand-soft px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong transition-colors cursor-pointer"
+                title={t(`Chuyển tới method của ${code}`, `Jump to ${code} method`)}
+              >
+                {code}
+              </button>
             ))}
           </div>
         </div>
         <button className="btn btn-secondary px-3 py-2" onClick={copy}><Copy size={14} />{copied ? t('Đã copy', 'Copied') : 'Copy'}</button>
       </div>
-      <div className="mb-2 flex items-center gap-2 text-[11px] text-body-subtle">
+      <div className="shrink-0 mb-2 flex items-center gap-2 text-[11px] text-body-subtle">
         <span className="h-2 w-2 rounded-full bg-brand-strong" />
         {t(`Dòng màu xanh là method của case đang chọn: ${highlightMethod}`, `The highlighted line is the selected case method: ${highlightMethod}`)}
       </div>
-      <div aria-label="Generated test code" role="region" tabIndex={0} className="max-h-[620px] min-h-[360px] overflow-auto rounded-default border border-border-default bg-neutral-primary p-3 font-mono text-xs leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
-        <ol className="min-w-max">
-          {codeLines.map((line, index) => (
-            <li
-              key={`${index}-${line}`}
-              aria-current={index === highlightedLine ? 'true' : undefined}
-              ref={index === highlightedLine ? highlightedLineRef : undefined}
-              className={`grid grid-cols-[3rem_minmax(0,1fr)] rounded-sm px-2 ${index === highlightedLine ? 'bg-brand-softer text-heading' : 'text-body'}`}
-            >
-              <span aria-hidden="true" className="select-none border-r border-border-default pr-3 text-right tabular-nums text-body-subtle">{index + 1}</span>
-              <code className="whitespace-pre pl-4">{line || ' '}</code>
-            </li>
-          ))}
-        </ol>
+      <div className="relative flex-1 min-h-[420px] xl:min-h-0">
+        <div aria-label="Generated test code" role="region" tabIndex={0} className="absolute inset-0 overflow-auto rounded-default border border-border-default bg-neutral-primary p-3 font-mono text-xs leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+          <ol className="min-w-max">
+            {codeLines.map((line, index) => (
+              <li
+                key={`${index}-${line}`}
+                aria-current={index === highlightedLine ? 'true' : undefined}
+                ref={index === highlightedLine ? highlightedLineRef : undefined}
+                className={`grid grid-cols-[3rem_minmax(0,1fr)] rounded-sm px-2 ${index === highlightedLine ? 'bg-brand-softer text-heading' : 'text-body'}`}
+              >
+                <span aria-hidden="true" className="select-none border-r border-border-default pr-3 text-right tabular-nums text-body-subtle">{index + 1}</span>
+                <code className="whitespace-pre pl-4">{line || ' '}</code>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

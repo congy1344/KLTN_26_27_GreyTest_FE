@@ -51,6 +51,7 @@ function renderPanel() {
 
 describe('UnitTestsPanel', () => {
   afterEach(() => {
+    localStorage.clear();
     cleanup();
     vi.clearAllMocks();
     mocks.cases = [{ id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'valid', status: 'APPROVED' }];
@@ -119,7 +120,8 @@ describe('UnitTestsPanel', () => {
     expect(downloadButton.parentElement).not.toBe(actionGroup);
   });
 
-  it('continues to Coverage when tests exist', () => {
+  it('continues to Coverage when tests exist and marks coverage as navigated', () => {
+    localStorage.clear();
     mocks.tests = [
       { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java' },
     ];
@@ -128,6 +130,29 @@ describe('UnitTestsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Tiếp tục đến Coverage/ }));
 
     expect(screen.getByText('Coverage destination')).toBeInTheDocument();
+    expect(localStorage.getItem('greytest.unit-tests-coverage-navigated.105')).toBe('true');
+  });
+
+  it('shows + MỚI THÊM and NEW TEST initially, but clears them once coverage is navigated', () => {
+    localStorage.clear();
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java', generationType: 'NEW_TEST' },
+    ];
+    const { unmount } = renderPanel();
+
+    expect(screen.getByText('+ MỚI THÊM')).toBeInTheDocument();
+    expect(screen.getByText('NEW TEST')).toBeInTheDocument();
+
+    // Người dùng ấn nút Tiếp tục đến Coverage
+    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục đến Coverage/ }));
+    expect(localStorage.getItem('greytest.unit-tests-coverage-navigated.105')).toBe('true');
+
+    unmount();
+
+    // Khi người dùng quay lại hoặc mở lại panel, các tag dấu hiệu mới thêm đã được xóa
+    renderPanel();
+    expect(screen.queryByText('+ MỚI THÊM')).not.toBeInTheDocument();
+    expect(screen.queryByText('NEW TEST')).not.toBeInTheDocument();
   });
 
   it('does not scroll automatically on initial render', () => {
@@ -236,5 +261,98 @@ describe('UnitTestsPanel', () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
     expect(within(screen.getByRole('region', { name: 'Generated test code' }))
       .getByText(/class SecondTest/)).toBeVisible();
+  });
+
+  it('paginates method list when there are more than 8 methods and allows navigation', () => {
+    mocks.cases = Array.from({ length: 10 }, (_, i) => ({
+      id: i + 1, testPlanId: 5, caseCode: `TC-00${i + 1}`, description: `desc ${i + 1}`, status: 'APPROVED',
+    }));
+    mocks.tests = Array.from({ length: 10 }, (_, i) => ({
+      id: 100 + i, testCaseId: i + 1, testMethodName: `testMethod_${i + 1}`, testClassName: 'UserServiceTest', packageName: 'demo', filePath: 'UserServiceTest.java',
+    }));
+    mocks.files = [{
+      testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java', sourceCode: 'class UserServiceTest {}',
+      testCount: 10, caseCodes: mocks.cases.map((c) => c.caseCode),
+    }];
+
+    renderPanel();
+
+    expect(screen.getByText('Trang 1/2')).toBeVisible();
+    expect(screen.getByRole('button', { name: /testMethod_1/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /testMethod_8/ })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /testMethod_9/ })).not.toBeInTheDocument();
+
+    // Chuyển sang trang 2
+    fireEvent.click(screen.getByRole('button', { name: 'Trang sau' }));
+    expect(screen.getByText('Trang 2/2')).toBeVisible();
+    expect(screen.getByRole('button', { name: /testMethod_9/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /testMethod_10/ })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /testMethod_1\b/ })).not.toBeInTheDocument();
+  });
+
+  it('jumps to the corresponding page when clicking a case code chip in the file view', () => {
+    mocks.cases = Array.from({ length: 10 }, (_, i) => ({
+      id: i + 1, testPlanId: 5, caseCode: `TC-00${i + 1}`, description: `desc ${i + 1}`, status: 'APPROVED',
+    }));
+    mocks.tests = Array.from({ length: 10 }, (_, i) => ({
+      id: 100 + i, testCaseId: i + 1, testMethodName: `testMethod_${i + 1}`, testClassName: 'UserServiceTest', packageName: 'demo', filePath: 'UserServiceTest.java',
+    }));
+    mocks.files = [{
+      testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java', sourceCode: 'class UserServiceTest {}',
+      testCount: 10, caseCodes: mocks.cases.map((c) => c.caseCode),
+    }];
+
+    renderPanel();
+
+    expect(screen.getByText('Trang 1/2')).toBeVisible();
+    // Bấm chip TC-009 ở phần file view bên phải
+    fireEvent.click(screen.getByRole('button', { name: 'TC-009' }));
+
+    // Tự động chuyển sang Trang 2 và hiển thị testMethod_9
+    expect(screen.getByText('Trang 2/2')).toBeVisible();
+    expect(screen.getByRole('button', { name: /testMethod_9/ })).toBeVisible();
+  });
+
+  it('hides diff badges and generationType indicator when navigated to coverage or project is at COVERAGE_ANALYZED', () => {
+    mocks.cases = [{ id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'desc 1', status: 'APPROVED' }];
+    mocks.tests = [{
+      id: 101,
+      testCaseId: 1,
+      testMethodName: 'testUpdateMethod',
+      testClassName: 'AppointmentServiceTest',
+      packageName: 'demo',
+      filePath: 'AppointmentServiceTest.java',
+      generationType: 'IMPROVE_EXISTING_TEST',
+    }];
+    mocks.files = [{
+      testClassName: 'AppointmentServiceTest',
+      filePath: 'AppointmentServiceTest.java',
+      sourceCode: 'class AppointmentServiceTest {}',
+      testCount: 1,
+      caseCodes: ['TC-001'],
+    }];
+
+    // Khi chưa sang coverage -> hiện badge và indicator
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/projects/105/unit-tests']}>
+        <Routes>
+          <Route path="/projects/:projectId/unit-tests" element={<UnitTestsPanel projectId={105} projectStatus="TEST_GENERATED" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByText('~ CẬP NHẬT THEO CODE').length).toBeGreaterThan(0);
+    expect(screen.getByText('IMPROVE EXISTING TEST')).toBeInTheDocument();
+    unmount();
+
+    // Khi đã qua bước coverage (COVERAGE_ANALYZED) -> ẩn toàn bộ dấu hiệu
+    render(
+      <MemoryRouter initialEntries={['/projects/105/unit-tests']}>
+        <Routes>
+          <Route path="/projects/:projectId/unit-tests" element={<UnitTestsPanel projectId={105} projectStatus="COVERAGE_ANALYZED" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.queryAllByText('~ CẬP NHẬT THEO CODE')).toHaveLength(0);
+    expect(screen.queryByText('IMPROVE EXISTING TEST')).not.toBeInTheDocument();
   });
 });

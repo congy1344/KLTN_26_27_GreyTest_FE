@@ -61,7 +61,7 @@ export function UnitTestsPage() {
         <>
           <ProjectWorkflowTabs projectId={projectId} active="unit-tests" status={status} servicePath={serviceScope.servicePath} />
           <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
-          <UnitTestsPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} servicePath={serviceScope.servicePath} />
+          <UnitTestsPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} servicePath={serviceScope.servicePath} projectStatus={status} />
         </>
       )}
     </AppShell>

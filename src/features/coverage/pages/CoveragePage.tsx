@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '../../../shared/components/AppShell';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
@@ -20,6 +21,19 @@ export function CoveragePage() {
   const { t } = useLanguage();
   const serviceScope = useProjectServiceScope(projectId, project?.status !== undefined && project.status !== 'UPLOADED');
   const status = serviceScope.selected?.status ?? project?.status;
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && projectId > 0) {
+      try {
+        localStorage.setItem(
+          `greytest.unit-tests-coverage-navigated.${projectId}${serviceScope.servicePath ? `.${serviceScope.servicePath}` : ''}`,
+          'true'
+        );
+      } catch {
+        // ignore
+      }
+    }
+  }, [projectId, serviceScope.servicePath]);
 
   if (isLoading || serviceScope.isLoading) {
     return (

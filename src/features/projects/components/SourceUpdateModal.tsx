@@ -52,6 +52,12 @@ interface SourceUpdateProgress {
 
 const TIMEOUT_ERROR_NAME = 'SourceUpdateTimeoutError';
 const TERMINAL_UPDATE_STATUSES = new Set<SourceUpdateDto['status']>(['APPLIED', 'CANCELLED', 'FAILED']);
+const GENERATION_STAGE_NAMES = {
+  BUSINESS_RULE: 'Business Rule',
+  TEST_PLAN: 'Test Plan',
+  TEST_CASE: 'Test Case',
+  UNIT_TEST: 'Unit Test',
+};
 
 function withSourceUpdateTimeout<T>(
   operation: (signal: AbortSignal) => Promise<T>,
@@ -80,7 +86,7 @@ function withSourceUpdateTimeout<T>(
 function getSourceUpdateErrorMessage(error: unknown): string {
   return error instanceof Error && error.name === TIMEOUT_ERROR_NAME
     ? error.message
-    : getErrorMessage(error);
+    : getErrorMessage(error, true);
 }
 
 function isSourceUpdateTimeout(error: unknown): boolean {
@@ -207,7 +213,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     }
   }
 
-  async function reconcileDraftAfterTimeout(operationId: number, updateId: number) {
+  async function reconcileDraftAfterTimeout(operationId: number, updateId: number, showCompletion = true) {
     try {
       const current = await runRequest(
         (signal) => fetchSourceUpdate(project.id, updateId, { signal }),
@@ -215,8 +221,10 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       );
       if (!isCurrentOperation(operationId)) return null;
       setUpdateDraft(current);
-      setError(null);
-      updateProgress(100, 'Đã đồng bộ lại trạng thái source update từ server.');
+      if (showCompletion) {
+        setError(null);
+        updateProgress(100, 'Đã đồng bộ lại trạng thái source update từ server.');
+      }
       return current;
     } catch {
       return null;
@@ -225,6 +233,15 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
 
   function isBusy() {
     return loading || generatingStage !== null;
+  }
+
+  function showGenerationError(cause: unknown, stageName: string) {
+    const message = isSourceUpdateTimeout(cause)
+      ? `Chưa xác nhận kết quả sinh ${stageName}: ${getSourceUpdateErrorMessage(cause)}`
+      : `Sinh ${stageName} thất bại: ${getSourceUpdateErrorMessage(cause)}`;
+    setError(message);
+    setStageNotice(null);
+    setProgress((current) => current && ({ ...current, label: message }));
   }
 
   async function analyzeDraft(updateId: number, startPercent: number, operationId: number) {
@@ -316,19 +333,13 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     setGeneratingStage(stage);
     setError(null);
     setStageNotice(null);
-    const stageNames: Record<string, string> = {
-      BUSINESS_RULE: 'Business Rule',
-      TEST_PLAN: 'Test Plan',
-      TEST_CASE: 'Test Case',
-      UNIT_TEST: 'Unit Test',
-    };
-    const stageName = stageNames[stage] || stage;
+    const stageName = GENERATION_STAGE_NAMES[stage];
     updateProgress(5, `Đang sinh ${stageName}...`);
     try {
       const prevCount = updateDraft.items?.length ?? 0;
       const result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, stage, { signal }),
-        `Sinh ${stageName} quá thời gian chờ 120 giây.`,
+        `Sinh ${stageName} quá thời gian chờ ${SOURCE_UPDATE_TIMEOUT_MS / 1000} giây.`,
       );
       if (!isCurrentOperation(operationId)) return;
       setUpdateDraft(result);
@@ -342,16 +353,9 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       updateProgress(100, `Đã hoàn tất sinh ${stageName}.`);
     } catch (err) {
       if (isCurrentOperation(operationId)) {
-        const reconciled = isSourceUpdateTimeout(err) && await reconcileDraftAfterTimeout(operationId, updateDraft.id);
-        if (!reconciled && isCurrentOperation(operationId)) {
-          const errMsg = getSourceUpdateErrorMessage(err);
-          setError(errMsg);
-          setStageNotice({
-            type: 'error',
-            message: `✕ Sinh ${stageName} thất bại: ${errMsg}`,
-            timestamp: new Date().toLocaleTimeString(),
-          });
-        }
+        // Đọc được bản nháp không chứng minh stage vừa sinh đã hoàn tất.
+        showGenerationError(err, stageName);
+        if (isSourceUpdateTimeout(err)) void reconcileDraftAfterTimeout(operationId, updateDraft.id, false);
       }
     } finally {
       if (isCurrentOperation(operationId)) setGeneratingStage(null);
@@ -365,42 +369,52 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     setError(null);
     setStageNotice(null);
     updateProgress(0, 'Đang bắt đầu sinh tăng dần toàn bộ...');
+    let currentStage: keyof typeof GENERATION_STAGE_NAMES = 'BUSINESS_RULE';
     try {
       const prevCount = updateDraft.items?.length ?? 0;
       updateProgress(10, 'Đang sinh Business Rule...');
       let result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'BUSINESS_RULE', { signal }),
-        'Sinh Business Rule quá thời gian chờ 120 giây.',
+        'Sinh Business Rule quá thời gian chờ.',
       );
       if (!isCurrentOperation(operationId)) return;
+      setUpdateDraft(result);
       setCompletedStages((prev) => ({ ...prev, BUSINESS_RULE: true }));
+
+      currentStage = 'TEST_PLAN';
       updateProgress(35, 'Đã sinh Business Rule. Đang sinh Test Plan...');
       result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'TEST_PLAN', { signal }),
-        'Sinh Test Plan quá thời gian chờ 120 giây.',
+        'Sinh Test Plan quá thời gian chờ.',
       );
       if (!isCurrentOperation(operationId)) return;
+      setUpdateDraft(result);
       setCompletedStages((prev) => ({ ...prev, TEST_PLAN: true }));
+
+      currentStage = 'TEST_CASE';
       updateProgress(65, 'Đã sinh Test Plan. Đang sinh Test Case...');
       result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'TEST_CASE', { signal }),
-        'Sinh Test Case quá thời gian chờ 120 giây.',
+        'Sinh Test Case quá thời gian chờ.',
       );
       if (!isCurrentOperation(operationId)) return;
+      setUpdateDraft(result);
       setCompletedStages((prev) => ({ ...prev, TEST_CASE: true }));
+
+      currentStage = 'UNIT_TEST';
       updateProgress(85, 'Đã sinh Test Case. Đang sinh Unit Test...');
       result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'UNIT_TEST', { signal }),
-        'Sinh Unit Test quá thời gian chờ 120 giây.',
+        'Sinh Unit Test quá thời gian chờ.',
       );
       if (!isCurrentOperation(operationId)) return;
+      setUpdateDraft(result);
       setCompletedStages({
         BUSINESS_RULE: true,
         TEST_PLAN: true,
         TEST_CASE: true,
         UNIT_TEST: true,
       });
-      setUpdateDraft(result);
       const totalCreated = (result.items?.length ?? 0) - prevCount;
       setStageNotice({
         type: 'success',
@@ -410,16 +424,8 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       updateProgress(100, 'Đã hoàn tất sinh tăng dần cho source code.');
     } catch (err) {
       if (isCurrentOperation(operationId)) {
-        const reconciled = isSourceUpdateTimeout(err) && await reconcileDraftAfterTimeout(operationId, updateDraft.id);
-        if (!reconciled && isCurrentOperation(operationId)) {
-          const errMsg = getSourceUpdateErrorMessage(err);
-          setError(errMsg);
-          setStageNotice({
-            type: 'error',
-            message: `✕ Sinh tự động gặp lỗi: ${errMsg}`,
-            timestamp: new Date().toLocaleTimeString(),
-          });
-        }
+        showGenerationError(err, GENERATION_STAGE_NAMES[currentStage]);
+        if (isSourceUpdateTimeout(err)) void reconcileDraftAfterTimeout(operationId, updateDraft.id, false);
       }
     } finally {
       if (isCurrentOperation(operationId)) setLoading(false);
@@ -618,9 +624,26 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
 
         {/* Error alert */}
         {error && (
-          <div className="m-4 flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-500 border border-red-500/20">
+          <div role="alert" className="m-4 flex max-h-32 shrink-0 items-center gap-2 overflow-y-auto rounded-lg bg-red-500/10 p-3 text-sm text-red-500 border border-red-500/20">
             <AlertTriangle size={16} />
             <span>{error}</span>
+          </div>
+        )}
+
+        {stageNotice && !error && (
+          <div role={stageNotice.type === 'error' ? 'alert' : 'status'}
+            className="mx-6 mt-4 flex shrink-0 items-start justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-700 dark:text-emerald-300">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="shrink-0" />
+              <div>
+                <p className="font-semibold">{stageNotice.message}</p>
+                <p className="mt-0.5 text-[11px] opacity-80">Thời gian: {stageNotice.timestamp}</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => setStageNotice(null)}
+              className="rounded p-1 hover:bg-black/5 dark:hover:bg-white/5" aria-label="Đóng thông báo">
+              <X size={14} />
+            </button>
           </div>
         )}
 
@@ -648,7 +671,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
         )}
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div role="region" aria-label="Nội dung cập nhật source" className="flex-1 overflow-y-auto p-6 space-y-6">
           {!updateDraft ? (
             /* Bước 1: Upload source mới */
             <div className="space-y-4">
@@ -959,37 +982,6 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                   </button>
                 </div>
               </div>
-
-              {/* Thông báo kết quả sinh AI */}
-              {stageNotice && (
-                <div
-                  className={`flex items-start justify-between gap-3 rounded-lg border p-3.5 text-xs animate-fade-in ${
-                    stageNotice.type === 'success'
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                      : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {stageNotice.type === 'success' ? (
-                      <CheckCircle2 size={16} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    ) : (
-                      <XCircle size={16} className="shrink-0 text-rose-600 dark:text-rose-400" />
-                    )}
-                    <div>
-                      <p className="font-semibold">{stageNotice.message}</p>
-                      <p className="mt-0.5 text-[11px] opacity-80">Thời gian: {stageNotice.timestamp}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setStageNotice(null)}
-                    className="rounded p-1 hover:bg-black/5 dark:hover:bg-white/5"
-                    aria-label="Đóng thông báo"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
 
               {/* Danh sách các đề xuất thay đổi (Source Update Items) */}
               <div className="space-y-3">
