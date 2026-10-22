@@ -1,0 +1,26 @@
+# https://caddyserver.com/docs/caddyfile/patterns#single-page-apps-spas
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	header X-Content-Type-Options nosniff
+
+	# Thanh toán không thuộc bản demo AWS; không chuyển callback vào backend.
+	# Chặn cả matrix parameter mà Spring MVC có thể bỏ khi định tuyến.
+	@payment path /api/payment*
+	@api path /api /api/*
+	route {
+		handle @payment {
+			header Content-Type application/json
+			respond `{"code":"PAYMENT_DISABLED","message":"Payment is disabled for this demo."}` 503
+		}
+
+		handle @api {
+			reverse_proxy backend:8080
+		}
+
+		handle {
+			root * /srv
+			try_files {path} /index.html
+			file_server
+		}
+	}
+}

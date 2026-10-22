@@ -1,0 +1,12 @@
+.git
+.codegraph
+.env
+.env.*
+!.env.example
+node_modules
+dist
+.vite
+*.tsbuildinfo
+*.log
+coverage
+outputs
