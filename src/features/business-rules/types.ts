@@ -20,7 +20,7 @@ export interface BusinessRule {
 export interface ReviewedBusinessRule {
   ruleId: number;
   verdict: string;
-  suggestedDescription: string;
+  suggestedDescription: string | null;
   reason: string;
 }
 

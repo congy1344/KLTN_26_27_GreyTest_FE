@@ -310,4 +310,35 @@ describe('BusinessRulesPanel', () => {
 
     expect(screen.queryByRole('button', { name: 'Dùng gợi ý AI' })).not.toBeInTheDocument();
   });
+
+  it('shows persisted source mismatch after remount without requiring a suggestion decision', () => {
+    mocks.rules[0].reviewNote = 'SOURCE_MISMATCH: BR allows equality; code rejects it. Verify requirements.';
+    // Dữ liệu sai contract vẫn không được biến thành đề xuất sửa BR trên UI.
+    mocks.rules[0].suggestedDescription = 'Reject equality.';
+    const { unmount } = render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+    expect(screen.getByText(/BR không khớp với code: BR allows equality/)).toBeVisible();
+    unmount();
+
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+    expect(screen.getByText(/BR không khớp với code: BR allows equality/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Dùng gợi ý AI' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Giữ của tôi' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
+  });
+
+  it('shows a fresh mismatch review and allows approval without applying an AI suggestion', () => {
+    mocks.rules[0].isModified = true;
+    mocks.review.mockImplementation((_value, options) => options.onSuccess({
+      reviewedRules: [{ ruleId: 1, verdict: 'SOURCE_MISMATCH', suggestedDescription: 'Reject equality.',
+        reason: 'BR allows equality; code rejects it. Verify requirements.' }],
+      suggestedRules: [],
+    }));
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'AI review thay đổi (1)' }));
+
+    expect(screen.getByText(/BR không khớp với code: BR allows equality/)).toBeVisible();
+    expect(screen.getByText('AI đã review 1 BR')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Dùng gợi ý AI' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
+  });
 });

@@ -14,11 +14,12 @@ const mocks = vi.hoisted(() => ({
   unitsSuccess: true,
   unitsError: null as Error | null,
   planModified: false,
+  plans: [{ id: 1, businessRuleId: 7, coveredRuleIds: [7], planCode: 'TP-001', title: 'Valid email', status: 'APPROVED' }],
   generating: false,
   progress: undefined as unknown,
 }));
 vi.mock('../../../shared/hooks/useGenerationProgress', () => ({ useGenerationProgress: () => ({ data: mocks.progress }) }));
-vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({ data: [{ id: 1, businessRuleId: 7, coveredRuleIds: [7], planCode: 'TP-001', title: 'Valid email', status: 'APPROVED', isModified: mocks.planModified }], isLoading: false, error: null }) }));
+vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({ data: mocks.plans.map((plan) => ({ ...plan, isModified: mocks.planModified })), isLoading: false, error: null }) }));
 vi.mock('../../business-rules/hooks/useBusinessRules', () => ({ useBusinessRules: () => ({ data: [{ id: 7, methodId: 11, ruleCode: 'BR-007', sourceBranchId: 'IF-1-TRUE', status: 'APPROVED' }], error: null }) }));
 vi.mock('../../unit-tests/hooks/useUnitTests', () => ({ useUnitTests: () => ({
   data: mocks.unitsData,
@@ -59,6 +60,7 @@ afterEach(() => {
   mocks.planModified = false;
   mocks.generating = false;
   mocks.progress = undefined;
+  mocks.plans = [{ id: 1, businessRuleId: 7, coveredRuleIds: [7], planCode: 'TP-001', title: 'Valid email', status: 'APPROVED' }];
 });
 
 function sampleCase(id: number) {
@@ -66,6 +68,41 @@ function sampleCase(id: number) {
 }
 
 describe('TestCasesPanel', () => {
+  it('requires approved plans before generating or creating cases', () => {
+    mocks.plans[0].status = 'PENDING_REVIEW';
+    render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_PENDING_REVIEW" /></MemoryRouter>);
+
+    expect(screen.getByRole('button', { name: 'AI sinh Case' })).toBeDisabled();
+    expect(screen.getByLabelText('Chọn Test Plan')).toBeDisabled();
+    expect(screen.getByText('Hãy approve Test Plan trước khi sinh Test Case.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'AI sinh Case' }));
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it('offers only approved plans and ignores pending plans in remaining generation counts', () => {
+    mocks.plans.push({ ...mocks.plans[0], id: 2, planCode: 'TP-002', title: 'Pending plan', status: 'PENDING_REVIEW' });
+    mocks.casesData = [sampleCase(1)];
+    render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
+
+    expect(screen.getByRole('button', { name: 'AI sinh Case' })).toBeEnabled();
+    expect(screen.queryByRole('option', { name: /TP-002/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Tiếp tục sinh/ })).not.toBeInTheDocument();
+  });
+
+  it('does not submit a selected plan after it loses approval', () => {
+    const { rerender } = render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText('Chọn Test Plan'), { target: { value: '1' } });
+    fireEvent.change(screen.getByPlaceholderText(/Mô tả scenario/), { target: { value: 'Equality' } });
+    fireEvent.change(screen.getByPlaceholderText(/Preconditions/), { target: { value: 'Valid account' } });
+    fireEvent.change(screen.getByPlaceholderText(/Expected result/), { target: { value: 'Success' } });
+    expect(screen.getByRole('button', { name: /Thêm Case/ })).toBeEnabled();
+
+    mocks.plans = [{ ...mocks.plans[0], status: 'PENDING_REVIEW' }, { ...mocks.plans[0], id: 2, planCode: 'TP-002' }];
+    rerender(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
+    expect(screen.getByRole('button', { name: /Thêm Case/ })).toBeDisabled();
+    fireEvent.submit(screen.getByRole('button', { name: /Thêm Case/ }).closest('form')!);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
   it('shows generation progress while Test Cases are being generated', () => {
     mocks.generating = true;
     render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);

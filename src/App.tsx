@@ -18,6 +18,7 @@ import { AdminActivityPage } from './features/admin/pages/AdminActivityPage';
 import { AdminLoginPage } from './features/admin/pages/AdminLoginPage';
 import { UpgradeToProModal } from './shared/components/UpgradeToProModal';
 import { AccountDisabledModal } from './shared/components/AccountDisabledModal';
+import { AuthSessionListener } from './shared/components/AuthSessionListener';
 import { ProfilePage } from './features/auth/pages/ProfilePage';
 import { VnpayReturnPage } from './features/payment/pages/VnpayReturnPage';
 
@@ -52,6 +53,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <AuthSessionListener />
       <UpgradeToProModal />
       <AccountDisabledModal />
       <Routes>

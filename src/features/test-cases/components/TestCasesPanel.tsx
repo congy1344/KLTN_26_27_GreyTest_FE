@@ -84,8 +84,9 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
   const [editExpected, setEditExpected] = useState('');
   const [caseToDelete, setCaseToDelete] = useState<TestCase | null>(null);
 
-  const eligiblePlans = plans.data ?? [];
   const approvedPlans = useMemo(() => (plans.data ?? []).filter((p) => p.status === 'APPROVED'), [plans.data]);
+  const eligiblePlans = approvedPlans;
+  const canCreateFromPlan = eligiblePlans.some((plan) => plan.id === Number(formPlanId));
   const plansWithCases = useMemo(() => {
     const set = new Set<number>();
     (cases.data ?? []).forEach((c) => set.add(c.testPlanId));
@@ -158,7 +159,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
 
   const handleCreate = (event: FormEvent) => {
     event.preventDefault();
-    if (!formPlanId || !formDescription.trim() || !formPreconditions.trim() || !formExpected.trim()) return;
+    if (!canCreateFromPlan || !formDescription.trim() || !formPreconditions.trim() || !formExpected.trim()) return;
     let testData: Record<string, unknown> = {};
     if (formTestData.trim()) {
       try {
@@ -294,6 +295,9 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
           </button>
         </div>
       </div>
+      {(plans.data ?? []).length > 0 && eligiblePlans.length === 0 && (
+        <p className="mb-3 text-xs text-fg-warning">{t('Hãy approve Test Plan trước khi sinh Test Case.', 'Approve Test Plans before generating Test Cases.')}</p>
+      )}
       <div className="grid gap-3 md:grid-cols-3">
         <MetricCard icon={ClipboardCheck} label={t('Test Plan đã approve', 'Approved Plans')} value={approvedPlans.length} />
         <MetricCard icon={FileText} label={t('Test Case pending', 'Pending Cases')} value={pending} />
@@ -322,7 +326,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
           </div>
           <textarea className="form-input min-h-[56px] resize-y font-mono text-xs" placeholder={t('Test data JSON (tùy chọn), vd: {"input": {"name": "A"}}', 'Test data JSON (optional), e.g. {"input": {"name": "A"}}')} value={formTestData} onChange={(e) => setFormTestData(e.target.value)} disabled={busy} />
           {formError && <InlineAlert tone="danger">{formError}</InlineAlert>}
-          <button className="btn btn-secondary w-fit" disabled={busy || !formPlanId || !formDescription.trim() || !formPreconditions.trim() || !formExpected.trim()}>
+          <button className="btn btn-secondary w-fit" disabled={busy || !canCreateFromPlan || !formDescription.trim() || !formPreconditions.trim() || !formExpected.trim()}>
             {create.isPending ? <Loader2 size={14} className="animate-spin" /> : <PlusCircle size={14} />}
             {t('Thêm Case', 'Add Case')}
           </button>

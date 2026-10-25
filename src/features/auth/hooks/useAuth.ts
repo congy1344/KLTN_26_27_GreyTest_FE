@@ -46,6 +46,8 @@ export function useLogin() {
   return useMutation({
     mutationFn: login,
     onSuccess: (data) => {
+      void queryClient.cancelQueries();
+      queryClient.clear();
       localStorage.setItem('greytest.token', data.token);
       queryClient.setQueryData(AUTH_KEY, data.user);
     },
@@ -58,6 +60,8 @@ export function useAdminLogin() {
   return useMutation({
     mutationFn: adminLogin,
     onSuccess: (data) => {
+      void queryClient.cancelQueries();
+      queryClient.clear();
       localStorage.setItem('greytest.token', data.token);
       queryClient.setQueryData(AUTH_KEY, data.user);
     },
@@ -69,6 +73,8 @@ export function useRegister() {
   return useMutation({
     mutationFn: register,
     onSuccess: (data) => {
+      void queryClient.cancelQueries();
+      queryClient.clear();
       localStorage.setItem('greytest.token', data.token);
       queryClient.setQueryData(AUTH_KEY, data.user);
     },
@@ -79,6 +85,8 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return () => {
     localStorage.removeItem('greytest.token');
-    queryClient.removeQueries({ queryKey: AUTH_KEY });
+    // Cache project cũng thuộc phiên cũ, không được hiển thị cho tài khoản đăng nhập sau.
+    void queryClient.cancelQueries();
+    queryClient.clear();
   };
 }
