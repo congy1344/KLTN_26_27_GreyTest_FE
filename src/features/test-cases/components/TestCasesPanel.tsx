@@ -22,14 +22,18 @@ import { useLanguage } from '../../../shared/i18n/language';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
+import { SourceUpdateDeletionHistory } from '../../projects/components/SourceUpdateDeletionHistory';
 
 const TEST_TYPES: TestType[] = ['HAPPY_PATH', 'BOUNDARY', 'EXCEPTION', 'EDGE'];
 const PRIORITIES: Priority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
 export function TestCasesPanel({ projectId, projectStatus, servicePath }: { projectId: number; projectStatus?: ProjectStatus; servicePath?: string }) {
   const navigate = useNavigate();
+  const cases = useTestCases(projectId, servicePath);
   const isPastCases = Boolean(projectStatus && ['CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED'].includes(projectStatus));
   const {
+    activeUpdate,
+    impact,
     methodDiffMap,
     getMethodDiff,
     affectedCaseIds,
@@ -44,10 +48,10 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
     addedRuleIds,
     modifiedRuleIds,
     deletedRuleIds,
-  } = useSourceUpdateImpact(projectId);
+  } = useSourceUpdateImpact(projectId, 'TEST_CASE', servicePath,
+    !cases.isLoading && !cases.isFetching && !cases.error && (cases.data?.length ?? 0) > 0);
   const plans = useTestPlans(projectId, servicePath);
   const rules = useBusinessRules(projectId, servicePath);
-  const cases = useTestCases(projectId, servicePath);
   const units = useUnitTests(projectId, servicePath);
   const analysis = useAnalysis(projectId);
   const generate = useGenerateTestCases(projectId, servicePath);
@@ -97,7 +101,6 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
   const visible = useMemo(() => {
     const list = planId ? (cases.data ?? []).filter((c) => String(c.testPlanId) === planId) : (cases.data ?? []);
     const getCaseDiffPriority = (item: TestCase) => {
-      if (isPastCases) return 0;
       const sourcePlan = (plans.data ?? []).find((plan) => plan.id === item.testPlanId);
       const coveredRules = (sourcePlan?.coveredRuleIds?.length
         ? sourcePlan.coveredRuleIds
@@ -120,7 +123,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
         || (sourcePlan ? modifiedPlanIds.has(sourcePlan.id) || affectedPlanIds.has(sourcePlan.id) : false)
         || ruleDiffs.includes('MODIFIED')
         || coveredRules.some((r) => r && (modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)))
-        || item.isModified;
+        || (!isPastCases && item.isModified);
       if (hasModified) return 1;
       return 0;
     };
@@ -353,15 +356,15 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
                  || methodDiffMap[method.methodName])
               : undefined;
           });
-          const hasAdded = !isPastCases && (addedCaseIds.has(item.id) || (sourcePlan ? addedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
-          const hasDeleted = !isPastCases && (deletedCaseIds.has(item.id) || (sourcePlan ? deletedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id)));
-          const hasModified = !isPastCases && !hasAdded && !hasDeleted && (
+          const hasAdded = addedCaseIds.has(item.id) || (sourcePlan ? addedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+          const hasDeleted = deletedCaseIds.has(item.id) || (sourcePlan ? deletedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
+          const hasModified = !hasAdded && !hasDeleted && (
             modifiedCaseIds.has(item.id)
             || affectedCaseIds.has(item.id)
             || (sourcePlan ? modifiedPlanIds.has(sourcePlan.id) || affectedPlanIds.has(sourcePlan.id) : false)
             || ruleDiffs.includes('MODIFIED')
             || coveredRules.some((r) => r && (modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)))
-            || item.isModified
+            || (!isPastCases && item.isModified)
           );
 
           const cardClass = hasAdded
@@ -448,6 +451,8 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
           );
         })}
       </div>
+      <SourceUpdateDeletionHistory update={activeUpdate} impact={impact} targetType="TEST_CASE"
+        currentIds={(cases.data ?? []).map((item) => item.id)} servicePath={servicePath} />
       <ConfirmDialog
         open={showRegenerateConfirm}
         title={t('Sinh lại Test Case?', 'Regenerate Test Cases?')}

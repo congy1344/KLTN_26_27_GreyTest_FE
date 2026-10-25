@@ -13,9 +13,12 @@ import {
   Zap,
 } from 'lucide-react';
 import { AppShell } from '../../../shared/components/AppShell';
-import { useCurrentUser, useUserQuota } from '../hooks/useAuth';
+import { useCancelSubscription, useCurrentUser, useUserQuota } from '../hooks/useAuth';
 import { useLanguage } from '../../../shared/i18n/language';
 import { UpgradeToProModal } from '../../../shared/components/UpgradeToProModal';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { getErrorMessage } from '../../../shared/api/api-client';
+import { PaymentHistory } from '../../payment/components/PaymentHistory';
 
 export function ProfilePage() {
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
@@ -23,6 +26,8 @@ export function ProfilePage() {
   const { t } = useLanguage();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [modalTier, setModalTier] = useState<'PLUS' | 'PRO'>('PRO');
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const cancelPlan = useCancelSubscription();
 
   const tier = user?.tier ?? quota?.tier ?? 'FREE';
   const isPro = tier === 'PRO';
@@ -51,6 +56,7 @@ export function ProfilePage() {
   const formattedResetDate = formatDateVN(quota?.resetDate);
 
   const openUpgradeModal = (targetTier: 'PLUS' | 'PRO') => {
+    if (cancelPlan.isPending) return;
     setModalTier(targetTier);
     setUpgradeModalOpen(true);
   };
@@ -143,6 +149,16 @@ export function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-center">
+              {(isPro || isPlus) && (
+                <button
+                  type="button"
+                  disabled={cancelPlan.isPending}
+                  onClick={() => { cancelPlan.reset(); setCancelDialogOpen(true); }}
+                  className="btn-ghost-danger border border-border-danger-subtle px-4 py-2 text-xs disabled:opacity-50"
+                >
+                  {t('Hủy gói', 'Cancel plan')}
+                </button>
+              )}
               {!isPro && (
                 <button
                   type="button"
@@ -156,6 +172,17 @@ export function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {cancelPlan.isError && (
+          <p role="alert" className="rounded-lg border border-border-danger-subtle bg-danger-soft p-3 text-sm text-fg-danger-strong">
+            {t('Không thể hủy gói: ', 'Could not cancel plan: ')}{getErrorMessage(cancelPlan.error)}
+          </p>
+        )}
+        {cancelPlan.isSuccess && (
+          <p role="status" className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+            {t('Đã hủy gói. Tài khoản đã chuyển về Free.', 'Plan canceled. Your account is now on Free.')}
+          </p>
+        )}
 
         {/* Khối 2: Hạn mức sử dụng (Quota Usage) */}
         <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
@@ -261,6 +288,9 @@ export function ProfilePage() {
             </p>
           </div>
 
+          <p className="mb-4 text-xs text-body-subtle">
+            {t('Mỗi batch xử lý một nhóm dữ liệu. Tốc độ sinh thực tế còn phụ thuộc model AI và độ phức tạp của source code.', 'Each batch processes a group of items. Actual generation speed also depends on the AI model and source code complexity.')}
+          </p>
           <div className="grid gap-5 md:grid-cols-3">
             {/* 1. Thẻ Gói FREE */}
             <div
@@ -312,6 +342,12 @@ export function ProfilePage() {
                     </span>
                     <span>{t('Sinh Test Plan, Test Case và Unit Test Spring Boot', 'Spring Boot Test Plan, Test Case & Unit Test')}</span>
                   </li>
+                  <li className="flex items-start gap-2.5 text-heading">
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                      <Zap size={11} />
+                    </span>
+                    <span>{t('Sinh tối đa 2 batch đồng thời', 'Generate up to 2 batches concurrently')}</span>
+                  </li>
                   <li className="flex items-start gap-2.5 text-body-subtle">
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neutral-secondary text-body-subtle">
                       <Layers size={11} />
@@ -360,7 +396,7 @@ export function ProfilePage() {
                 </div>
 
                 <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-2xl font-bold tracking-tight text-heading">1.000đ</span>
+                  <span className="text-2xl font-bold tracking-tight text-heading">10.000đ</span>
                   <span className="text-xs text-body-subtle">/{t('tuần', 'week')}</span>
                 </div>
 
@@ -386,7 +422,7 @@ export function ProfilePage() {
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
                       <Check size={11} strokeWidth={2.5} />
                     </span>
-                    <span>{t('Sinh tối đa ~400 test case & unit test mỗi tuần', 'Up to ~400 tests generated per week')}</span>
+                    <span>{t('Sinh tối đa 3 batch đồng thời', 'Generate up to 3 batches concurrently')}</span>
                   </li>
                   <li className="flex items-start gap-2.5 text-heading">
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
@@ -417,7 +453,7 @@ export function ProfilePage() {
                       className="w-full rounded-lg py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 border border-indigo-500/30 transition-colors flex items-center justify-center gap-1.5"
                     >
                       <Zap size={12} />
-                      {t('Gia hạn thêm gói PLUS (1.000đ)', 'Renew PLUS plan (1.000đ)')}
+                      {t('Gia hạn thêm gói PLUS (10.000đ)', 'Renew PLUS plan (10.000đ)')}
                     </button>
                   </div>
                 ) : isPro ? (
@@ -426,7 +462,7 @@ export function ProfilePage() {
                     onClick={() => openUpgradeModal('PLUS')}
                     className="w-full rounded-lg py-2 text-xs font-medium text-body-subtle hover:text-heading border border-border-default hover:bg-neutral-secondary transition-colors flex items-center justify-center gap-1.5"
                   >
-                    {t('Chuyển sang gói PLUS (1.000đ)', 'Switch to PLUS (1.000đ)')}
+                    {t('Chuyển sang gói PLUS (10.000đ)', 'Switch to PLUS (10.000đ)')}
                   </button>
                 ) : (
                   <button
@@ -435,7 +471,7 @@ export function ProfilePage() {
                     className="w-full rounded-lg py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition-colors flex items-center justify-center gap-1.5"
                   >
                     <Zap size={13} />
-                    {t('Nâng cấp PLUS (1.000đ)', 'Upgrade to PLUS (1.000đ)')}
+                    {t('Nâng cấp PLUS (10.000đ)', 'Upgrade to PLUS (10.000đ)')}
                   </button>
                 )}
               </div>
@@ -467,7 +503,7 @@ export function ProfilePage() {
                 </div>
 
                 <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-2xl font-bold tracking-tight text-heading">2.000đ</span>
+                  <span className="text-2xl font-bold tracking-tight text-heading">20.000đ</span>
                   <span className="text-xs text-body-subtle">/{t('tuần', 'week')}</span>
                 </div>
 
@@ -493,7 +529,7 @@ export function ProfilePage() {
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-400">
                       <Check size={11} strokeWidth={2.5} />
                     </span>
-                    <span>{t('Sinh kiểm thử liên tục cho toàn bộ dự án lớn không lo chạm trần hạn mức', 'Continuous test generation for large projects without hitting quota limits')}</span>
+                    <span>{t('Sinh tối đa 4 batch đồng thời', 'Generate up to 4 batches concurrently')}</span>
                   </li>
                   <li className="flex items-start gap-2.5 text-heading">
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-400">
@@ -524,7 +560,7 @@ export function ProfilePage() {
                       className="w-full rounded-lg py-1.5 text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 border border-purple-500/30 transition-colors flex items-center justify-center gap-1.5"
                     >
                       <Sparkles size={12} />
-                      {t('Gia hạn thêm gói PRO (2.000đ)', 'Renew PRO plan (2.000đ)')}
+                      {t('Gia hạn thêm gói PRO (20.000đ)', 'Renew PRO plan (20.000đ)')}
                     </button>
                   </div>
                 ) : (
@@ -534,7 +570,7 @@ export function ProfilePage() {
                     className="w-full rounded-lg py-2 text-xs font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xs transition-colors flex items-center justify-center gap-1.5"
                   >
                     <Sparkles size={13} />
-                    {t('Nâng cấp PRO (2.000đ)', 'Upgrade to PRO (2.000đ)')}
+                    {t('Nâng cấp PRO (20.000đ)', 'Upgrade to PRO (20.000đ)')}
                   </button>
                 )}
               </div>
@@ -542,7 +578,22 @@ export function ProfilePage() {
           </div>
         </div>
 
+        {user && <PaymentHistory userId={user.id} />}
+
         {/* Modal nâng cấp gói (PLUS / PRO) qua VNPay */}
+        <ConfirmDialog
+          open={cancelDialogOpen}
+          title={t('Hủy gói hiện tại?', 'Cancel your current plan?')}
+          description={t(
+            'Tài khoản sẽ chuyển về gói Free ngay với hạn mức theo tháng. Số lượt đã sử dụng được giữ lại; nếu đã vượt hạn mức Free, bạn cần đợi chu kỳ tiếp theo hoặc nâng cấp lại.',
+            'Your account will switch to Free immediately with a monthly quota. Used calls are retained; if you exceed the Free limit, wait for the next period or upgrade again.'
+          )}
+          confirmLabel={cancelPlan.isPending ? t('Đang hủy...', 'Canceling...') : t('Xác nhận hủy gói', 'Confirm cancellation')}
+          cancelLabel={t('Giữ gói', 'Keep plan')}
+          pending={cancelPlan.isPending}
+          onCancel={() => setCancelDialogOpen(false)}
+          onConfirm={() => cancelPlan.mutate(undefined, { onSettled: () => setCancelDialogOpen(false) })}
+        />
         <UpgradeToProModal
           open={upgradeModalOpen}
           defaultTier={modalTier}

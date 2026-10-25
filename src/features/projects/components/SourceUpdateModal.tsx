@@ -20,6 +20,7 @@ import {
   fetchSourceUpdate,
   analyzeSourceUpdate,
   generateIncrementalSourceUpdate,
+  generateAllSourceUpdate,
   SOURCE_UPDATE_TIMEOUT_MS,
   patchSourceUpdateItem,
   applySourceUpdate,
@@ -36,6 +37,7 @@ import type {
   SourceUpdateReviewStatus,
 } from '../types';
 import { getErrorMessage } from '../../../shared/api/api-client';
+import { SourceUpdateHistory } from './SourceUpdateHistory';
 
 interface SourceUpdateModalProps {
   project: Project;
@@ -51,7 +53,7 @@ interface SourceUpdateProgress {
 }
 
 const TIMEOUT_ERROR_NAME = 'SourceUpdateTimeoutError';
-const TERMINAL_UPDATE_STATUSES = new Set<SourceUpdateDto['status']>(['APPLIED', 'CANCELLED', 'FAILED']);
+const TERMINAL_UPDATE_STATUSES = new Set<SourceUpdateDto['status']>(['APPLIED', 'CANCELLED']);
 const GENERATION_STAGE_NAMES = {
   BUSINESS_RULE: 'Business Rule',
   TEST_PLAN: 'Test Plan',
@@ -100,13 +102,17 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
   const [file, setFile] = useState<File | null>(null);
   const [branch, setBranch] = useState('main');
   const [updateDraft, setUpdateDraft] = useState<SourceUpdateDto | null>(null);
+  const [history, setHistory] = useState<SourceUpdateDto[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [impactSummary, setImpactSummary] = useState<ImpactSummaryDto | null>(null);
   const [loading, setLoading] = useState(false);
   const [generatingStage, setGeneratingStage] = useState<string | null>(null);
   const [progress, setProgress] = useState<SourceUpdateProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stageNotice, setStageNotice] = useState<{ type: 'success' | 'error'; message: string; timestamp: string } | null>(null);
-  const [completedStages, setCompletedStages] = useState<Record<string, boolean>>({});
+  const completedStages = Object.fromEntries(Object.entries(updateDraft?.generationSummary?.stages ?? {})
+    .map(([stage, summary]) => [stage, summary.completed]));
   const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
   const [expandedDiffMethodKey, setExpandedDiffMethodKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,9 +127,11 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     } else if (!isOpen) {
       cancelActiveOperation();
       setUpdateDraft(null);
+      setHistory([]);
+      setHistoryError(null);
+      setHistoryLoading(false);
       setImpactSummary(null);
       setStageNotice(null);
-      setCompletedStages({});
       setExpandedItemId(null);
       setExpandedDiffMethodKey(null);
       setFile(null);
@@ -147,19 +155,49 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     if (!isOpen || !project.id) return;
     const operationId = beginOperation();
     const controller = new AbortController();
+    setHistory([]);
+    setHistoryLoading(true);
+    setHistoryError(null);
     void fetchProjectSourceUpdates(project.id, { signal: controller.signal })
       .then((updates) => {
+        if (controller.signal.aborted) return;
+        setHistory(updates);
         if (!isCurrentOperation(operationId)) return;
         const activeDraft = updates.find((update) => !TERMINAL_UPDATE_STATUSES.has(update.status));
         if (activeDraft) setUpdateDraft(activeDraft);
       })
       .catch((err) => {
-        if (!controller.signal.aborted && isCurrentOperation(operationId)) {
-          setError(getSourceUpdateErrorMessage(err));
+        if (!controller.signal.aborted) {
+          setHistoryError(getSourceUpdateErrorMessage(err));
         }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setHistoryLoading(false);
       });
     return () => controller.abort();
   }, [isOpen, project.id]);
+
+  useEffect(() => {
+    if (!isOpen || !updateDraft || !(loading || generatingStage || updateDraft.generationSummary?.running)) return;
+    const controller = new AbortController();
+    const operationId = operationVersionRef.current;
+    let pending = false;
+    const timer = window.setInterval(async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const current = await fetchSourceUpdate(project.id, updateDraft.id, { signal: controller.signal });
+        if (controller.signal.aborted || operationId !== operationVersionRef.current) return;
+        setUpdateDraft(current);
+        const completed = Object.values(current.generationSummary?.stages ?? {}).filter((stage) => stage.completed).length;
+        if (current.generationSummary?.running) {
+          setProgress({ percent: 5 + completed * 22, label: `Server đã xác nhận ${completed}/4 stage. Đang xử lý phần còn thiếu...` });
+        }
+      } catch { /* Request chính và thao tác tải lại vẫn hiển thị lỗi cho người dùng. */ }
+      finally { pending = false; }
+    }, 2_000);
+    return () => { controller.abort(); window.clearInterval(timer); };
+  }, [isOpen, project.id, updateDraft?.id, updateDraft?.generationSummary?.running, loading, generatingStage]);
 
   if (!isOpen) return null;
 
@@ -232,7 +270,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
   }
 
   function isBusy() {
-    return loading || generatingStage !== null;
+    return loading || generatingStage !== null || updateDraft?.generationSummary?.running === true;
   }
 
   function showGenerationError(cause: unknown, stageName: string) {
@@ -344,7 +382,6 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       if (!isCurrentOperation(operationId)) return;
       setUpdateDraft(result);
       const newCount = (result.items?.length ?? 0) - prevCount;
-      setCompletedStages((prev) => ({ ...prev, [stage]: true }));
       setStageNotice({
         type: 'success',
         message: `✓ Đã sinh xong ${stageName}! ${newCount > 0 ? `Đã tạo thêm ${newCount} đề xuất mới sẵn sàng duyệt.` : 'Đã cập nhật các đề xuất tương ứng.'}`,
@@ -369,52 +406,15 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     setError(null);
     setStageNotice(null);
     updateProgress(0, 'Đang bắt đầu sinh tăng dần toàn bộ...');
-    let currentStage: keyof typeof GENERATION_STAGE_NAMES = 'BUSINESS_RULE';
     try {
       const prevCount = updateDraft.items?.length ?? 0;
-      updateProgress(10, 'Đang sinh Business Rule...');
-      let result = await runRequest(
-        (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'BUSINESS_RULE', { signal }),
-        'Sinh Business Rule quá thời gian chờ.',
+      updateProgress(10, 'Server đang tiếp tục các phần BR → Test Plan → Test Case → Unit Test còn thiếu...');
+      const result = await runRequest(
+        (signal) => generateAllSourceUpdate(project.id, updateDraft.id, { signal }),
+        'Sinh tất cả quá thời gian chờ; các checkpoint đã lưu sẽ được tiếp tục ở lần sau.',
       );
       if (!isCurrentOperation(operationId)) return;
       setUpdateDraft(result);
-      setCompletedStages((prev) => ({ ...prev, BUSINESS_RULE: true }));
-
-      currentStage = 'TEST_PLAN';
-      updateProgress(35, 'Đã sinh Business Rule. Đang sinh Test Plan...');
-      result = await runRequest(
-        (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'TEST_PLAN', { signal }),
-        'Sinh Test Plan quá thời gian chờ.',
-      );
-      if (!isCurrentOperation(operationId)) return;
-      setUpdateDraft(result);
-      setCompletedStages((prev) => ({ ...prev, TEST_PLAN: true }));
-
-      currentStage = 'TEST_CASE';
-      updateProgress(65, 'Đã sinh Test Plan. Đang sinh Test Case...');
-      result = await runRequest(
-        (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'TEST_CASE', { signal }),
-        'Sinh Test Case quá thời gian chờ.',
-      );
-      if (!isCurrentOperation(operationId)) return;
-      setUpdateDraft(result);
-      setCompletedStages((prev) => ({ ...prev, TEST_CASE: true }));
-
-      currentStage = 'UNIT_TEST';
-      updateProgress(85, 'Đã sinh Test Case. Đang sinh Unit Test...');
-      result = await runRequest(
-        (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'UNIT_TEST', { signal }),
-        'Sinh Unit Test quá thời gian chờ.',
-      );
-      if (!isCurrentOperation(operationId)) return;
-      setUpdateDraft(result);
-      setCompletedStages({
-        BUSINESS_RULE: true,
-        TEST_PLAN: true,
-        TEST_CASE: true,
-        UNIT_TEST: true,
-      });
       const totalCreated = (result.items?.length ?? 0) - prevCount;
       setStageNotice({
         type: 'success',
@@ -424,8 +424,8 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       updateProgress(100, 'Đã hoàn tất sinh tăng dần cho source code.');
     } catch (err) {
       if (isCurrentOperation(operationId)) {
-        showGenerationError(err, GENERATION_STAGE_NAMES[currentStage]);
-        if (isSourceUpdateTimeout(err)) void reconcileDraftAfterTimeout(operationId, updateDraft.id, false);
+        showGenerationError(err, 'toàn bộ pipeline');
+        void reconcileDraftAfterTimeout(operationId, updateDraft.id, false);
       }
     } finally {
       if (isCurrentOperation(operationId)) setLoading(false);
@@ -439,7 +439,11 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     setError(null);
     try {
       await runRequest(
-        (signal) => patchSourceUpdateItem(project.id, updateDraft.id, itemId, { reviewStatus, action }, { signal }),
+        (signal) => patchSourceUpdateItem(project.id, updateDraft.id, itemId, {
+          reviewStatus, action,
+          expectedVersion: updateDraft.items.find((item) => item.id === itemId)?.version,
+          expectedUserRevision: updateDraft.items.find((item) => item.id === itemId)?.userRevision,
+        }, { signal }),
         'Cập nhật đề xuất quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return;
@@ -459,9 +463,37 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     }
   }
 
+  async function handleResolveConflict(
+    conflict: { stage: string; targetKey: string; itemId: number | null },
+    resolution: 'KEEP_USER' | 'USE_PROPOSAL',
+  ) {
+    if (!updateDraft || isBusy()) return;
+    const item = updateDraft.items.find((candidate) => candidate.id === conflict.itemId);
+    if (!item) return;
+    const operationId = beginOperation();
+    setLoading(true);
+    setError(null);
+    try {
+      await runRequest((signal) => patchSourceUpdateItem(project.id, updateDraft.id, item.id, {
+        expectedVersion: item.version, expectedUserRevision: item.userRevision,
+        conflictStage: conflict.stage, conflictTargetKey: conflict.targetKey, resolution,
+      }, { signal }), 'Giải quyết xung đột quá thời gian chờ.');
+      const refreshed = await runRequest((signal) => fetchSourceUpdate(project.id, updateDraft.id, { signal }),
+        'Tải lại bản nháp quá thời gian chờ.');
+      if (!isCurrentOperation(operationId)) return;
+      setUpdateDraft(refreshed);
+      setStageNotice({ type: 'success', message: 'Đã lưu lựa chọn. Bấm Sinh Tất Cả để xác thực lại các phần phụ thuộc.',
+        timestamp: new Date().toLocaleTimeString() });
+    } catch (failure) {
+      if (isCurrentOperation(operationId)) setError(getSourceUpdateErrorMessage(failure));
+    } finally {
+      if (isCurrentOperation(operationId)) setLoading(false);
+    }
+  }
+
   async function handleAcceptAllItems() {
     if (!updateDraft || isBusy() || !updateDraft.items || updateDraft.items.length === 0) return;
-    const pendingItems = updateDraft.items.filter((item) => item.reviewStatus !== 'ACCEPTED');
+    const pendingItems = updateDraft.items.filter((item) => item.reviewStatus === 'PENDING');
     if (pendingItems.length === 0) return;
     const operationId = beginOperation();
     setLoading(true);
@@ -471,7 +503,9 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       for (let i = 0; i < pendingItems.length; i++) {
         const item = pendingItems[i];
         await runRequest(
-          (signal) => patchSourceUpdateItem(project.id, updateDraft.id, item.id, { reviewStatus: 'ACCEPTED' }, { signal }),
+          (signal) => patchSourceUpdateItem(project.id, updateDraft.id, item.id, {
+            reviewStatus: 'ACCEPTED', expectedVersion: item.version, expectedUserRevision: item.userRevision,
+          }, { signal }),
           'Chấp nhận đề xuất quá thời gian chờ.',
         );
         updateProgress(10 + Math.round(((i + 1) / pendingItems.length) * 80), `Đã chấp nhận ${i + 1}/${pendingItems.length} đề xuất...`);
@@ -504,36 +538,6 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     setError(null);
     updateProgress(5, 'Đang chuẩn bị áp dụng cập nhật vào project...');
     try {
-      // Tự động sinh lại Test Case cho các Test Plan bị ảnh hưởng nếu chưa sinh
-      const hasTestCaseItems = (updateDraft.items || []).some(
-        (item) => item.targetType === 'TEST_CASE' && item.afterData != null,
-      );
-      const affectedPlanCount = impactSummary?.affectedTestPlanIds?.length ?? 0;
-      if (affectedPlanCount > 0 && !hasTestCaseItems && !completedStages['TEST_CASE']) {
-        updateProgress(10, 'Đang tự động sinh lại Test Case cho các Test Plan bị ảnh hưởng...');
-        const updated = await runRequest(
-          (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, 'TEST_CASE', { signal }),
-          'Tự động sinh Test Case quá thời gian chờ 120 giây.',
-        );
-        if (!isCurrentOperation(operationId)) return;
-        if (updated) {
-          updateDraft.items = updated.items;
-          setUpdateDraft(updated);
-        }
-        setCompletedStages((prev) => ({ ...prev, TEST_CASE: true }));
-      }
-
-      // Tự động duyệt các đề xuất còn PENDING để đảm bảo không bị chặn hoặc lỗi backend
-      const pendingItems = (updateDraft.items || []).filter((item) => item.reviewStatus === 'PENDING');
-      if (pendingItems.length > 0) {
-        updateProgress(15, `Đang tự động duyệt ${pendingItems.length} đề xuất còn lại...`);
-        for (const item of pendingItems) {
-          await runRequest(
-            (signal) => patchSourceUpdateItem(project.id, updateDraft.id, item.id, { reviewStatus: 'ACCEPTED' }, { signal }),
-            'Duyệt đề xuất trước khi áp dụng quá thời gian chờ.',
-          );
-        }
-      }
       updateProgress(60, 'Đang ghi nhận thay đổi vào project...');
       await runRequest(
         (signal) => applySourceUpdate(project.id, updateDraft.id, { signal }),
@@ -589,7 +593,8 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     }
   }
 
-  const canApply = updateDraft?.status === 'ANALYZED' || updateDraft?.status === 'READY_TO_APPLY';
+  const canApply = updateDraft?.generationSummary?.readyForApply === true
+    && !updateDraft.items.some((item) => item.reviewStatus === 'PENDING');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
@@ -672,6 +677,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
 
         {/* Content Body */}
         <div role="region" aria-label="Nội dung cập nhật source" className="flex-1 overflow-y-auto p-6 space-y-6">
+          <SourceUpdateHistory updates={history} loading={historyLoading} error={historyError} servicePath={servicePath} />
           {!updateDraft ? (
             /* Bước 1: Upload source mới */
             <div className="space-y-4">
@@ -921,7 +927,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    disabled={loading || generatingStage !== null}
+                    disabled={isBusy()}
                     onClick={() => handleGenerateStage('BUSINESS_RULE')}
                     className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                       completedStages['BUSINESS_RULE']
@@ -934,7 +940,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                   </button>
                   <button
                     type="button"
-                    disabled={loading || generatingStage !== null}
+                    disabled={isBusy()}
                     onClick={() => handleGenerateStage('TEST_PLAN')}
                     className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                       completedStages['TEST_PLAN']
@@ -947,7 +953,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                   </button>
                   <button
                     type="button"
-                    disabled={loading || generatingStage !== null}
+                    disabled={isBusy()}
                     onClick={() => handleGenerateStage('TEST_CASE')}
                     className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                       completedStages['TEST_CASE']
@@ -960,7 +966,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                   </button>
                   <button
                     type="button"
-                    disabled={loading || generatingStage !== null}
+                    disabled={isBusy()}
                     onClick={() => handleGenerateStage('UNIT_TEST')}
                     className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                       completedStages['UNIT_TEST']
@@ -973,7 +979,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                   </button>
                   <button
                     type="button"
-                    disabled={loading || generatingStage !== null}
+                    disabled={isBusy()}
                     onClick={handleGenerateAll}
                     className="flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-brand/90"
                   >
@@ -984,6 +990,25 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
               </div>
 
               {/* Danh sách các đề xuất thay đổi (Source Update Items) */}
+              {(updateDraft.generationSummary?.conflicts.length ?? 0) > 0 && (
+                <section aria-label="Xung đột cần giải quyết" className="space-y-3 rounded-lg border border-amber-500/40 p-4">
+                  <h3 className="text-sm font-bold text-heading">Giữ quyết định của bạn hoặc nhận đề xuất mới</h3>
+                  {updateDraft.generationSummary!.conflicts.map((conflict) => (
+                    <div key={`${conflict.stage}:${conflict.targetKey}`} className="space-y-2 text-xs">
+                      <p>{conflict.stage} · {conflict.targetKey}</p>
+                      {conflict.proposedAfterData && <pre className="max-h-40 overflow-auto whitespace-pre-wrap">{conflict.proposedAfterData}</pre>}
+                      <div className="flex gap-2">
+                        <button type="button" disabled={isBusy() || conflict.itemId == null}
+                          onClick={() => handleResolveConflict(conflict, 'KEEP_USER')}
+                          className="rounded border border-border-default px-3 py-1.5">Giữ bản của tôi</button>
+                        <button type="button" disabled={isBusy() || conflict.itemId == null}
+                          onClick={() => handleResolveConflict(conflict, 'USE_PROPOSAL')}
+                          className="rounded border border-brand px-3 py-1.5">Nhận đề xuất mới</button>
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              )}
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-bold text-heading flex items-center gap-2">
@@ -992,7 +1017,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                       (Bản nháp: <span className="font-semibold text-brand">{updateDraft.status}</span>)
                     </span>
                   </h3>
-                  {updateDraft.items && updateDraft.items.some((i) => i.reviewStatus !== 'ACCEPTED') && (
+                  {updateDraft.items && updateDraft.items.some((i) => i.reviewStatus === 'PENDING') && (
                     <button
                       type="button"
                       disabled={isBusy()}
@@ -1105,7 +1130,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
             onClick={handleCancelDraft}
             className="rounded-lg border border-border-default px-4 py-2 text-sm font-medium text-body hover:bg-neutral-secondary-soft"
           >
-            {updateDraft ? 'Hủy bản nháp' : 'Đóng'}
+            {updateDraft && !isBusy() ? 'Hủy bản nháp' : 'Đóng'}
           </button>
 
           {updateDraft && (

@@ -215,7 +215,7 @@ export function UpgradeToProModal({
               </div>
 
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-2xl font-bold tracking-tight text-heading">1.000đ</span>
+                <span className="text-2xl font-bold tracking-tight text-heading">10.000đ</span>
                 <span className="text-[11px] text-body-subtle">/tuần</span>
               </div>
 
@@ -246,7 +246,7 @@ export function UpgradeToProModal({
                 </li>
                 <li className="flex items-center gap-1.5 text-body-subtle">
                   <Check size={13} className="shrink-0 text-indigo-500" />
-                  <span>Sinh ~400 test case</span>
+                  <span>Sinh tối đa 3 batch đồng thời</span>
                 </li>
               </ul>
             </div>
@@ -299,7 +299,7 @@ export function UpgradeToProModal({
               </div>
 
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-2xl font-bold tracking-tight text-heading">2.000đ</span>
+                <span className="text-2xl font-bold tracking-tight text-heading">20.000đ</span>
                 <span className="text-[11px] text-body-subtle">/tuần</span>
               </div>
 
@@ -326,7 +326,7 @@ export function UpgradeToProModal({
                 </li>
                 <li className="flex items-center gap-1.5 text-body-subtle">
                   <Check size={13} className="shrink-0 text-purple-500" />
-                  <span>Không lo gián đoạn</span>
+                  <span>Sinh tối đa 4 batch đồng thời</span>
                 </li>
               </ul>
             </div>
@@ -342,6 +342,10 @@ export function UpgradeToProModal({
             </div>
           </div>
         </div>
+
+        <p className="mt-3 text-[11px] text-body-subtle">
+          Mỗi batch xử lý một nhóm dữ liệu. Tốc độ sinh thực tế còn phụ thuộc model AI và độ phức tạp của source code.
+        </p>
 
         {error && (
           <p role="alert" className="mt-4 rounded-lg bg-danger-soft p-3 text-xs font-medium text-fg-danger-strong">
@@ -365,7 +369,7 @@ export function UpgradeToProModal({
             <div className="text-right">
               <span className="text-xs text-body-subtle">Số tiền: </span>
               <span className="text-base font-extrabold text-heading text-purple-600 dark:text-purple-400">
-                {selectedTier === 'PLUS' ? '1.000 VNĐ' : '2.000 VNĐ'}
+                {selectedTier === 'PLUS' ? '10.000 VNĐ' : '20.000 VNĐ'}
               </span>
             </div>
           </div>
@@ -396,7 +400,7 @@ export function UpgradeToProModal({
               <>
                 {isCurrentTierSelected ? <RefreshCw size={14} /> : <Sparkles size={14} />}
                 <span>
-                  Thanh toán qua VNPay ({selectedTier === 'PLUS' ? '1.000 VNĐ' : '2.000 VNĐ'})
+                  Thanh toán qua VNPay ({selectedTier === 'PLUS' ? '10.000 VNĐ' : '20.000 VNĐ'})
                 </span>
                 <ArrowRight size={14} />
               </>

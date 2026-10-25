@@ -21,6 +21,7 @@ import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgre
 import { displaySourcePath } from '../../../shared/utils/source-path';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
+import { SourceUpdateDeletionHistory } from '../../projects/components/SourceUpdateDeletionHistory';
 import type { ProjectStatus } from '../../projects/types';
 
 const PAGE_SIZE = 8;
@@ -41,8 +42,11 @@ export function UnitTestsPanel({
     return localStorage.getItem(coverageNavigatedKey) === 'true';
   });
 
-  const isCoverageVisited = coverageNavigated || projectStatus === 'COVERAGE_ANALYZED' || projectStatus === 'COMPLETED';
+  const tests = useUnitTests(projectId, servicePath);
   const {
+    changesSeen,
+    activeUpdate,
+    impact,
     methodDiffMap,
     getMethodDiff,
     affectedUnitTestIds,
@@ -61,12 +65,13 @@ export function UnitTestsPanel({
     addedRuleIds,
     modifiedRuleIds,
     deletedRuleIds,
-  } = useSourceUpdateImpact(projectId);
+  } = useSourceUpdateImpact(projectId, 'UNIT_TEST', servicePath,
+    !tests.isLoading && !tests.isFetching && !tests.error && (tests.data?.length ?? 0) > 0);
+  const hideGenerationIndicators = changesSeen || coverageNavigated || projectStatus === 'COVERAGE_ANALYZED' || projectStatus === 'COMPLETED';
   const cases = useTestCases(projectId, servicePath);
   const plans = useTestPlans(projectId, servicePath);
   const rules = useBusinessRules(projectId, servicePath);
   const analysis = useAnalysis(projectId);
-  const tests = useUnitTests(projectId, servicePath);
   const files = useUnitTestFiles(projectId, servicePath);
   const generate = useGenerateUnitTests(projectId, servicePath);
   const generationProgress = useGenerationProgress(projectId, 'UNIT_TEST', generate.isPending);
@@ -132,10 +137,8 @@ export function UnitTestsPanel({
           : undefined;
       });
 
-      if (isCoverageVisited) return 0;
-
       const hasAdded = addedUnitTestIds.has(item.id)
-        || item.generationType === 'NEW_TEST'
+        || (!hideGenerationIndicators && item.generationType === 'NEW_TEST')
         || (testCase ? addedCaseIds.has(testCase.id) : false)
         || (testPlan ? addedPlanIds.has(testPlan.id) : false)
         || ruleDiffs.includes('ADDED')
@@ -143,8 +146,7 @@ export function UnitTestsPanel({
       if (hasAdded) return 2;
 
       const hasModified = modifiedUnitTestIds.has(item.id)
-        || item.generationType === 'INCREMENTAL'
-        || item.generationType === 'IMPROVE_EXISTING_TEST'
+        || (!hideGenerationIndicators && (item.generationType === 'INCREMENTAL' || item.generationType === 'IMPROVE_EXISTING_TEST'))
         || ruleDiffs.includes('MODIFIED')
         || affectedUnitTestIds.has(item.id)
         || (testCase ? modifiedCaseIds.has(testCase.id) || affectedCaseIds.has(testCase.id) : false)
@@ -177,7 +179,7 @@ export function UnitTestsPanel({
     plans.data,
     rules.data,
     analysis.data,
-    isCoverageVisited,
+    hideGenerationIndicators,
     addedUnitTestIds,
     modifiedUnitTestIds,
     affectedUnitTestIds,
@@ -220,8 +222,15 @@ export function UnitTestsPanel({
     };
   };
   const activeTrace = active ? traceForCase(active.testCaseId) : null;
-  // Mỗi record là 1 @Test method; file hiển thị là bản đã gộp các method cùng class
-  const activeFile = active ? (files.data ?? []).find((file) => file.filePath === active.filePath) : undefined;
+  const fileForTest = (test: UnitTest) => {
+    const code = approvedCaseById.get(test.testCaseId)?.caseCode;
+    // Backend có thể đổi tên file khi tách fixture; mã case vẫn liên kết đúng method với file xuất.
+    const matches = (files.data ?? []).filter((file) => code && file.caseCodes.length > 0
+      ? file.caseCodes.includes(code)
+      : file.filePath === test.filePath);
+    return matches.length === 1 ? matches[0] : undefined;
+  };
+  const activeFile = active ? fileForTest(active) : undefined;
   const error = cases.error ?? plans.error ?? rules.error ?? analysis.error
     ?? tests.error ?? files.error ?? generate.error;
 
@@ -398,12 +407,11 @@ export function UnitTestsPanel({
                    || methodDiffMap[method.methodName])
                 : undefined;
             });
-            const hasAdded = !isCoverageVisited && (addedUnitTestIds.has(item.id) || item.generationType === 'NEW_TEST' || (testCase ? addedCaseIds.has(testCase.id) : false) || (testPlan ? addedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
-            const hasDeleted = !isCoverageVisited && (deletedUnitTestIds.has(item.id) || (testCase ? deletedCaseIds.has(testCase.id) : false) || (testPlan ? deletedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id)));
-            const hasModified = !isCoverageVisited && !hasAdded && !hasDeleted && (
+            const hasAdded = addedUnitTestIds.has(item.id) || (!hideGenerationIndicators && item.generationType === 'NEW_TEST') || (testCase ? addedCaseIds.has(testCase.id) : false) || (testPlan ? addedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+            const hasDeleted = deletedUnitTestIds.has(item.id) || (testCase ? deletedCaseIds.has(testCase.id) : false) || (testPlan ? deletedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
+            const hasModified = !hasAdded && !hasDeleted && (
               modifiedUnitTestIds.has(item.id)
-              || item.generationType === 'INCREMENTAL'
-              || item.generationType === 'IMPROVE_EXISTING_TEST'
+              || (!hideGenerationIndicators && (item.generationType === 'INCREMENTAL' || item.generationType === 'IMPROVE_EXISTING_TEST'))
               || ruleDiffs.includes('MODIFIED')
               || affectedUnitTestIds.has(item.id)
               || (testCase ? modifiedCaseIds.has(testCase.id) || affectedCaseIds.has(testCase.id) : false)
@@ -449,7 +457,7 @@ export function UnitTestsPanel({
                     ~ CẬP NHẬT THEO CODE
                   </span>
                 )}
-                {!isCoverageVisited && item.generationType && (
+                {!hideGenerationIndicators && item.generationType && (
                   <span className="ml-auto text-[10px] font-semibold uppercase text-body-subtle">{item.generationType.replace(/_/g, ' ')}</span>
                 )}
               </span>
@@ -539,12 +547,11 @@ export function UnitTestsPanel({
                            || methodDiffMap[method.methodName])
                         : undefined;
                     });
-                    const hasAdded = !isCoverageVisited && ((active ? addedUnitTestIds.has(active.id) : false) || active?.generationType === 'NEW_TEST' || (activeCase ? addedCaseIds.has(activeCase.id) : false) || (activePlan ? addedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
-                    const hasDeleted = !isCoverageVisited && ((active ? deletedUnitTestIds.has(active.id) : false) || (activeCase ? deletedCaseIds.has(activeCase.id) : false) || (activePlan ? deletedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id)));
-                    const hasModified = !isCoverageVisited && !hasAdded && !hasDeleted && (
+                    const hasAdded = (active ? addedUnitTestIds.has(active.id) : false) || (!hideGenerationIndicators && active?.generationType === 'NEW_TEST') || (activeCase ? addedCaseIds.has(activeCase.id) : false) || (activePlan ? addedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+                    const hasDeleted = (active ? deletedUnitTestIds.has(active.id) : false) || (activeCase ? deletedCaseIds.has(activeCase.id) : false) || (activePlan ? deletedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
+                    const hasModified = !hasAdded && !hasDeleted && (
                       (active ? modifiedUnitTestIds.has(active.id) || affectedUnitTestIds.has(active.id) : false)
-                      || active?.generationType === 'INCREMENTAL'
-                      || active?.generationType === 'IMPROVE_EXISTING_TEST'
+                      || (!hideGenerationIndicators && (active?.generationType === 'INCREMENTAL' || active?.generationType === 'IMPROVE_EXISTING_TEST'))
                       || ruleDiffs.includes('MODIFIED')
                       || (activeCase ? modifiedCaseIds.has(activeCase.id) || affectedCaseIds.has(activeCase.id) : false)
                       || (activePlan ? modifiedPlanIds.has(activePlan.id) || affectedPlanIds.has(activePlan.id) : false)
@@ -588,7 +595,7 @@ export function UnitTestsPanel({
                 autoScroll={userSelectedMethod}
                 onSelectCaseCode={(code) => {
                   const targetIndex = visible.findIndex(
-                    (t) => approvedCaseById.get(t.testCaseId)?.caseCode === code && t.filePath === activeFile.filePath
+                    (test) => approvedCaseById.get(test.testCaseId)?.caseCode === code && fileForTest(test) === activeFile
                   );
                   if (targetIndex >= 0) {
                     const targetPage = Math.floor(targetIndex / PAGE_SIZE) + 1;
@@ -604,6 +611,8 @@ export function UnitTestsPanel({
           )}
         </div>
       </div>
+      <SourceUpdateDeletionHistory update={activeUpdate} impact={impact} targetType="UNIT_TEST"
+        currentIds={(tests.data ?? []).map((item) => item.id)} servicePath={servicePath} />
     </section>
   );
 }

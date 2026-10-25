@@ -1,14 +1,18 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchProjectSourceUpdates } from '../api/source-update-api';
-import type { ImpactSummaryDto, MethodDiffType } from '../types';
+import type { ImpactSummaryDto, MethodDiffType, SourceUpdateTargetType } from '../types';
+import { useSourceUpdateSeen } from './useSourceUpdateSeen';
 
 const normalize = (str?: string | null) => (str ? str.replace(/\s+/g, '') : '');
 
 /** Hook cung cấp thông tin AST diff và các artifact bị ảnh hưởng (BR, TP, TC, UT) cho toàn bộ các bước downstream. */
-export function useSourceUpdateImpact(projectId: number) {
+export function useSourceUpdateImpact(projectId: number, stage?: Exclude<SourceUpdateTargetType, 'METHOD'>, servicePath?: string, ready = true) {
+  let userId: number | undefined;
   let query: { data?: typeof fetchProjectSourceUpdates extends (...args: any[]) => Promise<infer R> ? R : any; isLoading: boolean; error: unknown };
   try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    userId = useQueryClient().getQueryData<{ id: number }>(['auth', 'me'])?.id;
     // eslint-disable-next-line react-hooks/rules-of-hooks
     query = useQuery({
       queryKey: ['source-updates', projectId],
@@ -22,6 +26,11 @@ export function useSourceUpdateImpact(projectId: number) {
   const activeUpdate = query.data?.find((u) => u.status === 'READY_TO_APPLY' || u.status === 'ANALYZED' || u.status === 'GENERATING' || u.status === 'DRAFT')
     ?? query.data?.find((u) => u.status === 'APPLIED' && ((u.totalChangedMethods ?? 0) > 0 || (u.items && u.items.length > 0)))
     ?? query.data?.find((u) => u.status === 'APPLIED');
+
+  const seenKey = stage && activeUpdate?.status === 'APPLIED'
+    ? `greytest.source-update-seen.${userId ?? 'local'}.${projectId}.${activeUpdate.id}.${stage}.${servicePath ?? '*'}`
+    : null;
+  const changesSeen = useSourceUpdateSeen(seenKey, ready);
 
   let impact: ImpactSummaryDto | null = null;
   if (activeUpdate?.impactSummary) {
@@ -179,6 +188,16 @@ export function useSourceUpdateImpact(projectId: number) {
     }
   }
 
+  // Chỉ bỏ dấu mới/sửa đã xem; giữ nguyên impact và lịch sử xóa để đối chiếu.
+  if (changesSeen) {
+    for (const map of [exactMethodDiffMap, fuzzyMethodDiffMap, methodDiffMap]) {
+      for (const key of Object.keys(map)) if (map[key] !== 'DELETED') delete map[key];
+    }
+    for (const ids of [affectedRuleIds, affectedPlanIds, affectedCaseIds, affectedUnitTestIds,
+      addedRuleIds, modifiedRuleIds, addedPlanIds, modifiedPlanIds,
+      addedCaseIds, modifiedCaseIds, addedUnitTestIds, modifiedUnitTestIds]) ids.clear();
+  }
+
   // Danh sách các method đã bị xóa (để hiển thị trực quan phần ĐÃ XÓA)
   const deletedMethods = useMemo(() => {
     const list: Array<{
@@ -236,6 +255,7 @@ export function useSourceUpdateImpact(projectId: number) {
   return {
     ...query,
     activeUpdate,
+    changesSeen,
     impact,
     methodDiffMap,
     getMethodDiff,

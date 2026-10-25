@@ -28,6 +28,7 @@ import type { TestPlan, TestType } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
+import { SourceUpdateDeletionHistory } from '../../projects/components/SourceUpdateDeletionHistory';
 
 interface TestPlansPanelProps {
   projectId: number;
@@ -40,7 +41,10 @@ const TEST_TYPES: TestType[] = ['HAPPY_PATH', 'BOUNDARY', 'EXCEPTION', 'EDGE'];
 export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPlansPanelProps) {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { data: plans = [], isLoading, isFetching, error } = useTestPlans(projectId, servicePath);
   const {
+    activeUpdate,
+    impact,
     methodDiffMap,
     getMethodDiff,
     affectedPlanIds,
@@ -51,7 +55,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
     addedRuleIds,
     modifiedRuleIds,
     deletedRuleIds,
-  } = useSourceUpdateImpact(projectId);
+  } = useSourceUpdateImpact(projectId, 'TEST_PLAN', servicePath, !isLoading && !isFetching && !error && plans.length > 0);
   const [businessRuleId, setBusinessRuleId] = useState('');
   const [testType, setTestType] = useState<TestType>('HAPPY_PATH');
   const [title, setTitle] = useState('');
@@ -63,7 +67,6 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [planToDelete, setPlanToDelete] = useState<TestPlan | null>(null);
 
-  const { data: plans = [], isLoading, error } = useTestPlans(projectId, servicePath);
   const { data: rules = [] } = useBusinessRules(projectId, servicePath);
   const { data: analysis } = useAnalysis(projectId);
   const { data: allCases = [] } = useTestCases(projectId, servicePath);
@@ -157,7 +160,6 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
 
   const sortedPlans = useMemo(() => {
     const getPlanDiffPriority = (plan: TestPlan) => {
-      if (isPastPlans) return 0;
       const coveredRules = (plan.coveredRuleIds?.length ? plan.coveredRuleIds : [plan.businessRuleId])
         .map((ruleId) => rules.find((rule) => rule.id === ruleId))
         .filter((rule): rule is NonNullable<typeof rule> => rule != null);
@@ -172,7 +174,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
       });
       const hasAdded = addedPlanIds.has(plan.id) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => addedRuleIds.has(r.id));
       if (hasAdded) return 2;
-      const hasModified = modifiedPlanIds.has(plan.id) || affectedPlanIds.has(plan.id) || ruleDiffs.includes('MODIFIED') || coveredRules.some((r) => modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)) || plan.isModified;
+      const hasModified = modifiedPlanIds.has(plan.id) || affectedPlanIds.has(plan.id) || ruleDiffs.includes('MODIFIED') || coveredRules.some((r) => modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)) || (!isPastPlans && plan.isModified);
       if (hasModified) return 1;
       return 0;
     };
@@ -334,9 +336,9 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
                      || methodDiffMap[method.methodName])
                   : undefined;
               });
-              const hasAdded = !isPastPlans && (addedPlanIds.has(plan.id) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => addedRuleIds.has(r.id)));
-              const hasDeleted = !isPastPlans && (deletedPlanIds.has(plan.id) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => deletedRuleIds.has(r.id)));
-              const hasModified = !isPastPlans && !hasAdded && !hasDeleted && (
+              const hasAdded = addedPlanIds.has(plan.id) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => addedRuleIds.has(r.id));
+              const hasDeleted = deletedPlanIds.has(plan.id) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => deletedRuleIds.has(r.id));
+              const hasModified = !hasAdded && !hasDeleted && (
                 modifiedPlanIds.has(plan.id) || affectedPlanIds.has(plan.id) || ruleDiffs.includes('MODIFIED') || coveredRules.some((r) => modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id))
               );
 
@@ -464,6 +466,8 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
           </div>
         )}
       </div>
+      <SourceUpdateDeletionHistory update={activeUpdate} impact={impact} targetType="TEST_PLAN"
+        currentIds={plans.map((plan) => plan.id)} servicePath={servicePath} />
       <ConfirmDialog
         open={showRegenerateConfirm}
         title={t('Sinh lại toàn bộ Test Plan?', 'Regenerate all Test Plans?')}

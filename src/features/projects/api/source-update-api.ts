@@ -119,12 +119,30 @@ export async function patchSourceUpdateItem(
     reviewStatus?: SourceUpdateReviewStatus;
     modifiedAfterData?: string;
     reason?: string;
+    expectedVersion?: number;
+    expectedUserRevision?: number;
+    conflictStage?: string;
+    conflictTargetKey?: string;
+    resolution?: 'KEEP_USER' | 'USE_PROPOSAL';
   },
   options?: SourceUpdateRequestOptions,
 ): Promise<SourceUpdateItemDto> {
   const { data } = await apiClient.patch<SourceUpdateItemDto>(
     `/projects/${projectId}/source-updates/${updateId}/items/${itemId}`,
     patch,
+    requestConfig(options),
+  );
+  return data;
+}
+
+export async function generateAllSourceUpdate(
+  projectId: number,
+  updateId: number,
+  options?: SourceUpdateRequestOptions,
+): Promise<SourceUpdateDto> {
+  const { data } = await apiClient.post<SourceUpdateDto>(
+    `/projects/${projectId}/source-updates/${updateId}/generate-all`,
+    undefined,
     requestConfig(options),
   );
   return data;

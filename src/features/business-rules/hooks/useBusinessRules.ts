@@ -84,7 +84,7 @@ export function useDeleteBusinessRule(_projectId: number) {
 export function useGenerateBusinessRules(projectId: number, servicePath?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => generateBusinessRules(projectId, servicePath),
+    mutationFn: (resume?: boolean) => generateBusinessRules(projectId, servicePath, resume),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['generation-progress', projectId, 'BUSINESS_RULE'] });
     },

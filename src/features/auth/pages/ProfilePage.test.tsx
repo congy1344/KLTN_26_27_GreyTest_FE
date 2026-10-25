@@ -14,6 +14,7 @@ vi.mock('../hooks/useAuth', () => ({
   useCurrentUser: vi.fn(),
   useUserQuota: vi.fn(),
   useLogout: vi.fn(() => vi.fn()),
+  useCancelSubscription: vi.fn(() => ({ isPending: false, isError: false, isSuccess: false, reset: vi.fn(), mutate: vi.fn() })),
 }));
 
 describe('ProfilePage', () => {
@@ -91,6 +92,12 @@ describe('ProfilePage', () => {
     expect(screen.getByText('1/11/2026')).toBeInTheDocument();
 
     // Kiểm tra hiển thị nút Nâng cấp
+    expect(screen.getByText('10.000đ')).toBeInTheDocument();
+    expect(screen.getByText('20.000đ')).toBeInTheDocument();
+    expect(screen.getByText('Sinh tối đa 2 batch đồng thời')).toBeInTheDocument();
+    expect(screen.getByText('Sinh tối đa 3 batch đồng thời')).toBeInTheDocument();
+    expect(screen.getByText('Sinh tối đa 4 batch đồng thời')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Lịch sử thanh toán' })).toBeInTheDocument();
     const upgradeBtns = screen.getAllByRole('button', { name: /Nâng cấp/i });
     expect(upgradeBtns.length).toBeGreaterThan(0);
 

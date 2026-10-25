@@ -36,8 +36,8 @@ export async function deleteBusinessRule(ruleId: number): Promise<void> {
   await apiClient.delete(`/business-rules/${ruleId}`);
 }
 
-export async function generateBusinessRules(projectId: number, servicePath?: string): Promise<GenerationJobAccepted> {
-  const { data } = await apiClient.post<GenerationJobAccepted>(`/projects/${projectId}/business-rules/generate`, undefined, { params: serviceParams(servicePath) });
+export async function generateBusinessRules(projectId: number, servicePath?: string, resume = true): Promise<GenerationJobAccepted> {
+  const { data } = await apiClient.post<GenerationJobAccepted>(`/projects/${projectId}/business-rules/generate`, undefined, { params: { ...serviceParams(servicePath), resume } });
   return data;
 }
 

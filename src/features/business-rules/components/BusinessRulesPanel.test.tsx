@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BusinessRulesPanel } from './BusinessRulesPanel';
@@ -70,6 +70,7 @@ describe('BusinessRulesPanel', () => {
     mocks.rules[0].suggestedDescription = null;
     mocks.rules[0].sourceBranchId = null;
     mocks.review.mockReset();
+    mocks.generate.mockReset();
     mocks.update.mockReset();
     mocks.classes = [];
     mocks.generating = false;
@@ -80,7 +81,7 @@ describe('BusinessRulesPanel', () => {
     mocks.generating = true;
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
-    expect(screen.getByRole('button', { name: 'AI sinh BR' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tiếp tục sinh' })).toBeDisabled();
     expect(screen.getByRole('complementary')).toBeVisible();
   });
 
@@ -92,7 +93,7 @@ describe('BusinessRulesPanel', () => {
     }));
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI sinh BR' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục sinh' }));
 
     expect(screen.getByText('Tác vụ AI đang chạy nền.')).toBeVisible();
     expect(screen.queryByRole('button', { name: /Thu gọn|Mở tất cả/ })).not.toBeInTheDocument();
@@ -157,6 +158,24 @@ describe('BusinessRulesPanel', () => {
     expect(fileNode).toHaveAttribute('open');
     fireEvent.click(fileNode!.querySelector('summary')!);
     expect(fileNode).not.toHaveAttribute('open');
+  });
+
+  it('continues with resume and requires confirmation before regenerating BRs', () => {
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục sinh' }));
+    expect(mocks.generate).toHaveBeenCalledWith(true, expect.any(Object));
+    mocks.generate.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sinh lại BR' }));
+    expect(mocks.generate).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog', { name: 'Sinh lại Business Rule?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Giữ BR hiện tại' }));
+    expect(mocks.generate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sinh lại BR' }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Sinh lại Business Rule?' }))
+      .getByRole('button', { name: 'Xác nhận sinh lại' }));
+    expect(mocks.generate).toHaveBeenCalledWith(false, expect.any(Object));
   });
 
   it('groups TRUE and FALSE outcomes under one covered source decision', () => {

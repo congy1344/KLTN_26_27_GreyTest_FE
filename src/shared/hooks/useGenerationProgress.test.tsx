@@ -46,6 +46,25 @@ const idle = (stage: GenerationProgressStage): GenerationProgress => ({
 });
 
 describe('useGenerationProgress', () => {
+  it('refreshes saved artifacts and stops tracking when generation ends partially', async () => {
+    mocks.fetchProgress.mockImplementation((_id: number, stage: GenerationProgressStage) => Promise.resolve(
+      stage === 'TEST_CASE' ? { ...failed, status: 'PARTIAL' } : idle(stage),
+    ));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { result, rerender } = renderHook(
+      ({ active }) => useGenerationProgress(7, 'TEST_CASE', active),
+      { initialProps: { active: true }, wrapper },
+    );
+    await waitFor(() => expect(result.current.data?.status).toBe('PARTIAL'));
+    expect(invalidate).toHaveBeenCalled();
+    expect(result.current.projectRunning).toBe(false);
+    rerender({ active: false });
+    await waitFor(() => expect(result.current.showProgress).toBe(false), { timeout: 7_000 });
+  }, 10_000);
   afterEach(() => vi.clearAllMocks());
 
   it('continues tracking after the mutation settles and retains the terminal snapshot', async () => {

@@ -66,9 +66,14 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
   const navigate = useNavigate();
   const isPastRules = Boolean(projectStatus && ['BR_APPROVED', 'PLAN_PENDING_REVIEW', 'PLAN_APPROVED', 'CASE_PENDING_REVIEW', 'CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED'].includes(projectStatus));
   const { t } = useLanguage();
-  const impactData = useSourceUpdateImpact(projectId);
-  const effectiveMethodDiffMap = methodDiffMap ?? impactData.methodDiffMap;
-  const effectiveAffectedRuleIds = affectedRuleIds ?? impactData.affectedRuleIds;
+  const { data: rules = [], isLoading, isFetching, error } = useBusinessRules(projectId, servicePath);
+  const analysisQuery = useAnalysis(projectId);
+  const { data: analysis } = analysisQuery;
+  const impactData = useSourceUpdateImpact(projectId, 'BUSINESS_RULE', servicePath,
+    !isLoading && !isFetching && !error && rules.length > 0
+      && !analysisQuery.isLoading && !analysisQuery.isFetching && !analysisQuery.error && Boolean(analysis));
+  const effectiveMethodDiffMap = impactData.changesSeen ? {} : methodDiffMap ?? impactData.methodDiffMap;
+  const effectiveAffectedRuleIds = impactData.changesSeen ? new Set<number>() : affectedRuleIds ?? impactData.affectedRuleIds;
   const getMethodDiff = impactData.getMethodDiff;
   const deletedMethods = impactData.deletedMethods;
   const addedRuleIds = impactData.addedRuleIds;
@@ -83,9 +88,8 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
   const [editDescription, setEditDescription] = useState('');
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
   const [ruleToDelete, setRuleToDelete] = useState<BusinessRule | null>(null);
+  const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false);
 
-  const { data: rules = [], isLoading, error } = useBusinessRules(projectId, servicePath);
-  const { data: analysis } = useAnalysis(projectId);
   const plansQuery = useTestPlans(projectId, servicePath);
   const sourceTraceByRule = useMemo(
     () => buildRuleSourceIndex(analysis, rules),
@@ -122,7 +126,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
             const rightDiff = getMethodDiff(javaClass.qualifiedName, right.methodName, right.parameters)
               || effectiveMethodDiffMap[`${javaClass.qualifiedName}#${right.methodName}`]
               || effectiveMethodDiffMap[right.methodName];
-            const isDiffPriority = (diff?: string) => (!isPastRules && diff === 'ADDED') ? 2 : (!isPastRules && diff === 'MODIFIED') ? 1 : 0;
+            const isDiffPriority = (diff?: string) => diff === 'ADDED' ? 2 : diff === 'MODIFIED' ? 1 : 0;
             if (isDiffPriority(leftDiff) !== isDiffPriority(rightDiff)) {
               return isDiffPriority(rightDiff) - isDiffPriority(leftDiff);
             }
@@ -130,18 +134,18 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
           })
           .map((method) => {
             const methodRules = [...(rulesByMethod.get(method.id) ?? [])].sort((left, right) => {
-              const leftAdded = !isPastRules && addedRuleIds.has(left.id);
-              const rightAdded = !isPastRules && addedRuleIds.has(right.id);
+              const leftAdded = addedRuleIds.has(left.id);
+              const rightAdded = addedRuleIds.has(right.id);
               if (leftAdded !== rightAdded) return leftAdded ? -1 : 1;
-              const leftMod = !isPastRules && (modifiedRuleIds.has(left.id) || effectiveAffectedRuleIds.has(left.id));
-              const rightMod = !isPastRules && (modifiedRuleIds.has(right.id) || effectiveAffectedRuleIds.has(right.id));
+              const leftMod = modifiedRuleIds.has(left.id) || effectiveAffectedRuleIds.has(left.id);
+              const rightMod = modifiedRuleIds.has(right.id) || effectiveAffectedRuleIds.has(right.id);
               if (leftMod !== rightMod) return leftMod ? -1 : 1;
               return left.ruleCode.localeCompare(right.ruleCode, undefined, { numeric: true });
             });
             return { ...method, rules: methodRules };
           }),
       }));
-  }, [analysis, rules, servicePath, sourceTraceByRule, isPastRules, addedRuleIds, modifiedRuleIds, effectiveAffectedRuleIds, effectiveMethodDiffMap, getMethodDiff]);
+  }, [analysis, rules, servicePath, sourceTraceByRule, addedRuleIds, modifiedRuleIds, effectiveAffectedRuleIds, effectiveMethodDiffMap, getMethodDiff]);
   const fileGroups = useMemo(() => {
     const groups = new Map<string, { filePath: string; services: typeof serviceGroups }>();
     serviceGroups.forEach((service) => {
@@ -242,8 +246,8 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
     });
   };
 
-  const handleGenerate = () => {
-    generateMutation.mutate(undefined, {
+  const handleGenerate = (resume = true) => {
+    generateMutation.mutate(resume, {
       onSuccess: (accepted) => {
         setGenerationMessage(accepted.message);
       },
@@ -305,10 +309,10 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
          || effectiveMethodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
          || effectiveMethodDiffMap[method.methodName])
       : undefined;
-    const isAdded = !isPastRules && (addedRuleIds.has(rule.id) || diffType === 'ADDED');
-    const isDeleted = !isPastRules && (deletedRuleIds.has(rule.id) || diffType === 'DELETED');
-    const isModified = !isPastRules && !isAdded && !isDeleted && (
-      modifiedRuleIds.has(rule.id) || effectiveAffectedRuleIds.has(rule.id) || rule.isModified || diffType === 'MODIFIED'
+    const isAdded = addedRuleIds.has(rule.id) || diffType === 'ADDED';
+    const isDeleted = deletedRuleIds.has(rule.id) || diffType === 'DELETED';
+    const isModified = !isAdded && !isDeleted && (
+      modifiedRuleIds.has(rule.id) || effectiveAffectedRuleIds.has(rule.id) || (!isPastRules && rule.isModified) || diffType === 'MODIFIED'
     );
 
     const cardClass = isAdded
@@ -461,11 +465,11 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
           <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
-            {rules.length > 0 && (uncoveredDecisionCount > 0 || generationProgress.data?.status === 'PAUSED') ? (
+            {rules.length > 0 ? (
               <button
                 className="btn btn-brand"
                 disabled={pending}
-                onClick={handleGenerate}
+                onClick={() => handleGenerate(true)}
                 title={t(
                   uncoveredDecisionCount > 0
                     ? `Tiếp tục sinh Business Rule cho ${uncoveredDecisionCount} nhánh/quyết định còn thiếu`
@@ -486,9 +490,14 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
                 )}
               </button>
             ) : (
-              <button className="btn btn-secondary" disabled={pending} onClick={handleGenerate}>
+              <button className="btn btn-secondary" disabled={pending} onClick={() => handleGenerate(true)}>
                 {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
                 {t('AI sinh BR', 'Generate BRs with AI')}
+              </button>
+            )}
+            {rules.length > 0 && !isPastRules && (
+              <button className="btn btn-secondary" disabled={pending} onClick={() => setRegenerateConfirmOpen(true)}>
+                {t('Sinh lại BR', 'Regenerate BRs')}
               </button>
             )}
             <AiGenerationProgress
@@ -496,7 +505,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
               active={generateMutation.isPending || generationRunning || generationProgress.showProgress}
               label={t('Tiến trình AI của dự án', 'Project AI progress')}
               progress={generationProgress.projectProgress ?? generationProgress.data}
-              onResume={handleGenerate}
+              onResume={() => handleGenerate(true)}
             />
           </div>
           <button className="btn btn-secondary" disabled={pending || dirtyRuleCount === 0} onClick={handleReview}>
@@ -726,6 +735,19 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={regenerateConfirmOpen}
+        title={t('Sinh lại Business Rule?', 'Regenerate Business Rules?')}
+        description={t(
+          'AI sẽ phân tích lại các method trong service đang chọn. BR do AI sinh chưa sửa có thể được cập nhật; BR đã thêm hoặc sửa thủ công được giữ nguyên. Thao tác này có thể tốn thêm quota.',
+          'AI will reanalyze methods in the selected service. Untouched AI rules may be updated; manually added or edited rules are preserved. This may use additional quota.'
+        )}
+        confirmLabel={t('Xác nhận sinh lại', 'Confirm regeneration')}
+        cancelLabel={t('Giữ BR hiện tại', 'Keep current BRs')}
+        pending={generateMutation.isPending}
+        onCancel={() => setRegenerateConfirmOpen(false)}
+        onConfirm={() => { setRegenerateConfirmOpen(false); handleGenerate(false); }}
+      />
       <ConfirmDialog
         open={ruleToDelete != null}
         title={t('Xóa Business Rule?', 'Delete Business Rule?')}

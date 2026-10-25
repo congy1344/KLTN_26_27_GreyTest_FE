@@ -212,6 +212,8 @@ export interface SourceUpdateItemDto {
   beforeData: string | null;
   afterData: string | null;
   reviewStatus: SourceUpdateReviewStatus;
+  version?: number;
+  userRevision?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -225,6 +227,14 @@ export interface SourceUpdateDto {
   totalChangedMethods: number;
   impactSummary: string | null;
   items: SourceUpdateItemDto[];
+  version?: number;
+  generationSummary?: {
+    stages: Record<string, { state: string; completed: boolean; succeeded: number; blocked: number }>;
+    conflicts: { stage: string; targetKey: string; itemId: number | null; proposedAfterData: string | null; proposedAction: string | null }[];
+    readyForApply: boolean;
+    running?: boolean;
+    metricsJson?: string | null;
+  };
   createdAt: string;
   updatedAt: string;
 }

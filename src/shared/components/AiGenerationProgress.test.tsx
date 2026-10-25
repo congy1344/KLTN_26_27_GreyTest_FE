@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GenerationProgress } from '../types/generation-progress';
-import { AiGenerationProgress } from './AiGenerationProgress';
+import { AiGenerationProgress, formatHumanLogMessage, getLogMessageColor } from './AiGenerationProgress';
 
 const runningProgress: GenerationProgress = {
   stage: 'TEST_PLAN',
@@ -20,6 +20,16 @@ const runningProgress: GenerationProgress = {
 };
 
 describe('AiGenerationProgress', () => {
+  it('shows partial results as terminal with the blocked reason and no success percentage', () => {
+    render(<AiGenerationProgress active label="Sinh Unit Test" progress={{
+      ...runningProgress, status: 'PARTIAL', percent: 100,
+      logs: [{ timestamp: '2026-08-15T08:00:00Z', message: 'TC-002 bị chặn: random.' }],
+    }} />);
+    expect(screen.getByRole('status')).toHaveTextContent('hoàn tất một phần');
+    expect(screen.getByRole('status')).not.toHaveTextContent('100%');
+    expect(screen.getByText('TC-002 bị chặn: random.')).toBeVisible();
+    expect(screen.getByText('Hoàn tất một phần')).toBeVisible();
+  });
   afterEach(() => {
     cleanup();
     window.sessionStorage.clear();
@@ -278,5 +288,54 @@ describe('AiGenerationProgress', () => {
     expect(resumeBtn).toBeVisible();
     fireEvent.click(resumeBtn);
     expect(handleResume).toHaveBeenCalledTimes(1);
+  });
+
+  it('correctly styles error logs as danger even if they contain success-like substrings like "đã sinh"', () => {
+    const errorMsg = "Dừng ở batch 1. Sinh Unit Test thất bại; các batch đã sinh trước đó đã được lưu an toàn. Bạn có thể nhấn 'Tiếp tục sinh' để chạy tiếp.";
+    expect(getLogMessageColor(errorMsg)).toBe('text-fg-danger-strong font-medium');
+
+    const quotaMsg = "Bạn đã sử dụng hết quota LLM trong tháng này. Vui lòng nâng cấp lên gói PRO.";
+    expect(getLogMessageColor(quotaMsg)).toBe('text-fg-danger-strong font-medium');
+
+    const stopBatchMsg = "Dừng ở batch 2. Đã lưu 1 Business Rule từ các batch trước.";
+    expect(getLogMessageColor(stopBatchMsg)).toBe('text-fg-danger-strong font-medium');
+
+    const successMsg = "Đã sinh 3 Test Plan thành công.";
+    expect(getLogMessageColor(successMsg)).toBe('text-fg-success-strong font-medium');
+
+    const runningMsg = "Đang phân tích mã nguồn...";
+    expect(getLogMessageColor(runningMsg)).toBe('text-fg-brand-strong font-medium');
+
+    const warningNoticeMsg = "[Lưu ý kiểm thử] findUserFeedWithCursor (ArticleQueryService): Method sửa trực tiếp collection articles.";
+    expect(getLogMessageColor(warningNoticeMsg)).toBe('text-amber-600 dark:text-amber-400 font-medium');
+
+    const warningBlockedMsg = "[Cảnh báo kiểm thử] Tạm bỏ qua ca kiểm thử TC-40: Chưa đủ điều kiện sinh test.";
+    expect(getLogMessageColor(warningBlockedMsg)).toBe('text-amber-600 dark:text-amber-400 font-medium');
+
+    const rawTestabilityMsg = "Testability method 16759: UNKNOWN — COLLECTION_MUTATION @ Service.java:1 execute — detail";
+    expect(getLogMessageColor(rawTestabilityMsg)).toBe('text-amber-600 dark:text-amber-400 font-medium');
+  });
+
+  it('formats raw testability log messages into human-readable concise Vietnamese descriptions', () => {
+    const rawScreenshotLog =
+      'Testability method 16759: UNKNOWN — COLLECTION_MUTATION @ realworld-example-app-master/src/main/java/io/spring/application/ArticleQueryService.java:42 findUserFeedWithCursor — Method sửa trực tiếp collection articles.; UNRESOLVED_HELPER_PATH @ spring-boot-realworld-example-app-master/src/main/java/io/spring/application/ArticleQueryService.java:39 findUserFeedWithCursor — Lời gọi helper nội bộ chưa truy vết được đường đi trong MVP: fillExtraInfo. | Tạo collection mutable trong fixture hoặc inject stub.';
+
+    const formatted = formatHumanLogMessage(rawScreenshotLog);
+    expect(formatted).toBe('[Lưu ý] findUserFeedWithCursor: Có sửa đổi collection nội bộ.');
+
+    const rawScreenshot2Log =
+      'Testability method 16764: READY — COLLECTION_MUTATION @ spring-boot-realworld-example-app-master/src/main/java/io/spring/application/ArticleQueryService.java:137 setFavoriteCount — Method sửa trực tiếp collection fixture: countMap. | Tạo collection mutable thực; lưu bản sao expected trước khi gọi method, không tính expected từ fixture đã bị sửa.';
+
+    expect(formatHumanLogMessage(rawScreenshot2Log)).toBe('[Lưu ý] setFavoriteCount: Có sửa đổi collection nội bộ.');
+
+    const rawBlockedCaseLog =
+      'Testability TC-40 (40): BLOCKED: UNCONTROLLED_RANDOM_BRANCH @ src/main/java/Service.java:1 execute — Math.random() của JDK không có đầu vào điều khiển được trong fixture JUnit/Mockito hiện tại.';
+
+    expect(formatHumanLogMessage(rawBlockedCaseLog)).toBe(
+      '[Cảnh báo] Tạm bỏ qua ca kiểm thử TC-40: Nhánh Math.random() không thể điều khiển tự động.'
+    );
+
+    const normalLog = 'Đã nhận 3 Test Plan từ AI.';
+    expect(formatHumanLogMessage(normalLog)).toBe('Đã nhận 3 Test Plan từ AI.');
   });
 });
