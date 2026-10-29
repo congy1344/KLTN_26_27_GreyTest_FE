@@ -216,6 +216,89 @@ describe('UnitTestsPanel', () => {
     expect(screen.getByRole('button', { name: /createUserValid/ })).toBeVisible();
   });
 
+  it('opens the matching renamed fixture file when records keep their original path', () => {
+    mocks.cases = [
+      { id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'first', status: 'APPROVED' },
+      { id: 2, testPlanId: 5, caseCode: 'TC-002', description: 'second', status: 'APPROVED' },
+    ];
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'ServiceTest', filePath: 'src/test/java/demo/ServiceTest.java' },
+      { id: 12, testCaseId: 2, testMethodName: 'secondMethod', testClassName: 'ServiceTest', filePath: 'src/test/java/demo/ServiceTest.java' },
+    ];
+    mocks.files = [
+      {
+        testClassName: 'ServiceTest_GreyTest_1', filePath: 'src/test/java/demo/ServiceTest_GreyTest_1.java',
+        sourceCode: 'class ServiceTest_GreyTest_1 {\n void firstMethod() {}\n}', testCount: 1, caseCodes: ['TC-001'],
+      },
+      {
+        testClassName: 'ServiceTest_GreyTest_2', filePath: 'src/test/java/demo/ServiceTest_GreyTest_2.java',
+        sourceCode: 'class ServiceTest_GreyTest_2 {\n void secondMethod() {}\n}', testCount: 1, caseCodes: ['TC-002'],
+      },
+    ];
+
+    renderPanel();
+
+    expect(screen.queryByText('Không tìm thấy file test.')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Generated test code' }))
+      .getByText(/class ServiceTest_GreyTest_1/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /TC-002 secondMethod/ }));
+    const code = screen.getByRole('region', { name: 'Generated test code' });
+    expect(within(code).getByText(/class ServiceTest_GreyTest_2/)).toBeVisible();
+    expect(within(code).getByText(/void secondMethod/).closest('li')).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('selects another case inside a renamed merged file', () => {
+    mocks.cases = [
+      { id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'first', status: 'APPROVED' },
+      { id: 2, testPlanId: 5, caseCode: 'TC-002', description: 'second', status: 'APPROVED' },
+    ];
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'ServiceTest', filePath: 'ServiceTest.java' },
+      { id: 12, testCaseId: 2, testMethodName: 'secondMethod', testClassName: 'ServiceTest', filePath: 'ServiceTest.java' },
+    ];
+    mocks.files = [{
+      testClassName: 'ServiceTest_GreyTest_1', filePath: 'ServiceTest_GreyTest_1.java',
+      sourceCode: 'class ServiceTest_GreyTest_1 {\n void firstMethod() {}\n void secondMethod() {}\n}',
+      testCount: 2, caseCodes: ['TC-001', 'TC-002'],
+    }];
+
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'TC-002' }));
+
+    expect(within(screen.getByRole('region', { name: 'Generated test code' }))
+      .getByText(/void secondMethod/).closest('li')).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('keeps opening legacy files with no case code metadata by their exact path', () => {
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'ServiceTest', filePath: 'ServiceTest.java' },
+    ];
+    mocks.files = [{
+      testClassName: 'ServiceTest', filePath: 'ServiceTest.java',
+      sourceCode: 'class ServiceTest {\n void firstMethod() {}\n}', testCount: 1, caseCodes: [],
+    }];
+
+    renderPanel();
+
+    expect(within(screen.getByRole('region', { name: 'Generated test code' }))
+      .getByText(/void firstMethod/)).toBeVisible();
+  });
+
+  it('does not display a file whose case metadata conflicts with the selected record', () => {
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'ServiceTest', filePath: 'ServiceTest.java' },
+    ];
+    mocks.files = [{
+      testClassName: 'ServiceTest', filePath: 'ServiceTest.java',
+      sourceCode: 'class ServiceTest {\n void unrelatedMethod() {}\n}', testCount: 1, caseCodes: ['TC-999'],
+    }];
+
+    renderPanel();
+
+    expect(screen.getByText('Không tìm thấy file test.')).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Generated test code' })).not.toBeInTheDocument();
+  });
+
   it('reports missing and duplicate tests at the same time', () => {
     mocks.cases = [
       { id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'first', status: 'APPROVED' },

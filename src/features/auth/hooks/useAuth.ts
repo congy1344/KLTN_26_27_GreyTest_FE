@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminLogin, fetchCurrentUser, fetchUserQuota, login, register } from '../api/auth-api';
+import { adminLogin, cancelSubscription, fetchCurrentUser, fetchUserQuota, login, register } from '../api/auth-api';
+import type { AuthUser } from '../types';
 
 const AUTH_KEY = ['auth', 'me'];
 export const USER_QUOTA_KEY = ['user', 'quota'];
@@ -20,6 +21,23 @@ export function useUserQuota() {
     queryFn: fetchUserQuota,
     enabled: Boolean(localStorage.getItem('greytest.token')),
     retry: false,
+  });
+}
+
+/** Cập nhật gói và quota dùng chung sau khi người dùng hủy Plus/Pro. */
+export function useCancelSubscription() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: cancelSubscription,
+    onSuccess: async (quota) => {
+      // Chặn request cũ trả về muộn làm hiện lại gói trước khi hủy.
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: AUTH_KEY }),
+        queryClient.cancelQueries({ queryKey: USER_QUOTA_KEY }),
+      ]);
+      queryClient.setQueryData(USER_QUOTA_KEY, quota);
+      queryClient.setQueryData<AuthUser>(AUTH_KEY, (user) => user ? { ...user, tier: quota.tier } : user);
+    },
   });
 }
 

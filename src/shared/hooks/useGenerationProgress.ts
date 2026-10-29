@@ -102,7 +102,7 @@ export function useGenerationProgress(
   const projectRunning = isActiveStatus(projectProgress?.status);
 
   useEffect(() => {
-    const terminal = query.data?.status === 'COMPLETED' || query.data?.status === 'FAILED';
+    const terminal = query.data?.status === 'COMPLETED' || query.data?.status === 'PARTIAL' || query.data?.status === 'FAILED';
     if (!tracking || active || !terminal) return undefined;
     const timer = window.setTimeout(() => setTracking(false), TERMINAL_DISPLAY_MS);
     return () => window.clearTimeout(timer);
@@ -116,7 +116,7 @@ export function useGenerationProgress(
   }, [active, query.data?.status, query.isError, tracking]);
 
   useEffect(() => {
-    if (projectProgress?.status !== 'COMPLETED' && projectProgress?.status !== 'FAILED') return;
+    if (projectProgress?.status !== 'COMPLETED' && projectProgress?.status !== 'PARTIAL' && projectProgress?.status !== 'FAILED') return;
     const lastLog = projectProgress.logs[projectProgress.logs.length - 1];
     const completionId = `${projectId}:${projectProgress.stage}:${projectProgress.status}:${lastLog?.timestamp ?? 'terminal'}`;
     if (refreshedCompletion.current === completionId) return;

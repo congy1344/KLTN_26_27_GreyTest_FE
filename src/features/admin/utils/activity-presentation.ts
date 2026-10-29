@@ -12,6 +12,7 @@ const labels: Record<ActivityAction, string> = {
   ADMIN_ROLE_CHANGE: 'Đổi vai trò tài khoản',
   ADMIN_QUOTA_CHANGE: 'Điều chỉnh quota',
   USER_UPGRADE_TIER: 'Người dùng nâng cấp gói PRO',
+  USER_CANCEL_TIER: 'Người dùng hủy gói về Free',
   ADMIN_TIER_CHANGE: 'Đổi gói tài khoản (Tier)',
 };
 

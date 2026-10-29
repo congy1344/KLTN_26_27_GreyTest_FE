@@ -26,3 +26,9 @@ export async function fetchUserQuota(): Promise<UserQuota> {
   const { data } = await apiClient.get<UserQuota>('/user/quota');
   return data;
 }
+
+/** Hủy gói nâng cấp của người dùng hiện tại và nhận hạn mức Free. */
+export async function cancelSubscription(): Promise<UserQuota> {
+  const { data } = await apiClient.post<UserQuota>('/user/cancel-subscription');
+  return data;
+}

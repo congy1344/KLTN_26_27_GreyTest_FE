@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SourceUpdateModal } from './SourceUpdateModal';
 
@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   analyze: vi.fn(),
   generate: vi.fn(),
+  generateAll: vi.fn(),
   patch: vi.fn(),
   apply: vi.fn(),
   cancel: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock('../api/source-update-api', () => ({
   fetchSourceUpdate: mocks.fetch,
   analyzeSourceUpdate: mocks.analyze,
   generateIncrementalSourceUpdate: mocks.generate,
+  generateAllSourceUpdate: mocks.generateAll,
   patchSourceUpdateItem: mocks.patch,
   applySourceUpdate: mocks.apply,
   cancelSourceUpdate: mocks.cancel,
@@ -53,29 +55,177 @@ describe('SourceUpdateModal', () => {
     cleanup();
   });
 
+  it('restores completed stages from server checkpoints when reopened', async () => {
+    mocks.fetchProject.mockResolvedValue([{ id: 11, items: [], status: 'ANALYZED', impactSummary: null,
+      generationSummary: { stages: { BUSINESS_RULE: { state: 'SUCCEEDED', completed: true } }, conflicts: [], readyForApply: false } }]);
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    expect(screen.getByRole('button', { name: '✓ Đã sinh BR' })).toBeEnabled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it('reopens a failed partial draft so its completed output and conflicts can be resumed', async () => {
+    mocks.fetchProject.mockResolvedValue([{ id: 11, items: [], status: 'FAILED', impactSummary: '{}',
+      generationSummary: { stages: { BUSINESS_RULE: { state: 'SUCCEEDED', completed: true } }, conflicts: [], readyForApply: false } }]);
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    expect(screen.getByRole('button', { name: '✓ Đã sinh BR' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Sinh Tất Cả' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Áp Dụng Cập Nhật/ })).toBeDisabled();
+  });
+
+  it('keeps Apply disabled while proposals still need review', async () => {
+    mocks.fetchProject.mockResolvedValue([{ id: 11, status: 'READY_TO_APPLY', impactSummary: null,
+      items: [{ id: 1, targetType: 'TEST_CASE', action: 'UPDATE', reviewStatus: 'PENDING', afterData: '{}' }],
+      generationSummary: { stages: {}, conflicts: [], readyForApply: false } }]);
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    expect(screen.getByRole('button', { name: /Áp Dụng Cập Nhật/ })).toBeDisabled();
+    expect(mocks.patch).not.toHaveBeenCalled();
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
+  it('applies only reviewed server-ready drafts without generating or accepting items', async () => {
+    mocks.fetchProject.mockResolvedValue([{ id: 11, status: 'READY_TO_APPLY', impactSummary: null,
+      items: [{ id: 1, targetType: 'TEST_CASE', action: 'UPDATE', reviewStatus: 'ACCEPTED', afterData: '{}' }],
+      generationSummary: { stages: {}, conflicts: [], readyForApply: true } }]);
+    mocks.apply.mockResolvedValue({ id: 11, status: 'APPLIED' });
+    const applied = vi.fn();
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={applied} />);
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole('button', { name: /Áp Dụng Cập Nhật/ }));
+    await act(async () => undefined);
+    expect(applied).toHaveBeenCalledOnce();
+    expect(mocks.apply).toHaveBeenCalledOnce();
+    expect(mocks.patch).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.generateAll).not.toHaveBeenCalled();
+  });
+
+  it('sends the reviewed version with an explicit conflict choice', async () => {
+    const draft = { id: 11, status: 'ANALYZED', impactSummary: null,
+      items: [{ id: 1, targetType: 'BUSINESS_RULE', action: 'UPDATE', reviewStatus: 'MODIFIED', afterData: 'my content', version: 3, userRevision: 2 }],
+      generationSummary: { stages: {}, readyForApply: false, conflicts: [
+        { stage: 'BUSINESS_RULE', targetKey: '10', itemId: 1, proposedAfterData: 'AI proposal', proposedAction: 'UPDATE' },
+      ] } };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    mocks.patch.mockResolvedValue(draft.items[0]);
+    mocks.fetch.mockResolvedValue({ ...draft, generationSummary: { ...draft.generationSummary, conflicts: [] } });
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    expect(screen.getByText('AI proposal')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Giữ bản của tôi' }));
+    await act(async () => undefined);
+    expect(mocks.patch).toHaveBeenCalledWith(7, 11, 1, {
+      expectedVersion: 3, expectedUserRevision: 2, conflictStage: 'BUSINESS_RULE', conflictTargetKey: '10', resolution: 'KEEP_USER',
+    }, expect.anything());
+    expect(screen.queryByRole('region', { name: 'Xung đột cần giải quyết' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Áp Dụng Cập Nhật/ })).toBeDisabled();
+  });
+
+  it('polls an existing server run and never starts a duplicate generation', async () => {
+    const draft = { id: 11, status: 'ANALYZED', impactSummary: null, items: [],
+      generationSummary: { stages: {}, conflicts: [], readyForApply: false, running: true } };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    mocks.fetch.mockResolvedValue({ ...draft, generationSummary: { ...draft.generationSummary, running: false,
+      stages: { BUSINESS_RULE: { state: 'SUCCEEDED', completed: true } } } });
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    expect(screen.getByRole('button', { name: 'Sinh Tất Cả' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Đóng' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Hủy bản nháp' })).not.toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+    expect(screen.getByRole('button', { name: '✓ Đã sinh BR' })).toBeEnabled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.generateAll).not.toHaveBeenCalled();
+  });
+
+  it('shows applied update history above upload controls with added, modified and deleted items', async () => {
+    const applied = (id: number) => ({
+      id, projectId: 7, status: 'APPLIED', totalChangedMethods: 1, createdAt: '2026-10-23T09:00:00Z',
+      updatedAt: '2026-10-23T10:00:00Z', impactSummary: JSON.stringify({ changedMethods: [{
+        diffType: 'DELETED', methodKey: 'demo.PatientService#countActivePatients()', servicePath: 'backend/patient-service',
+      }] }),
+      items: [
+        { id: 1, targetType: 'METHOD', targetKey: 'demo.PatientService#countActivePatients()', action: 'REMOVE', reviewStatus: 'ACCEPTED', reason: 'Method đã xóa', beforeData: 'public long countActivePatients() { return 1; }' },
+        { id: 2, targetType: 'BUSINESS_RULE', targetId: 4047, action: 'CREATE', reviewStatus: 'ACCEPTED', reason: 'Thêm kiểm tra nhóm máu', afterData: '{"description":"Nhóm máu không được rỗng"}' },
+        { id: 3, targetType: 'TEST_PLAN', targetId: 1908, action: 'UPDATE', reviewStatus: 'MODIFIED', reason: 'Cập nhật Test Plan', afterData: '{"title":"Kiểm tra nhóm máu"}' },
+        { id: 4, targetType: 'TEST_CASE', targetId: 2654, action: 'REMOVE', reviewStatus: 'REJECTED', reason: 'Đề xuất bị từ chối' },
+      ],
+    });
+    mocks.fetchProject.mockResolvedValue([applied(215), { ...applied(217), status: 'CANCELLED' }, applied(216)]);
+    render(<SourceUpdateModal project={project} servicePath="backend/patient-service" isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+
+    const history = screen.getByRole('region', { name: 'Lịch sử cập nhật' });
+    const upload = screen.getByRole('button', { name: 'Upload file ZIP mới' });
+    expect(history.compareDocumentPosition(upload) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(within(history).getByRole('button', { name: /Lịch sử cập nhật/ }));
+    const newest = within(history).getByRole('button', { name: /Bản cập nhật #216/ });
+    expect(newest.compareDocumentPosition(within(history).getByRole('button', { name: /Bản cập nhật #215/ }))
+      & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(history).queryByText(/Bản cập nhật #217/)).not.toBeInTheDocument();
+    fireEvent.click(newest);
+    expect(within(history).getByRole('heading', { name: 'Đã thêm (1)' })).toBeVisible();
+    expect(within(history).getByRole('heading', { name: 'Đã sửa (1)' })).toBeVisible();
+    expect(within(history).getByRole('heading', { name: 'Đã xóa (1)' })).toBeVisible();
+    expect(within(history).getByText('demo.PatientService#countActivePatients()')).toBeVisible();
+    expect(within(history).getByText('Thêm kiểm tra nhóm máu')).toBeVisible();
+    expect(within(history).getByText('Cập nhật Test Plan')).toBeVisible();
+    expect(within(history).queryByText('Đề xuất bị từ chối')).not.toBeInTheDocument();
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.apply).not.toHaveBeenCalled();
+    expect(mocks.patch).not.toHaveBeenCalled();
+    expect(mocks.cancel).not.toHaveBeenCalled();
+  });
+
+  it('keeps upload available if loading history fails', async () => {
+    mocks.fetchProject.mockRejectedValue(new Error('Không tải được lịch sử'));
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    const history = screen.getByRole('region', { name: 'Lịch sử cập nhật' });
+    expect(within(history).getByRole('alert')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Upload file ZIP mới' })).toBeEnabled();
+  });
+
+  it('does not show stale history when an older project request finishes late', async () => {
+    let resolvePrevious!: (value: unknown[]) => void;
+    mocks.fetchProject.mockReturnValueOnce(new Promise((resolve) => { resolvePrevious = resolve; }))
+      .mockResolvedValueOnce([{ id: 300, projectId: 8, status: 'APPLIED', items: [], impactSummary: null, createdAt: '', updatedAt: '' }]);
+    const view = render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    view.rerender(<SourceUpdateModal project={{ ...project, id: 8 }} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    await act(async () => { resolvePrevious([{ id: 200, projectId: 7, status: 'APPLIED', items: [], impactSummary: null, createdAt: '', updatedAt: '' }]); });
+    fireEvent.click(screen.getByRole('button', { name: /Lịch sử cập nhật/ }));
+    expect(screen.getByRole('button', { name: /Bản cập nhật #300/ })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Bản cập nhật #200/ })).not.toBeInTheDocument();
+  });
+
   it('reports a generate-all timeout even when the draft can be fetched again', async () => {
     const draft = { id: 11, items: [], impactSummary: null, status: 'ANALYZED' };
     mocks.fetchProject.mockResolvedValue([draft]);
     mocks.fetch.mockResolvedValue(draft);
-    mocks.generate.mockReturnValue(new Promise(() => undefined));
+    mocks.generateAll.mockReturnValue(new Promise(() => undefined));
     render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
     await act(async () => undefined);
 
     fireEvent.click(screen.getByRole('button', { name: 'Sinh Tất Cả' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Business Rule');
+    expect(screen.getByRole('alert')).toHaveTextContent('toàn bộ pipeline');
     expect(screen.getByRole('alert')).toHaveTextContent('quá thời gian chờ');
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '10');
     expect(screen.getByRole('button', { name: 'Sinh Tất Cả' })).toBeEnabled();
-    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(mocks.generateAll).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('Đã đồng bộ lại trạng thái source update từ server.')).not.toBeInTheDocument();
   });
 
   it('keeps the failing stage and backend reason visible when generate-all stops', async () => {
-    const draft = { id: 11, items: [], impactSummary: null, status: 'ANALYZED' };
+    const draft = { id: 11, items: [], impactSummary: null, status: 'ANALYZED',
+      generationSummary: { stages: { BUSINESS_RULE: { state: 'SUCCEEDED', completed: true } }, conflicts: [], readyForApply: false } };
     mocks.fetchProject.mockResolvedValue([draft]);
-    mocks.generate.mockResolvedValueOnce(draft).mockRejectedValueOnce(new Error('Hết quota LLM'));
+    mocks.fetch.mockResolvedValue(draft);
+    mocks.generateAll.mockRejectedValueOnce(new Error('Test Plan: Hết quota LLM'));
     render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
     await act(async () => undefined);
 
@@ -86,22 +236,23 @@ describe('SourceUpdateModal', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Hết quota LLM');
     expect(screen.getByRole('region', { name: 'Nội dung cập nhật source' }))
       .not.toContainElement(screen.getByRole('alert'));
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '35');
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '10');
     expect(screen.getByRole('button', { name: '✓ Đã sinh BR' })).toBeEnabled();
-    expect(mocks.generate).toHaveBeenCalledTimes(2);
+    expect(mocks.generateAll).toHaveBeenCalledTimes(1);
+    expect(mocks.generate).not.toHaveBeenCalled();
   });
 
   it('shows the timeout immediately while checking the draft is also stalled', async () => {
     mocks.fetchProject.mockResolvedValue([{ id: 11, items: [], impactSummary: null, status: 'ANALYZED' }]);
     mocks.fetch.mockReturnValue(new Promise(() => undefined));
-    mocks.generate.mockReturnValue(new Promise(() => undefined));
+    mocks.generateAll.mockReturnValue(new Promise(() => undefined));
     render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
     await act(async () => undefined);
     fireEvent.click(screen.getByRole('button', { name: 'Sinh Tất Cả' }));
 
     await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Business Rule');
+    expect(screen.getByRole('alert')).toHaveTextContent('toàn bộ pipeline');
     expect(screen.getByRole('button', { name: 'Sinh Tất Cả' })).toBeEnabled();
   });
 
@@ -125,7 +276,7 @@ describe('SourceUpdateModal', () => {
   it('shows generate-all success outside the scrolling draft content', async () => {
     const draft = { id: 11, items: [], impactSummary: null, status: 'ANALYZED' };
     mocks.fetchProject.mockResolvedValue([draft]);
-    mocks.generate.mockResolvedValue(draft);
+    mocks.generateAll.mockResolvedValue(draft);
     render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
     await act(async () => undefined);
 
@@ -136,8 +287,8 @@ describe('SourceUpdateModal', () => {
     expect(screen.getByRole('region', { name: 'Nội dung cập nhật source' }))
       .not.toContainElement(screen.getByRole('status'));
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
-    expect(mocks.generate.mock.calls.map((call) => call[2]))
-      .toEqual(['BUSINESS_RULE', 'TEST_PLAN', 'TEST_CASE', 'UNIT_TEST']);
+    expect(mocks.generateAll).toHaveBeenCalledOnce();
+    expect(mocks.generate).not.toHaveBeenCalled();
   });
 
   it('shows upload progress percentage while the source update is running', async () => {

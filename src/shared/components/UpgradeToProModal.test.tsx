@@ -31,7 +31,7 @@ describe('UpgradeToProModal', () => {
       data: {
         paymentUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?token=123',
         orderId: 'VNP_TEST_123',
-        amount: 2000,
+        amount: 20000,
       },
     });
 
@@ -55,9 +55,11 @@ describe('UpgradeToProModal', () => {
     expect(screen.getByText('Gói PRO')).toBeInTheDocument();
     expect(screen.getByText('200 lượt gọi AI')).toBeInTheDocument();
     expect(screen.getByText('300 lượt gọi AI')).toBeInTheDocument();
+    expect(screen.getByText('Sinh tối đa 3 batch đồng thời')).toBeInTheDocument();
+    expect(screen.getByText('Sinh tối đa 4 batch đồng thời')).toBeInTheDocument();
 
     // Select PRO tier (default is PRO)
-    const payButton = screen.getByRole('button', { name: /Thanh toán qua VNPay/i });
+    const payButton = screen.getByRole('button', { name: 'Thanh toán qua VNPay (20.000 VNĐ)' });
     expect(payButton).toBeInTheDocument();
 
     fireEvent.click(payButton);
@@ -72,7 +74,7 @@ describe('UpgradeToProModal', () => {
       data: {
         paymentUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?token=456',
         orderId: 'VNP_TEST_456',
-        amount: 1000,
+        amount: 10000,
       },
     });
 
@@ -90,7 +92,7 @@ describe('UpgradeToProModal', () => {
     const plusOption = screen.getByText('Gói PLUS');
     fireEvent.click(plusOption);
 
-    const payButton = screen.getByRole('button', { name: /Thanh toán qua VNPay/i });
+    const payButton = screen.getByRole('button', { name: 'Thanh toán qua VNPay (10.000 VNĐ)' });
     expect(payButton).toBeInTheDocument();
 
     fireEvent.click(payButton);

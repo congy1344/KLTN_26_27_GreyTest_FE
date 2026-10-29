@@ -123,27 +123,108 @@ function extractLogItems(message: string): { label: string; items: string[] } | 
   return { label, items };
 }
 
+/** Chuyển đổi các thông điệp log kỹ thuật/testability thô sang câu thông báo ngắn gọn, dễ hiểu cho người dùng */
+export function formatHumanLogMessage(message: string): string {
+  if (!message) return message;
+
+  // Pattern 1: "Testability method 16759: UNKNOWN / READY / BLOCKED — ..."
+  const rawMethodMatch = message.match(/^Testability\s+method\s+(\d+):\s*([A-Z_]+)\s*—\s*(.+)$/i);
+  if (rawMethodMatch) {
+    const [, methodId, status, rawEvidence] = rawMethodMatch;
+
+    // Trích xuất method name nếu có
+    const methodNameMatch = rawEvidence.match(/(?:.*[\\/])?[A-Za-z0-9_]+\.java:\d+\s+([A-Za-z0-9_]+)/);
+    const methodName = methodNameMatch?.[1];
+    const target = methodName || `Method #${methodId}`;
+
+    let summary = 'Cần lưu ý cấu trúc mã nguồn.';
+    if (rawEvidence.includes('UNCONTROLLED_RANDOM')) {
+      summary = 'Chứa nhánh ngẫu nhiên không điều khiển được.';
+    } else if (rawEvidence.includes('COLLECTION_MUTATION')) {
+      summary = 'Có sửa đổi collection nội bộ.';
+    } else if (rawEvidence.includes('UNRESOLVED_HELPER_PATH')) {
+      summary = 'Có lời gọi helper nội bộ cần kiểm tra.';
+    } else if (rawEvidence.includes('UNCONTROLLED_TIME') || rawEvidence.includes('NONDETERMINISM')) {
+      summary = 'Dùng thời gian hoặc ngẫu nhiên nội bộ.';
+    } else if (rawEvidence.includes('INTERNAL_FINAL')) {
+      summary = 'Collaborator final khởi tạo nội bộ.';
+    }
+
+    const tag = status.toUpperCase() === 'BLOCKED' ? '[Cảnh báo]' : '[Lưu ý]';
+    return `${tag} ${target}: ${summary}`;
+  }
+
+  // Pattern 2: "Testability TC-40 (40): BLOCKED: UNCONTROLLED_RANDOM_BRANCH @ path:line execute — ..."
+  const rawCaseMatch = message.match(/^Testability\s+([A-Za-z0-9_-]+)\s*\(([^)]+)\):\s*(.+)$/i);
+  if (rawCaseMatch) {
+    const [, caseCode, , rawDetails] = rawCaseMatch;
+    let summary = 'Chưa đủ điều kiện sinh test tự động.';
+    if (rawDetails.includes('Math.random') || rawDetails.includes('RANDOM')) {
+      summary = 'Nhánh Math.random() không thể điều khiển tự động.';
+    } else if (rawDetails.includes('COLLECTION')) {
+      summary = 'Collection fixture bị sửa đổi trực tiếp.';
+    }
+    return `[Cảnh báo] Tạm bỏ qua ca kiểm thử ${caseCode}: ${summary}`;
+  }
+
+  // Chuẩn hóa và rút gọn nếu log đã có tiền tố dài [Lưu ý kiểm thử] hoặc [Cảnh báo kiểm thử]
+  if (message.startsWith('[Lưu ý kiểm thử]') || message.startsWith('[Cảnh báo kiểm thử]')) {
+    const beforePipe = message.split('|')[0].trim();
+    return beforePipe
+      .replace(/^\[Lưu ý kiểm thử\]/, '[Lưu ý]')
+      .replace(/^\[Cảnh báo kiểm thử\]/, '[Cảnh báo]');
+  }
+
+  return message;
+}
+
 /** Hiển thị tóm tắt ngắn gọn ở dòng log thu gọn ngoài danh sách */
 function formatCollapsedLogMessage(message: string): string {
-  const match = message.match(/\(([^)]+)\)/);
-  if (!match) return message;
+  const humanized = formatHumanLogMessage(message);
+  const match = humanized.match(/\(([^)]+)\)/);
+  if (!match) return humanized;
   const inside = match[1].trim();
   const items = inside.split(',').map((s) => s.trim()).filter(Boolean);
-  if (items.length <= 2) return message;
+  if (items.length <= 2) return humanized;
 
   const remaining = items.length - 2;
   const preview = `${items[0]}, ${items[1]} (+${remaining} chi tiết)`;
-  return message.replace(`(${inside})`, `(${preview})`);
+  return humanized.replace(`(${inside})`, `(${preview})`);
 }
 
-/** Tùy biến màu chữ thông điệp log phù hợp theo ngữ cảnh (thành công, lỗi, thông thường) */
-function getLogMessageColor(message: string): string {
+/** Tùy biến màu chữ thông điệp log phù hợp theo ngữ cảnh (thành công, lỗi, cảnh báo/lưu ý, đang xử lý) */
+export function getLogMessageColor(message: string): string {
   const lower = message.toLowerCase();
+  // Ưu tiên kiểm tra lỗi trước: log lỗi (thất bại, dừng ở batch, quota...) luôn phải hiển thị màu đỏ,
+  // kể cả khi câu có chứa từ ngữ như "đã sinh trước đó" hoặc "đã lưu".
+  if (
+    lower.includes('thất bại') ||
+    lower.includes('lỗi') ||
+    lower.includes('error') ||
+    lower.includes('failed') ||
+    lower.includes('failure') ||
+    lower.includes('exception') ||
+    lower.includes('dừng ở batch') ||
+    lower.includes('quota')
+  ) {
+    return 'text-fg-danger-strong font-medium';
+  }
+  // Cảnh báo / lưu ý khả năng kiểm thử / testability hiển thị màu cam/hổ phách nổi bật
+  if (
+    lower.includes('cảnh báo') ||
+    lower.includes('lưu ý') ||
+    lower.includes('testability') ||
+    lower.includes('khả năng kiểm thử') ||
+    lower.includes('bị chặn') ||
+    lower.includes('tạm bỏ qua') ||
+    lower.includes('warning') ||
+    lower.includes('blocked') ||
+    lower.includes('chưa cover đủ')
+  ) {
+    return 'text-amber-600 dark:text-amber-400 font-medium';
+  }
   if (lower.includes('hoàn tất') || lower.includes('thành công') || lower.includes('đã sinh') || lower.includes('hợp lệ')) {
     return 'text-fg-success-strong font-medium';
-  }
-  if (lower.includes('thất bại') || lower.includes('lỗi') || lower.includes('error') || lower.includes('failed')) {
-    return 'text-fg-danger-strong font-medium';
   }
   if (lower.includes('đang gọi ai') || lower.includes('đang xử lý') || lower.includes('đang phân tích') || lower.includes('đang kiểm tra') || lower.includes('đang gửi')) {
     return 'text-fg-brand-strong font-medium';
@@ -227,14 +308,15 @@ export function AiGenerationProgress({
   }, [progress, latestStorageKey]);
 
   const currentProgress = (progress && progress.status !== 'IDLE') ? progress : persistedProgress;
-  const percent = Math.min(Math.max(currentProgress?.percent ?? 0, 0), 100);
+  const percent = Math.min(Math.max(currentProgress?.percent ?? 0, 0), currentProgress?.status === 'PARTIAL' ? 99 : 100);
   const hasDeterminateProgress = Boolean(currentProgress && currentProgress.totalSteps > 0);
 
   const isCompleted = currentProgress?.status === 'COMPLETED';
+  const isPartial = currentProgress?.status === 'PARTIAL';
   const isFailed = currentProgress?.status === 'FAILED';
   const isQueued = currentProgress?.status === 'QUEUED';
   const isPaused = currentProgress?.status === 'PAUSED';
-  const isRunning = !isCompleted && !isFailed && !isPaused
+  const isRunning = !isCompleted && !isPartial && !isFailed && !isPaused
     && (active || isQueued || currentProgress?.status === 'RUNNING');
 
   const runKey = getProgressRunKey(currentProgress);
@@ -370,7 +452,7 @@ export function AiGenerationProgress({
 
   // Tính toán thời gian làm việc của AI (start -> end hoặc start -> now)
   const startTimeMs = parseLogTimestamp(currentProgress?.logs?.[0]?.timestamp) ?? sessionStartRef.current;
-  const endTimeMs = (isCompleted || isFailed)
+  const endTimeMs = (isCompleted || isPartial || isFailed)
     ? (parseLogTimestamp(currentProgress?.logs?.[currentProgress.logs.length - 1]?.timestamp) ?? now)
     : now;
 
@@ -378,9 +460,11 @@ export function AiGenerationProgress({
   const executionTimeText = startTimeMs ? formatDuration(executionSeconds) : (latestTime || '');
 
   const currentMessage = latestLog
-    ? latestLog.message
+    ? formatHumanLogMessage(latestLog.message)
     : currentProgress?.steps.find((s) => s.status === 'RUNNING')?.label
-    || (isPaused
+    || (isPartial
+      ? t('Hoàn tất một phần. Một số Test Case chưa có Unit Test.', 'Partially completed. Some test cases have no unit test.')
+      : isPaused
       ? t('Tác vụ đã tạm dừng. Các batch đã sinh được lưu an toàn.', 'Task paused. Generated batches are safely saved.')
       : isQueued
         ? t('Tác vụ đã vào hàng đợi và sẽ tự chạy nền.', 'Task is queued and running in background.')
@@ -393,7 +477,7 @@ export function AiGenerationProgress({
   const handleCopyLogs = () => {
     if (!currentProgress?.logs || currentProgress.logs.length === 0) return;
     const text = currentProgress.logs
-      .map((l) => `[${formatLogTime(l.timestamp)}] ${l.message}`)
+      .map((l) => `[${formatLogTime(l.timestamp)}] ${formatHumanLogMessage(l.message)}`)
       .join('\n');
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
@@ -403,7 +487,9 @@ export function AiGenerationProgress({
 
   const announcement = (
     <span role="status" aria-live="polite" className="sr-only">
-      {isPaused
+      {isPartial
+        ? `${label}: ${t('hoàn tất một phần', 'partially completed')} ${percent}%`
+        : isPaused
         ? `${label}: ${t('đã tạm dừng', 'paused')} ${percent}%`
         : isFailed
           ? `${label}: ${t('thất bại', 'failed')} ${percent}%`
@@ -438,6 +524,8 @@ export function AiGenerationProgress({
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-primary shadow-xs border border-border-default shrink-0">
                 {isCompleted ? (
                   <CheckCircle2 size={16} className="text-fg-success-strong" />
+                ) : isPartial ? (
+                  <AlertCircle size={16} className="text-amber-500" />
                 ) : isFailed ? (
                   <AlertCircle size={16} className="text-fg-danger-strong" />
                 ) : isPaused ? (
@@ -463,6 +551,11 @@ export function AiGenerationProgress({
               {isCompleted && (
                 <span className="rounded-full bg-success-soft px-2.5 py-0.5 text-[10px] font-semibold text-fg-success-strong border border-border-success-subtle">
                   {t('Hoàn thành', 'Completed')}
+                </span>
+              )}
+              {isPartial && (
+                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-500 border border-amber-500/20">
+                  {t('Hoàn tất một phần', 'Partially completed')}
                 </span>
               )}
               {isFailed && (
@@ -507,7 +600,7 @@ export function AiGenerationProgress({
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
                   : isFailed
                     ? 'bg-gradient-to-r from-rose-500 to-red-500'
-                    : isPaused
+                    : isPaused || isPartial
                       ? 'bg-gradient-to-r from-amber-500 to-orange-400'
                       : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400 animate-pulse'
               }`}
@@ -521,7 +614,7 @@ export function AiGenerationProgress({
               {/* Thông báo trạng thái mới nhất - nền đặc */}
               <div className="shrink-0 flex items-start justify-between gap-2.5 rounded-xl bg-neutral-secondary p-3 border border-border-default-subtle">
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium leading-relaxed text-heading">
+                  <p className={`text-xs font-medium leading-relaxed ${getLogMessageColor(currentMessage)}`}>
                     {currentMessage}
                   </p>
                   {isPaused && onResume && (
@@ -713,7 +806,7 @@ export function AiGenerationProgress({
                                     className="flex items-center gap-1 rounded px-1.5 py-0.5 text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading transition-colors"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleCopySingleLog(log.message, index);
+                                      handleCopySingleLog(formatHumanLogMessage(log.message), index);
                                     }}
                                     title={t('Sao chép toàn bộ dòng log này', 'Copy this full log entry')}
                                   >
@@ -735,7 +828,7 @@ export function AiGenerationProgress({
 
                                 {/* Thông điệp hoàn chỉnh */}
                                 <p className="font-mono text-[11px] text-heading whitespace-pre-wrap break-words leading-relaxed select-text bg-neutral-primary-soft p-2 rounded-md border border-border-default-subtle">
-                                  {log.message}
+                                  {formatHumanLogMessage(log.message)}
                                 </p>
 
                                 {/* Danh sách chi tiết từng đối tượng cụ thể */}
@@ -786,6 +879,8 @@ export function AiGenerationProgress({
               <Loader2 size={12} className="animate-spin text-fg-brand" />
             ) : isCompleted ? (
               <CheckCircle2 size={12} className="text-fg-success-strong" />
+            ) : isPartial ? (
+              <AlertCircle size={12} className="text-amber-500" />
             ) : isFailed ? (
               <AlertCircle size={12} className="text-fg-danger-strong" />
             ) : isPaused ? (
