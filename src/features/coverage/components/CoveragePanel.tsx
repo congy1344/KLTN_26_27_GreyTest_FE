@@ -17,6 +17,7 @@ import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { MetricCard } from '../../../shared/components/MetricCard';
 import { useLanguage } from '../../../shared/i18n/language';
+import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { parseApiDate } from '../../../shared/utils/date-time';
 import { useCoverageReport, useStartCoverageRefinement, useUploadCoverage } from '../hooks/useCoverage';
 import type { CoverageGap } from '../types';
@@ -246,6 +247,7 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
 }
 
 function GapRow({ gap }: { gap: CoverageGap }) {
+  const { t, language } = useLanguage();
   const missedLines = gap.missedLines.length
     ? gap.missedLines.slice(0, 5).join(', ') + (gap.missedLines.length > 5 ? ', ...' : '')
     : '-';
@@ -256,16 +258,16 @@ function GapRow({ gap }: { gap: CoverageGap }) {
         <p className="mt-1 text-xs leading-relaxed text-body-subtle">{gap.suggestion}</p>
       </div>
       <span className="font-mono text-xs text-body-subtle" title={gap.missedLines.join(', ')}>
-        Lines {missedLines}
+        {t('Dòng', 'Lines')} {missedLines}
       </span>
       <span className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
         gap.risk === 'HIGH' ? 'bg-danger-soft text-fg-danger-strong' : 'bg-warning-soft text-fg-warning'
       }`}>
         {gap.risk === 'HIGH' ? <AlertTriangle size={11} /> : <CheckCircle2 size={11} />}
-        {gap.risk}
+        {formatSemanticLabel(gap.risk, language)}
       </span>
       <span className="inline-flex w-fit rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-fg-success-strong">
-        {gap.refinable ? 'Service · Có thể bổ sung' : 'Có thể bổ sung'}
+        {gap.refinable ? t('Service · Có thể bổ sung', 'Service · Refinable') : t('Có thể bổ sung', 'Refinable')}
       </span>
     </article>
   );

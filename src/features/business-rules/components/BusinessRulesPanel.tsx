@@ -19,7 +19,7 @@ import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
-import { SemanticBadge } from '../../../shared/components/SemanticBadge';
+import { formatSemanticLabel, SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { useAnalysis } from '../../projects/hooks/useProjects';
 import type { ProjectStatus, SourceBranchInfo } from '../../projects/types';
@@ -36,7 +36,7 @@ import {
   useUpdateBusinessRule,
 } from '../hooks/useBusinessRules';
 import type { BusinessRule, BusinessRuleReview } from '../types';
-import { cleanAiText, splitBusinessRuleText } from '../utils/business-rule-text';
+import { cleanAiText, formatBusinessRuleReviewNote, splitBusinessRuleText } from '../utils/business-rule-text';
 import { useLanguage } from '../../../shared/i18n/language';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
@@ -65,7 +65,7 @@ function sourceDecisions(branches: SourceBranchInfo[]) {
 export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affectedRuleIds, projectStatus }: BusinessRulesPanelProps) {
   const navigate = useNavigate();
   const isPastRules = Boolean(projectStatus && ['BR_APPROVED', 'PLAN_PENDING_REVIEW', 'PLAN_APPROVED', 'CASE_PENDING_REVIEW', 'CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED'].includes(projectStatus));
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const impactData = useSourceUpdateImpact(projectId);
   const effectiveMethodDiffMap = methodDiffMap ?? impactData.methodDiffMap;
   const effectiveAffectedRuleIds = affectedRuleIds ?? impactData.affectedRuleIds;
@@ -293,7 +293,10 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
     const review = reviewByRuleId.get(rule.id);
     const sourceMismatch = review?.verdict === 'SOURCE_MISMATCH'
       || rule.reviewNote?.startsWith('SOURCE_MISMATCH:');
-    const mismatchLabel = t('BR không khớp với code', 'BR differs from code');
+    const reviewNote = formatBusinessRuleReviewNote(
+      review ? `${review.verdict}: ${review.reason}` : rule.reviewNote,
+      language,
+    );
     const suggestedDescription = rule.suggestedDescription?.trim()
       || review?.suggestedDescription?.trim();
     const showSuggestion = !sourceMismatch && suggestedDescription && !dismissedSuggestionIds.has(rule.id);
@@ -311,9 +314,8 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
       : undefined;
     const isAdded = !isPastRules && (addedRuleIds.has(rule.id) || diffType === 'ADDED');
     const isDeleted = !isPastRules && (deletedRuleIds.has(rule.id) || diffType === 'DELETED');
-    const isModified = !isPastRules && !isAdded && !isDeleted && (
-      modifiedRuleIds.has(rule.id) || effectiveAffectedRuleIds.has(rule.id) || rule.isModified || diffType === 'MODIFIED'
-    );
+    const sourceChanged = modifiedRuleIds.has(rule.id) || effectiveAffectedRuleIds.has(rule.id) || diffType === 'MODIFIED';
+    const isModified = !isPastRules && !isAdded && !isDeleted && (sourceChanged || rule.isModified);
 
     const cardClass = isAdded
       ? 'rounded-default border-2 border-emerald-500/60 bg-emerald-500/[0.04] p-3 shadow-xs transition-colors'
@@ -330,22 +332,24 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs font-semibold text-heading">{rule.ruleCode}</span>
               <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
-                {rule.source}
+                {formatSemanticLabel(rule.source, language)}
               </span>
               <SemanticBadge kind="review-status" value={rule.status} />
               {isAdded && (
                 <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                  + MỚI THÊM
+                  {t('+ Mới thêm', '+ Added')}
                 </span>
               )}
               {isDeleted && (
                 <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
-                  - ĐÃ XÓA
+                  {t('- Đã xóa', '- Deleted')}
                 </span>
               )}
               {isModified && (
                 <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                  ~ CẬP NHẬT THEO CODE
+                  {sourceChanged
+                    ? t('Code liên quan đã thay đổi', 'Related code changed')
+                    : t('Đã chỉnh sửa', 'Edited')}
                 </span>
               )}
             </div>
@@ -416,17 +420,15 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
           </div>
         </div>
 
-        {rule.reviewNote && (
+        {reviewNote && !review && (
           <p className="mt-2 text-xs leading-relaxed text-body-subtle">
-            {rule.reviewNote.startsWith('SOURCE_MISMATCH:')
-              ? `${mismatchLabel}:${rule.reviewNote.slice('SOURCE_MISMATCH:'.length)}`
-              : rule.reviewNote}
+            {reviewNote}
           </p>
         )}
 
         {(review || showSuggestion) && (
           <div className="mt-3 rounded-default border border-border-warning-subtle bg-warning-soft p-3 text-xs text-fg-warning">
-            {review && <p className="font-semibold">{review.verdict === 'SOURCE_MISMATCH' ? mismatchLabel : review.verdict}: {review.reason}</p>}
+            {review && reviewNote && <p className="font-semibold">{reviewNote}</p>}
             {showSuggestion && (
               <div className="mt-2 space-y-2">
                 <p className="leading-relaxed text-heading">{suggestedDescription}</p>
@@ -663,17 +665,17 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
                                   </span>
                                   {methodDiff === 'ADDED' && (
                                     <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                                      + MỚI THÊM
+                                      {t('+ Mới thêm', '+ Added')}
                                     </span>
                                   )}
                                   {methodDiff === 'MODIFIED' && (
                                     <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-amber-600 dark:text-amber-400">
-                                      ~ CẬP NHẬT THEO CODE
+                                      {t('Code đã thay đổi', 'Code changed')}
                                     </span>
                                   )}
                                   {methodDiff === 'DELETED' && (
                                     <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-rose-600 dark:text-rose-400">
-                                      - ĐÃ XÓA
+                                      {t('- Đã xóa', '- Deleted')}
                                     </span>
                                   )}
                                 </p>
@@ -708,7 +710,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
                               <p className="font-mono font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2">
                                 <span className="line-through">{dm.signature}</span>
                                 <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold">
-                                  - ĐÃ XÓA
+                                  {t('- Đã xóa', '- Deleted')}
                                 </span>
                               </p>
                             </div>

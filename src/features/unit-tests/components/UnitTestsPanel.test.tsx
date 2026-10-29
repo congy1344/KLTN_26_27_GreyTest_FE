@@ -133,15 +133,15 @@ describe('UnitTestsPanel', () => {
     expect(localStorage.getItem('greytest.unit-tests-coverage-navigated.105')).toBe('true');
   });
 
-  it('shows + MỚI THÊM and NEW TEST initially, but clears them once coverage is navigated', () => {
+  it('shows localized new-test tags, but clears them once coverage is navigated', () => {
     localStorage.clear();
     mocks.tests = [
       { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java', generationType: 'NEW_TEST' },
     ];
     const { unmount } = renderPanel();
 
-    expect(screen.getByText('+ MỚI THÊM')).toBeInTheDocument();
-    expect(screen.getByText('NEW TEST')).toBeInTheDocument();
+    expect(screen.getByText('+ Mới thêm')).toBeInTheDocument();
+    expect(screen.getByText('Test mới')).toBeInTheDocument();
 
     // Người dùng ấn nút Tiếp tục đến Coverage
     fireEvent.click(screen.getByRole('button', { name: /Tiếp tục đến Coverage/ }));
@@ -151,8 +151,8 @@ describe('UnitTestsPanel', () => {
 
     // Khi người dùng quay lại hoặc mở lại panel, các tag dấu hiệu mới thêm đã được xóa
     renderPanel();
-    expect(screen.queryByText('+ MỚI THÊM')).not.toBeInTheDocument();
-    expect(screen.queryByText('NEW TEST')).not.toBeInTheDocument();
+    expect(screen.queryByText('+ Mới thêm')).not.toBeInTheDocument();
+    expect(screen.queryByText('Test mới')).not.toBeInTheDocument();
   });
 
   it('does not scroll automatically on initial render', () => {
@@ -340,8 +340,8 @@ describe('UnitTestsPanel', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getAllByText('~ CẬP NHẬT THEO CODE').length).toBeGreaterThan(0);
-    expect(screen.getByText('IMPROVE EXISTING TEST')).toBeInTheDocument();
+    expect(screen.getAllByText('Có thay đổi liên quan').length).toBeGreaterThan(0);
+    expect(screen.getByText('Cải thiện test có sẵn')).toBeInTheDocument();
     unmount();
 
     // Khi đã qua bước coverage (COVERAGE_ANALYZED) -> ẩn toàn bộ dấu hiệu
@@ -352,7 +352,7 @@ describe('UnitTestsPanel', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.queryAllByText('~ CẬP NHẬT THEO CODE')).toHaveLength(0);
-    expect(screen.queryByText('IMPROVE EXISTING TEST')).not.toBeInTheDocument();
+    expect(screen.queryAllByText('Có thay đổi liên quan')).toHaveLength(0);
+    expect(screen.queryByText('Cải thiện test có sẵn')).not.toBeInTheDocument();
   });
 });

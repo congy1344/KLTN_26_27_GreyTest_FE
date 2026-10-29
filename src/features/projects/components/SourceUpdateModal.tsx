@@ -36,6 +36,8 @@ import type {
   SourceUpdateReviewStatus,
 } from '../types';
 import { getErrorMessage } from '../../../shared/api/api-client';
+import { useLanguage } from '../../../shared/i18n/language';
+import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 
 interface SourceUpdateModalProps {
   project: Project;
@@ -96,6 +98,7 @@ function isSourceUpdateTimeout(error: unknown): boolean {
 const progressPercent = (percent: number) => Math.min(100, Math.max(0, Math.round(percent)));
 
 export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApplied }: SourceUpdateModalProps) {
+  const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'ZIP' | 'GITHUB'>(project.sourceType === 'GITHUB' ? 'GITHUB' : 'ZIP');
   const [file, setFile] = useState<File | null>(null);
   const [branch, setBranch] = useState('main');
@@ -829,9 +832,8 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                                       : 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
                                   }`}
                                 >
-                                  {m.diffType === 'ADDED' && '+ THÊM MỚI'}
-                                  {m.diffType === 'MODIFIED' && '~ ĐÃ SỬA'}
-                                  {m.diffType === 'DELETED' && '- ĐÃ XÓA'}
+                                  {m.diffType === 'ADDED' && '+ '}{m.diffType === 'DELETED' && '- '}
+                                  {formatSemanticLabel(m.diffType, language)}
                                 </span>
                                 <span className="font-mono font-semibold text-heading truncate">{m.signature}</span>
                                 {m.isServiceMethod && (
@@ -989,7 +991,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                   <h3 className="text-sm font-bold text-heading flex items-center gap-2">
                     <span>Các Đề Xuất Cập Nhật Đang Chờ Duyệt ({updateDraft.items?.length ?? 0})</span>
                     <span className="text-xs font-normal text-body-subtle">
-                      (Bản nháp: <span className="font-semibold text-brand">{updateDraft.status}</span>)
+                      ({t('Bản nháp', 'Draft')}: <span className="font-semibold text-brand">{formatSemanticLabel(updateDraft.status, language)}</span>)
                     </span>
                   </h3>
                   {updateDraft.items && updateDraft.items.some((i) => i.reviewStatus !== 'ACCEPTED') && (
@@ -1021,7 +1023,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className="rounded bg-neutral-secondary-soft px-2 py-0.5 font-mono text-[11px] font-bold text-body">
-                                {item.targetType}
+                                {formatSemanticLabel(item.targetType, language)}
                               </span>
                               <span
                                 className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
@@ -1034,7 +1036,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                                     : 'bg-neutral-secondary-soft text-body-subtle'
                                 }`}
                               >
-                                {item.action}
+                                {formatSemanticLabel(item.action, language)}
                               </span>
                               <span className="text-xs text-body">{item.reason || item.targetKey || `ID #${item.targetId}`}</span>
                             </div>
@@ -1049,7 +1051,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                                     : 'bg-neutral-secondary-soft text-body-subtle'
                                 }`}
                               >
-                                {item.reviewStatus}
+                                {formatSemanticLabel(item.reviewStatus, language)}
                               </span>
 
                               <button

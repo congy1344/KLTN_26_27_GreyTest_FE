@@ -24,6 +24,7 @@ import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { MetricCard } from '../../../shared/components/MetricCard';
 import { useLanguage } from '../../../shared/i18n/language';
+import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { cleanAiText } from '../../business-rules/utils/business-rule-text';
 import { parseReportSummary, useReportExport } from '../hooks/useReport';
 import type { ReportFormat } from '../types';
@@ -117,10 +118,12 @@ const MARKDOWN_COMPONENTS = {
       {children}
     </th>
   ),
-  td: ({ children, ...props }: any) => {
+  td: function ReportTableCell({ children, ...props }: any) {
+    const { language } = useLanguage();
     const raw = typeof children === 'string' ? children.trim() : '';
     const isCode = /^(BR-\d+|TP-\d+|TC-\d+)$/i.test(raw);
-    const isStatus = /^(APPROVED|REJECTED|PENDING)$/i.test(raw);
+    const isStatus = /^(APPROVED|REJECTED|PENDING|PENDING_REVIEW|DRAFT)$/i.test(raw);
+    const isPriority = /^(HIGH|MEDIUM|LOW)$/i.test(raw);
     const isMetricOrNumber = /^(\d+(\.\d+)?%?|-|HIGH|MEDIUM|LOW)$/i.test(raw);
 
     return (
@@ -137,17 +140,17 @@ const MARKDOWN_COMPONENTS = {
         ) : isStatus ? (
           <span
             className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-              raw === 'APPROVED'
+              raw.toUpperCase() === 'APPROVED'
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : raw === 'REJECTED'
+                : raw.toUpperCase() === 'REJECTED'
                   ? 'border-rose-200 bg-rose-50 text-rose-700'
                   : 'border-amber-200 bg-amber-50 text-amber-700'
             }`}
           >
-            {children}
+            {formatSemanticLabel(raw.toUpperCase(), language)}
           </span>
         ) : (
-          children
+          isPriority ? formatSemanticLabel(raw.toUpperCase(), language) : children
         )}
       </td>
     );
@@ -169,6 +172,7 @@ const SectionCard = memo(function SectionCard({
   collapseLabel,
   expandLabel,
 }: SectionCardProps) {
+  const { t } = useLanguage();
   // Chỉ render Markdown khi mục được mở ít nhất một lần, và sau đó giữ trong DOM để toggle bằng CSS (0ms)
   const [hasRendered, setHasRendered] = useState(isOpen);
 
@@ -202,7 +206,7 @@ const SectionCard = memo(function SectionCard({
           <h2 className="text-sm font-bold text-heading">{section.title}</h2>
           {section.badge && (
             <span className="rounded-full border border-border-default bg-neutral-primary-soft px-2 py-0.5 text-[11px] font-medium text-body-subtle">
-              {section.badge}
+              {section.badge.replace('items', t('mục', 'items'))}
             </span>
           )}
         </div>

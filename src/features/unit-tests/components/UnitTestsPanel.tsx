@@ -17,6 +17,7 @@ import { downloadUnitTestsZip } from '../api/unit-test-api';
 import { useGenerateUnitTests, useUnitTestFiles, useUnitTests } from '../hooks/useUnitTests';
 import type { UnitTest, UnitTestFile } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
+import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
@@ -79,7 +80,7 @@ export function UnitTestsPanel({
   const [downloading, setDownloading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [downloadError, setDownloadError] = useState('');
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const approvedCases = useMemo(() => (cases.data ?? []).filter((item) => item.status === 'APPROVED'), [cases.data]);
   const eligibleCases = approvedCases;
   const approvedCaseById = useMemo(
@@ -439,21 +440,21 @@ export function UnitTestsPanel({
                 <span className="rounded-full bg-brand-softer px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong">{testCase?.caseCode ?? `#${item.testCaseId}`}</span>
                 {hasAdded && (
                   <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                    + MỚI THÊM
+                    {t('+ Mới thêm', '+ Added')}
                   </span>
                 )}
                 {hasDeleted && (
                   <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-rose-600 dark:text-rose-400">
-                    - ĐÃ XÓA
+                    {t('- Đã xóa', '- Deleted')}
                   </span>
                 )}
                 {hasModified && (
                   <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-amber-600 dark:text-amber-400">
-                    ~ CẬP NHẬT THEO CODE
+                    {t('Có thay đổi liên quan', 'Related changes')}
                   </span>
                 )}
                 {!isCoverageVisited && item.generationType && (
-                  <span className="ml-auto text-[10px] font-semibold uppercase text-body-subtle">{item.generationType.replace(/_/g, ' ')}</span>
+                  <span className="ml-auto text-[10px] font-semibold uppercase text-body-subtle">{formatSemanticLabel(item.generationType, language)}</span>
                 )}
               </span>
               <span className="mt-2 block break-all font-mono text-xs font-semibold text-heading">{item.testMethodName}</span>
@@ -556,21 +557,21 @@ export function UnitTestsPanel({
                     if (hasAdded) {
                       return (
                         <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                          + MỚI THÊM
+                          {t('+ Mới thêm', '+ Added')}
                         </span>
                       );
                     }
                     if (hasDeleted) {
                       return (
                         <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
-                          - ĐÃ XÓA
+                          {t('- Đã xóa', '- Deleted')}
                         </span>
                       );
                     }
                     if (hasModified) {
                       return (
                         <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                          ~ CẬP NHẬT THEO CODE
+                          {t('Có thay đổi liên quan', 'Related changes')}
                         </span>
                       );
                     }

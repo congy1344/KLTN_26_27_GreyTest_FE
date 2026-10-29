@@ -5,6 +5,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReportPanel } from './ReportPanel';
+import { LanguageProvider } from '../../../shared/i18n/language';
+import { LanguageToggle } from '../../../shared/components/LanguageToggle';
 
 const mockUseReportExport = vi.fn();
 
@@ -26,6 +28,7 @@ function renderReportPanel(props: { projectId: number; servicePath?: string }) {
 
 afterEach(() => {
   cleanup();
+  localStorage.removeItem('greytest.language');
   vi.clearAllMocks();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -53,6 +56,18 @@ function stubExports(markdown = '# GreyTest Report — Demo') {
 }
 
 describe('ReportPanel', () => {
+  it('updates status tags in an already rendered markdown report when language changes', () => {
+    stubExports('# Report\n\n## Results\n\n| Status | Priority |\n| --- | --- |\n| APPROVED | HIGH |');
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<LanguageProvider><LanguageToggle /><QueryClientProvider client={client}><ReportPanel projectId={7} /></QueryClientProvider></LanguageProvider>);
+    expect(screen.getByText('Đã duyệt')).toBeVisible();
+    expect(screen.getByText('Cao')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+    expect(screen.getByText('Approved')).toBeVisible();
+    expect(screen.getByText('High')).toBeVisible();
+    expect(screen.queryByText('Đã duyệt')).not.toBeInTheDocument();
+  });
+
   it('renders backend markdown and switches to JSON', () => {
     stubExports('# GreyTest Report\n\n## Coverage Overview\n\n| Metric | Value |\n| --- | --- |\n| Requirement Coverage | 100% |');
 

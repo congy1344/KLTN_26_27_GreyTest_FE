@@ -363,24 +363,24 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
                   <SemanticBadge kind="review-status" value={plan.status} />
                   {hasAdded && (
                     <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                      + MỚI THÊM
+                      {t('+ Mới thêm', '+ Added')}
                     </span>
                   )}
                   {hasDeleted && (
                     <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
-                      - ĐÃ XÓA
+                      {t('- Đã xóa', '- Deleted')}
                     </span>
                   )}
                   {(hasModified || (!isPastPlans && plan.isModified)) && (
                     <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                      ~ CẬP NHẬT THEO CODE
+                      {t('Có thay đổi liên quan', 'Related changes')}
                     </span>
                   )}
                   {plan.isModified && !isPastPlans && (
                     <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-fg-warning">
                       {plan.status === 'APPROVED'
                         ? t('Cần sinh lại Test Case', 'Test Cases need regeneration')
-                        : t('Cần approve lại', 'Requires approval')}
+                        : t('Cần duyệt lại', 'Requires approval')}
                     </span>
                   )}
                   <span className="ml-auto flex gap-1">

@@ -15,12 +15,13 @@ import {
 import { AppShell } from '../../../shared/components/AppShell';
 import { useCurrentUser, useUserQuota } from '../hooks/useAuth';
 import { useLanguage } from '../../../shared/i18n/language';
+import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { UpgradeToProModal } from '../../../shared/components/UpgradeToProModal';
 
 export function ProfilePage() {
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
   const { data: quota } = useUserQuota();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [modalTier, setModalTier] = useState<'PLUS' | 'PRO'>('PRO');
 
@@ -126,7 +127,7 @@ export function ProfilePage() {
                         : 'bg-neutral-secondary text-body-subtle'
                     }`}
                   >
-                    {user?.role ?? 'USER'}
+                    {formatSemanticLabel(user?.role ?? 'USER', language)}
                   </span>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-body-subtle">

@@ -8,7 +8,7 @@ import { LoadingState } from '../../../shared/components/LoadingState';
 import { MetricCard } from '../../../shared/components/MetricCard';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
-import { SemanticBadge } from '../../../shared/components/SemanticBadge';
+import { formatSemanticLabel, SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { useBusinessRules } from '../../business-rules/hooks/useBusinessRules';
 import type { ProjectStatus } from '../../projects/types';
@@ -59,7 +59,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
   const updateCase = useUpdateTestCase(projectId);
   const removeCase = useDeleteTestCase(projectId);
   const [planId, setPlanId] = useState('');
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   // Form nhập case thủ công
   const [formPlanId, setFormPlanId] = useState('');
@@ -385,20 +385,20 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
                   {sourcePlan ? ` -> ${sourcePlan.planCode}` : ''}
                 </span>
                 <SemanticBadge kind="test-type" value={item.testType} />
-                <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">{item.priority}</span>
+                <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">{formatSemanticLabel(item.priority, language)}</span>
                 {hasAdded && (
                   <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                    + MỚI THÊM
+                    {t('+ Mới thêm', '+ Added')}
                   </span>
                 )}
                 {hasDeleted && (
                   <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
-                    - ĐÃ XÓA
+                    {t('- Đã xóa', '- Deleted')}
                   </span>
                 )}
                 {(hasModified || (!isPastCases && item.isModified)) && (
                   <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                    ~ CẬP NHẬT THEO CODE
+                    {t('Có thay đổi liên quan', 'Related changes')}
                   </span>
                 )}
                 {item.isModified && !isPastCases && !hasModified && (
@@ -406,7 +406,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
                     {t('Đã sửa', 'Modified')}
                   </span>
                 )}
-                <SemanticBadge kind="review-status" value={item.status} label={item.status === 'PENDING_REVIEW' ? 'DRAFT' : undefined} />
+                <SemanticBadge kind="review-status" value={item.status} label={item.status === 'PENDING_REVIEW' ? t('Bản nháp', 'Draft') : undefined} />
                 <span className="ml-auto flex gap-1">
                   {editing ? (
                     <>
