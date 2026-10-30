@@ -5,7 +5,7 @@ import {
   pauseGenerationOnUnload,
   pauseGenerationProgress,
 } from '../api/generation-progress-api';
-import type { GenerationProgressStage } from '../types/generation-progress';
+import type { GenerationProgress, GenerationProgressLog, GenerationProgressStage, GenerationProgressStep } from '../types/generation-progress';
 
 const TERMINAL_DISPLAY_MS = 5_000;
 const NO_PROGRESS_GRACE_MS = 1_500;
@@ -45,11 +45,32 @@ export function useGenerationProgress(
 
   useEffect(() => {
     if (active && !wasActive.current) {
-      queryClient.removeQueries({ queryKey, exact: true });
+      ALL_STAGES.forEach((candidate) => {
+        queryClient.removeQueries({ queryKey: ['generation-progress', projectId, candidate], exact: true });
+      });
+      trackedProjectStage.current = null;
       setTracking(true);
     }
     wasActive.current = active;
   }, [active, projectId, queryClient, stage]);
+
+  // Theo dõi các stage còn lại để khi chuyển stage hoặc Sinh Tất Cả, UI cập nhật tức thì.
+  const siblingQueries = useQueries({
+    queries: ALL_STAGES.filter((candidate) => candidate !== stage).map((candidate) => ({
+      queryKey: ['generation-progress', projectId, candidate] as const,
+      queryFn: () => fetchGenerationProgress(projectId, candidate),
+      enabled: projectId > 0,
+      refetchInterval: (currentQuery: { state: { data?: { status?: string } } }) => (
+        active || tracking || isActiveStatus(currentQuery.state.data?.status) ? 1_500 : false
+      ),
+      refetchOnMount: 'always' as const,
+      retry: 1,
+    })),
+  });
+  const siblingProgress = siblingQueries.map((sibling) => sibling.data);
+  const activeSibling = siblingProgress
+    .find((progress) => isActiveStatus(progress?.status));
+  const isAnySiblingActive = Boolean(activeSibling);
 
   const query = useQuery({
     queryKey,
@@ -58,62 +79,48 @@ export function useGenerationProgress(
     refetchInterval: (currentQuery) => {
       const status = currentQuery.state.data?.status;
       if (currentQuery.state.status === 'error') return active ? 1_500 : false;
-      return status === 'QUEUED' || status === 'RUNNING' || active || tracking ? 1_500 : false;
+      return status === 'QUEUED' || status === 'RUNNING' || active || tracking || isAnySiblingActive ? 1_500 : false;
     },
     refetchOnMount: 'always',
     retry: 1,
   });
 
-  // Theo dõi các stage còn lại để khi đổi tab, UI vẫn khóa chỉnh sửa và hiển thị đúng job đang chạy.
-  const siblingQueries = useQueries({
-    queries: ALL_STAGES.filter((candidate) => candidate !== stage).map((candidate) => ({
-      queryKey: ['generation-progress', projectId, candidate] as const,
-      queryFn: () => fetchGenerationProgress(projectId, candidate),
-      enabled: projectId > 0,
-      refetchInterval: (currentQuery: { state: { data?: { status?: string } } }) => (
-        isActiveStatus(currentQuery.state.data?.status) ? 1_500 : false
-      ),
-      refetchOnMount: 'always' as const,
-      retry: 1,
-    })),
-  });
-  const siblingProgress = siblingQueries.map((sibling) => sibling.data);
-  const allProgress = [query.data, ...siblingProgress].filter(Boolean);
-  const activeSibling = siblingProgress
-    .find((progress) => isActiveStatus(progress?.status));
+  const allProgress = [query.data, ...siblingProgress].filter(Boolean) as GenerationProgress[];
   const currentlyActive = isActiveStatus(query.data?.status) ? query.data : activeSibling;
   if (currentlyActive) trackedProjectStage.current = currentlyActive.stage;
-  const trackedProgress = allProgress
-    .find((progress) => progress?.stage === trackedProjectStage.current);
 
-  // Khi không có tác vụ nào đang chạy, ưu tiên giữ snapshot của stage gần nhất có log
-  const latestFinishedProgress = allProgress
-    .filter((p) => p && p.status !== 'IDLE' && (p.logs?.length ?? 0) > 0)
-    .sort((a, b) => {
-      const timeA = a?.logs?.[a.logs.length - 1]?.timestamp || '';
-      const timeB = b?.logs?.[b.logs.length - 1]?.timestamp || '';
-      return timeB.localeCompare(timeA);
-    })[0];
+  // Khi không có stage nào RUNNING, tìm stage hoàn thành gần nhất theo thứ tự pipeline
+  const latestFinishedByPipeline = [...ALL_STAGES]
+    .reverse()
+    .map((candidate) => allProgress.find((p) => p?.stage === candidate))
+    .find((p) => p && (p.status === 'COMPLETED' || p.status === 'FAILED' || p.status === 'PARTIAL'));
+
+  const trackedProgress = trackedProjectStage.current
+    ? allProgress.find((progress) => progress?.stage === trackedProjectStage.current && progress.status !== 'IDLE')
+    : undefined;
 
   const projectProgress = currentlyActive
+    ?? (query.data && query.data.status !== 'IDLE' ? query.data : undefined)
     ?? trackedProgress
-    ?? (query.data && query.data.status !== 'IDLE' ? query.data : latestFinishedProgress)
+    ?? (active ? latestFinishedByPipeline : undefined)
     ?? query.data;
   const projectRunning = isActiveStatus(projectProgress?.status);
 
   useEffect(() => {
-    const terminal = query.data?.status === 'COMPLETED' || query.data?.status === 'PARTIAL' || query.data?.status === 'FAILED';
+    const status = projectProgress?.status ?? query.data?.status;
+    const terminal = status === 'COMPLETED' || status === 'PARTIAL' || status === 'FAILED';
     if (!tracking || active || !terminal) return undefined;
     const timer = window.setTimeout(() => setTracking(false), TERMINAL_DISPLAY_MS);
     return () => window.clearTimeout(timer);
-  }, [active, query.data?.status, tracking]);
+  }, [active, projectProgress?.status, query.data?.status, tracking]);
 
   useEffect(() => {
-    const didNotStart = query.data?.status === 'IDLE' || query.isError;
+    const status = projectProgress?.status ?? query.data?.status;
+    const didNotStart = status === 'IDLE' || query.isError;
     if (!tracking || active || !didNotStart) return undefined;
     const timer = window.setTimeout(() => setTracking(false), NO_PROGRESS_GRACE_MS);
     return () => window.clearTimeout(timer);
-  }, [active, query.data?.status, query.isError, tracking]);
+  }, [active, projectProgress?.status, query.data?.status, query.isError, tracking]);
 
   useEffect(() => {
     if (projectProgress?.status !== 'COMPLETED' && projectProgress?.status !== 'PARTIAL' && projectProgress?.status !== 'FAILED') return;
@@ -124,11 +131,11 @@ export function useGenerationProgress(
 
     if (projectProgress.status === 'FAILED') {
       const isQuotaError =
-        projectProgress.logs?.some((l) =>
+        projectProgress.logs?.some((l: GenerationProgressLog) =>
           /quota/i.test(l.message) || /vượt hạn mức/i.test(l.message) || /hết quota/i.test(l.message)
         ) ||
         projectProgress.steps?.some(
-          (s) =>
+          (s: GenerationProgressStep) =>
             s.status === 'FAILED' &&
             (/quota/i.test(s.errorMessage || '') || /hết quota/i.test(s.errorMessage || ''))
         );
@@ -143,8 +150,9 @@ export function useGenerationProgress(
   }, [projectId, projectProgress, queryClient]);
 
   const pause = async () => {
-    const updated = await pauseGenerationProgress(projectId, stage);
-    queryClient.setQueryData(queryKey, updated);
+    const targetStage = currentlyActive?.stage ?? trackedProjectStage.current ?? stage;
+    const updated = await pauseGenerationProgress(projectId, targetStage);
+    queryClient.setQueryData(['generation-progress', projectId, targetStage], updated);
     return updated;
   };
 

@@ -43,7 +43,7 @@ import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { SourceUpdateHistory } from './SourceUpdateHistory';
 import { getLogMessageColor } from '../../../shared/components/AiGenerationProgress';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
-import type { GenerationProgressStage } from '../../../shared/types/generation-progress';
+import type { GenerationProgressLog, GenerationProgressStage, GenerationProgressStep } from '../../../shared/types/generation-progress';
 
 interface SourceUpdateModalProps {
   project: Project;
@@ -130,8 +130,15 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
   const modalLogContainerRef = useRef<HTMLDivElement>(null);
   const [showLogsInModal, setShowLogsInModal] = useState(true);
 
-  const currentProgressStage: GenerationProgressStage = (generatingStage as GenerationProgressStage) || 'BUSINESS_RULE';
-  const generationProgress = useGenerationProgress(project.id, currentProgressStage, loading);
+  // Xác định stage mục tiêu: nếu đang sinh 1 stage cụ thể thì dùng stage đó,
+  // nếu đang Sinh Tất Cả thì ưu tiên stage chưa hoàn tất đầu tiên thay vì luôn fallback về BUSINESS_RULE.
+  const nextUncompletedStage: GenerationProgressStage =
+    !completedStages.BUSINESS_RULE ? 'BUSINESS_RULE'
+    : !completedStages.TEST_PLAN ? 'TEST_PLAN'
+    : !completedStages.TEST_CASE ? 'TEST_CASE'
+    : 'UNIT_TEST';
+  const currentProgressStage: GenerationProgressStage = (generatingStage as GenerationProgressStage) || nextUncompletedStage;
+  const generationProgress = useGenerationProgress(project.id, currentProgressStage, loading || Boolean(generatingStage));
 
   useEffect(() => {
     if (modalLogContainerRef.current) {
@@ -542,7 +549,9 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       updateProgress(100, `Đã chấp nhận thành công tất cả ${pendingItems.length} đề xuất!`);
       setStageNotice({
         type: 'success',
-        message: `✓ Đã chấp nhận tất cả ${pendingItems.length} đề xuất. Toàn bộ đã sẵn sàng để áp dụng vào project!`,
+        message: refreshed.generationSummary?.readyForApply
+          ? `✓ Đã chấp nhận tất cả ${pendingItems.length} đề xuất. Chưa áp dụng vào project; bấm Áp Dụng Cập Nhật để ghi nhận cả Unit Test.`
+          : `Đã chấp nhận ${pendingItems.length} đề xuất. Chưa áp dụng vào project; cần hoàn tất hoặc xác thực các bước còn thiếu trước khi Apply.`,
         timestamp: new Date().toLocaleTimeString(),
       });
     } catch (err) {
@@ -731,7 +740,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
             {/* Current Step Batches */}
             {generationProgress.projectProgress.steps && generationProgress.projectProgress.steps.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {generationProgress.projectProgress.steps.map((step, idx) => (
+                {generationProgress.projectProgress.steps.map((step: GenerationProgressStep, idx: number) => (
                   <span
                     key={idx}
                     className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border ${
@@ -769,7 +778,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                   ref={modalLogContainerRef}
                   className="max-h-48 overflow-y-auto bg-white p-2.5 space-y-1 select-text scrollbar-thin dark:bg-neutral-900"
                 >
-                  {generationProgress.projectProgress.logs.map((log, index) => (
+                  {generationProgress.projectProgress.logs.map((log: GenerationProgressLog, index: number) => (
                     <div key={`${log.timestamp}-${index}`} className="flex items-start gap-2 leading-relaxed">
                       <span className="shrink-0 text-[10px] text-slate-400 dark:text-neutral-500 pt-0.5 whitespace-nowrap font-sans">
                         {log.timestamp ? new Date(log.timestamp).toLocaleTimeString('vi-VN', { hour12: false }) : ''}

@@ -33,6 +33,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
   const isPastCases = Boolean(projectStatus && ['CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED'].includes(projectStatus));
   const {
     activeUpdate,
+    changesSeen,
     impact,
     methodDiffMap,
     getMethodDiff,
@@ -360,9 +361,9 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
                  || methodDiffMap[method.methodName])
               : undefined;
           });
-          const hasAdded = addedCaseIds.has(item.id) || (sourcePlan ? addedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+          const hasAdded = !changesSeen && (addedCaseIds.has(item.id) || (sourcePlan ? addedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
           const hasDeleted = deletedCaseIds.has(item.id) || (sourcePlan ? deletedPlanIds.has(sourcePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
-          const hasModified = !hasAdded && !hasDeleted && (
+          const hasModified = !changesSeen && !hasAdded && !hasDeleted && (
             modifiedCaseIds.has(item.id)
             || affectedCaseIds.has(item.id)
             || (sourcePlan ? modifiedPlanIds.has(sourcePlan.id) || affectedPlanIds.has(sourcePlan.id) : false)
@@ -375,7 +376,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
             ? 'rounded-default border-2 border-emerald-500/60 bg-emerald-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
             : hasDeleted
               ? 'rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
-              : (hasModified || (!isPastCases && item.isModified))
+              : hasModified
                 ? 'rounded-default border-2 border-amber-500/60 bg-amber-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
                 : 'border-t border-border-default px-3 py-3 transition-colors first:border-t-0 hover:bg-neutral-secondary-soft/40';
 
@@ -399,7 +400,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
                     {t('- Đã xóa', '- Deleted')}
                   </span>
                 )}
-                {(hasModified || (!isPastCases && item.isModified)) && (
+                {hasModified && (
                   <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
                     {t('Có thay đổi liên quan', 'Related changes')}
                   </span>

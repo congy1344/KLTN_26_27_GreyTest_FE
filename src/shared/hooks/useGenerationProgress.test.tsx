@@ -245,4 +245,61 @@ describe('useGenerationProgress', () => {
 
     unmount();
   });
+
+  it('automatically advances projectProgress when backend transitions from finished stage to sibling stage while active', async () => {
+    let tpCallCount = 0;
+    mocks.fetchProgress.mockImplementation((_projectId: number, stage: GenerationProgressStage) => {
+      if (stage === 'BUSINESS_RULE') {
+        return Promise.resolve({ ...completed, stage: 'BUSINESS_RULE' as const });
+      }
+      if (stage === 'TEST_PLAN') {
+        tpCallCount += 1;
+        return Promise.resolve(tpCallCount >= 2
+          ? { ...running, stage: 'TEST_PLAN' as const }
+          : idle(stage));
+      }
+      return Promise.resolve(idle(stage));
+    });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(
+      () => useGenerationProgress(7, 'BUSINESS_RULE', true),
+      { wrapper },
+    );
+
+    // Ban đầu BUSINESS_RULE đã xong, nhưng vì active=true nên siblingQueries tiếp tục poll
+    // Khi TEST_PLAN bắt đầu RUNNING, hook tự phát hiện và chuyển projectProgress sang TEST_PLAN
+    await waitFor(() => {
+      expect(result.current.projectProgress?.stage).toBe('TEST_PLAN');
+      expect(result.current.projectProgress?.status).toBe('RUNNING');
+    }, { timeout: 5_000 });
+  });
+
+  it('selects latest completed stage in pipeline order instead of stale previous stage when next stage is idle', async () => {
+    mocks.fetchProgress.mockImplementation((_projectId: number, stage: GenerationProgressStage) => {
+      if (stage === 'BUSINESS_RULE') return Promise.resolve({ ...completed, stage: 'BUSINESS_RULE' as const });
+      if (stage === 'TEST_PLAN') return Promise.resolve({ ...completed, stage: 'TEST_PLAN' as const });
+      return Promise.resolve(idle(stage));
+    });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(
+      () => useGenerationProgress(7, 'TEST_CASE', true),
+      { wrapper },
+    );
+
+    // Khi TEST_CASE là IDLE và TEST_PLAN đã xong, hook hiển thị TEST_PLAN thay vì lùi về BUSINESS_RULE
+    await waitFor(() => {
+      expect(result.current.projectProgress?.stage).toBe('TEST_PLAN');
+      expect(result.current.projectProgress?.status).toBe('COMPLETED');
+    });
+  });
 });

@@ -302,6 +302,7 @@ export function ProjectDetailPage() {
           queryClient.invalidateQueries({ queryKey: ['test-plans', projectId] });
           queryClient.invalidateQueries({ queryKey: ['test-cases', projectId] });
           queryClient.invalidateQueries({ queryKey: ['unit-tests', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['unit-test-files', projectId] });
           queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
         }}
       />

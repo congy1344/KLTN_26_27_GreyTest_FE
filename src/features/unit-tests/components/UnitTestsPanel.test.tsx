@@ -12,7 +12,14 @@ const mocks = vi.hoisted(() => ({
   files: [] as Array<Record<string, unknown>>,
   generating: false,
   progress: undefined as unknown,
+  sourceUpdate: undefined as Record<string, unknown> | undefined,
 }));
+vi.mock('../../projects/hooks/useSourceUpdateImpact', () => ({ useSourceUpdateImpact: () => ({
+  activeUpdate: mocks.sourceUpdate, changesSeen: false, methodDiffMap: {}, getMethodDiff: () => undefined,
+  ...Object.fromEntries(['affectedUnitTestIds', 'affectedCaseIds', 'affectedPlanIds', 'affectedRuleIds',
+    'addedUnitTestIds', 'modifiedUnitTestIds', 'deletedUnitTestIds', 'addedCaseIds', 'modifiedCaseIds', 'deletedCaseIds',
+    'addedPlanIds', 'modifiedPlanIds', 'deletedPlanIds', 'addedRuleIds', 'modifiedRuleIds', 'deletedRuleIds'].map(key => [key, new Set()])),
+}) }));
 vi.mock('../../../shared/hooks/useGenerationProgress', () => ({ useGenerationProgress: () => ({ data: mocks.progress }) }));
 vi.mock('../../test-cases/hooks/useTestCases', () => ({ useTestCases: () => ({ data: mocks.cases, error: null }) }));
 vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({ data: [{ id: 5, businessRuleId: 7, coveredRuleIds: [7], planCode: 'TP-005' }], error: null }) }));
@@ -59,6 +66,28 @@ describe('UnitTestsPanel', () => {
     mocks.files = [];
     mocks.generating = false;
     mocks.progress = undefined;
+    mocks.sourceUpdate = undefined;
+  });
+
+  it('does not regenerate cases whose unit tests are already in an unapplied draft', () => {
+    mocks.cases.push({ ...mocks.cases[0], id: 2, caseCode: 'TC-002' });
+    mocks.tests = [{ id: 11, testCaseId: 1, testMethodName: 'first', testClassName: 'Test' }];
+    mocks.sourceUpdate = { status: 'READY_TO_APPLY', items: [{ targetType: 'UNIT_TEST', action: 'CREATE',
+      reviewStatus: 'ACCEPTED', afterData: JSON.stringify({ case_id: 2, source_code: 'class Test {}' }) }] };
+    renderPanel();
+    expect(screen.queryByRole('button', { name: /Tiếp tục sinh/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/1 Unit Test đã sinh trong bản cập nhật source/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Sinh lại toàn bộ' })).toBeDisabled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it.each(['APPLIED', 'unrelated'])('keeps genuine missing cases visible for %s drafts', (mode) => {
+    mocks.cases.push({ ...mocks.cases[0], id: 2, caseCode: 'TC-002' });
+    mocks.tests = [{ id: 11, testCaseId: 1, testMethodName: 'first', testClassName: 'Test' }];
+    mocks.sourceUpdate = { status: mode === 'APPLIED' ? 'APPLIED' : 'READY_TO_APPLY', items: [{ targetType: 'UNIT_TEST',
+      action: 'CREATE', reviewStatus: 'ACCEPTED', afterData: JSON.stringify({ case_id: mode === 'APPLIED' ? 2 : 999, source_code: 'class Test {}' }) }] };
+    renderPanel();
+    expect(screen.getByRole('button', { name: 'Tiếp tục sinh (1 case)' })).toBeEnabled();
   });
 
   it('shows generation progress while Unit Tests are being generated', () => {

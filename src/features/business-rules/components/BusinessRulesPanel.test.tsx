@@ -117,13 +117,49 @@ describe('BusinessRulesPanel', () => {
 
   it('shows generation progress next to the AI action while pending', () => {
     mocks.generating = true;
+    mocks.classes = [{
+      id: 10,
+      className: 'UserService',
+      qualifiedName: 'demo.UserService',
+      packageName: 'demo',
+      classType: 'SERVICE',
+      filePath: 'src/main/java/demo/UserService.java',
+      methods: [{
+        id: 11,
+        methodName: 'register',
+        parameters: [{ name: 'email', type: 'String' }],
+        returnType: 'void',
+        lineStart: 1,
+        lineEnd: 20,
+        branches: [{ id: 1, branchId: 'IF-1', branchType: 'IF', conditionText: 'email != null', lineStart: 5, lineEnd: 10 }],
+        rules: [],
+      }],
+    }];
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
-    expect(screen.getByRole('button', { name: 'Tiếp tục sinh' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Tiếp tục sinh/ })).toBeDisabled();
     expect(screen.getByRole('complementary')).toBeVisible();
   });
 
   it('shows the background acceptance message without hiding the rule list', () => {
+    mocks.classes = [{
+      id: 10,
+      className: 'UserService',
+      qualifiedName: 'demo.UserService',
+      packageName: 'demo',
+      classType: 'SERVICE',
+      filePath: 'src/main/java/demo/UserService.java',
+      methods: [{
+        id: 11,
+        methodName: 'register',
+        parameters: [{ name: 'email', type: 'String' }],
+        returnType: 'void',
+        lineStart: 1,
+        lineEnd: 20,
+        branches: [{ id: 1, branchId: 'IF-1', branchType: 'IF', conditionText: 'email != null', lineStart: 5, lineEnd: 10 }],
+        rules: [],
+      }],
+    }];
     mocks.generate.mockImplementation((_value, options) => options.onSuccess({
       stage: 'BUSINESS_RULE',
       status: 'QUEUED',
@@ -131,7 +167,7 @@ describe('BusinessRulesPanel', () => {
     }));
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục sinh' }));
+    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục sinh/ }));
 
     expect(screen.getByText('Tác vụ AI đang chạy nền.')).toBeVisible();
     expect(screen.queryByRole('button', { name: /Thu gọn|Mở tất cả/ })).not.toBeInTheDocument();
@@ -198,9 +234,34 @@ describe('BusinessRulesPanel', () => {
     expect(fileNode).not.toHaveAttribute('open');
   });
 
-  it('continues with resume and requires confirmation before regenerating BRs', () => {
+  it('hides the resume button when all decisions are covered (generation completed)', () => {
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục sinh' }));
+    expect(screen.queryByRole('button', { name: /Tiếp tục sinh/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sinh lại BR' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
+  });
+
+  it('continues with resume and requires confirmation before regenerating BRs', () => {
+    mocks.classes = [{
+      id: 10,
+      className: 'UserService',
+      qualifiedName: 'demo.UserService',
+      packageName: 'demo',
+      classType: 'SERVICE',
+      filePath: 'src/main/java/demo/UserService.java',
+      methods: [{
+        id: 11,
+        methodName: 'register',
+        parameters: [{ name: 'email', type: 'String' }],
+        returnType: 'void',
+        lineStart: 1,
+        lineEnd: 20,
+        branches: [{ id: 1, branchId: 'IF-1', branchType: 'IF', conditionText: 'email != null', lineStart: 5, lineEnd: 10 }],
+        rules: [],
+      }],
+    }];
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục sinh/ }));
     expect(mocks.generate).toHaveBeenCalledWith(true, expect.any(Object));
     mocks.generate.mockClear();
 

@@ -98,6 +98,21 @@ export function UnitTestsPanel({
   );
   const coveredCount = eligibleCases.filter((item) => generatedCaseIds.has(item.id)).length;
   const missingCount = eligibleCases.length - coveredCount;
+  const pendingDraftCaseCount = useMemo(() => {
+    if (!activeUpdate || activeUpdate.status === 'APPLIED') return 0;
+    const ids = new Set<number>();
+    for (const item of activeUpdate.items ?? []) {
+      if (item.targetType !== 'UNIT_TEST' || item.action === 'REMOVE' || item.action === 'KEEP'
+          || item.reviewStatus === 'REJECTED' || !item.afterData) continue;
+      try {
+        const output = JSON.parse(item.afterData);
+        const id = output.case_id ?? output.caseId;
+        const source = output.source_code ?? output.sourceCode;
+        if (typeof id === 'number' && typeof source === 'string' && source.trim() && approvedCaseById.has(id)) ids.add(id);
+      } catch { /* Draft chưa hợp lệ không được coi là UT đã sinh. */ }
+    }
+    return ids.size;
+  }, [activeUpdate, approvedCaseById]);
   const unexpectedCount = Math.max(0, (tests.data ?? []).length - coveredCount);
   const coverageHint = approvedCases.length === 0
     ? t('Chưa có Test Case được approve', 'No approved Test Cases')
@@ -248,6 +263,7 @@ export function UnitTestsPanel({
   };
 
   const handleGenerate = (incremental: boolean) => {
+    if (pendingDraftCaseCount > 0) return;
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem(coverageNavigatedKey);
@@ -278,7 +294,7 @@ export function UnitTestsPanel({
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Unit Tests</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh JUnit/Mockito từ Test Case đã approve và lưu về backend.', 'AI generates JUnit/Mockito tests from approved Test Cases and persists them in the backend.')}</p></div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
-          {coveredCount > 0 && missingCount > 0 ? (
+          {coveredCount > 0 && missingCount > 0 && pendingDraftCaseCount === 0 ? (
             <>
               <button
                 className="btn btn-brand"
@@ -301,7 +317,7 @@ export function UnitTestsPanel({
           ) : (
             <button
               className={coveredCount > 0 && missingCount === 0 ? "btn btn-secondary" : "btn btn-brand"}
-              disabled={generate.isPending || generationRunning || eligibleCases.length === 0}
+              disabled={generate.isPending || generationRunning || eligibleCases.length === 0 || pendingDraftCaseCount > 0}
               onClick={() => handleGenerate(false)}
             >
               {generate.isPending || generationRunning ? (
@@ -321,7 +337,7 @@ export function UnitTestsPanel({
             active={generate.isPending || generationRunning || generationProgress.showProgress}
             label={t('Tiến trình AI của dự án', 'Project AI progress')}
             progress={generationProgress.projectProgress ?? generationProgress.data}
-            onResume={() => handleGenerate(true)}
+            onResume={pendingDraftCaseCount > 0 ? undefined : () => handleGenerate(true)}
           />
           <button
             className="btn btn-brand shrink-0"
@@ -332,6 +348,12 @@ export function UnitTestsPanel({
           </button>
         </div>
       </div>
+      {pendingDraftCaseCount > 0 && (
+        <InlineAlert tone="warning" dismissible={false}>{t(
+          `${pendingDraftCaseCount} Unit Test đã sinh trong bản cập nhật source, đang chờ áp dụng. Mở Cập nhật Source Code để duyệt và áp dụng; không cần sinh lại ở đây.`,
+          `${pendingDraftCaseCount} Unit Tests have been generated in the source update and await Apply. Review and apply that update instead of generating again here.`,
+        )}</InlineAlert>
+      )}
       {(cases.data ?? []).length > 0 && eligibleCases.length === 0 && (
         <p className="mb-3 text-xs text-fg-warning">{t('Hãy approve Test Case trước khi sinh Unit Test.', 'Approve Test Cases before generating Unit Tests.')}</p>
       )}
@@ -411,11 +433,11 @@ export function UnitTestsPanel({
                    || methodDiffMap[method.methodName])
                 : undefined;
             });
-            const hasAdded = addedUnitTestIds.has(item.id) || (!hideGenerationIndicators && item.generationType === 'NEW_TEST') || (testCase ? addedCaseIds.has(testCase.id) : false) || (testPlan ? addedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+            const hasAdded = !hideGenerationIndicators && (addedUnitTestIds.has(item.id) || item.generationType === 'NEW_TEST' || (testCase ? addedCaseIds.has(testCase.id) : false) || (testPlan ? addedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
             const hasDeleted = deletedUnitTestIds.has(item.id) || (testCase ? deletedCaseIds.has(testCase.id) : false) || (testPlan ? deletedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
-            const hasModified = !hasAdded && !hasDeleted && (
+            const hasModified = !hideGenerationIndicators && !hasAdded && !hasDeleted && (
               modifiedUnitTestIds.has(item.id)
-              || (!hideGenerationIndicators && (item.generationType === 'INCREMENTAL' || item.generationType === 'IMPROVE_EXISTING_TEST'))
+              || item.generationType === 'INCREMENTAL' || item.generationType === 'IMPROVE_EXISTING_TEST'
               || ruleDiffs.includes('MODIFIED')
               || affectedUnitTestIds.has(item.id)
               || (testCase ? modifiedCaseIds.has(testCase.id) || affectedCaseIds.has(testCase.id) : false)
@@ -551,11 +573,11 @@ export function UnitTestsPanel({
                            || methodDiffMap[method.methodName])
                         : undefined;
                     });
-                    const hasAdded = (active ? addedUnitTestIds.has(active.id) : false) || (!hideGenerationIndicators && active?.generationType === 'NEW_TEST') || (activeCase ? addedCaseIds.has(activeCase.id) : false) || (activePlan ? addedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id));
+                    const hasAdded = !hideGenerationIndicators && ((active ? addedUnitTestIds.has(active.id) : false) || active?.generationType === 'NEW_TEST' || (activeCase ? addedCaseIds.has(activeCase.id) : false) || (activePlan ? addedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
                     const hasDeleted = (active ? deletedUnitTestIds.has(active.id) : false) || (activeCase ? deletedCaseIds.has(activeCase.id) : false) || (activePlan ? deletedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
-                    const hasModified = !hasAdded && !hasDeleted && (
+                    const hasModified = !hideGenerationIndicators && !hasAdded && !hasDeleted && (
                       (active ? modifiedUnitTestIds.has(active.id) || affectedUnitTestIds.has(active.id) : false)
-                      || (!hideGenerationIndicators && (active?.generationType === 'INCREMENTAL' || active?.generationType === 'IMPROVE_EXISTING_TEST'))
+                      || active?.generationType === 'INCREMENTAL' || active?.generationType === 'IMPROVE_EXISTING_TEST'
                       || ruleDiffs.includes('MODIFIED')
                       || (activeCase ? modifiedCaseIds.has(activeCase.id) || affectedCaseIds.has(activeCase.id) : false)
                       || (activePlan ? modifiedPlanIds.has(activePlan.id) || affectedPlanIds.has(activePlan.id) : false)

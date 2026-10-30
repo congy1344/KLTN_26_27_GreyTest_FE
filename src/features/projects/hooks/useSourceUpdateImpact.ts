@@ -23,7 +23,7 @@ export function useSourceUpdateImpact(projectId: number, stage?: Exclude<SourceU
     query = { data: undefined, isLoading: false, error: null };
   }
 
-  const activeUpdate = query.data?.find((u) => u.status === 'READY_TO_APPLY' || u.status === 'ANALYZED' || u.status === 'GENERATING' || u.status === 'DRAFT')
+  const activeUpdate = query.data?.find((u) => u.status === 'READY_TO_APPLY' || u.status === 'ANALYZED' || u.status === 'GENERATING' || u.status === 'DRAFT' || u.status === 'FAILED')
     ?? query.data?.find((u) => u.status === 'APPLIED' && ((u.totalChangedMethods ?? 0) > 0 || (u.items && u.items.length > 0)))
     ?? query.data?.find((u) => u.status === 'APPLIED');
 
@@ -105,7 +105,8 @@ export function useSourceUpdateImpact(projectId: number, stage?: Exclude<SourceU
     parameters?: Array<{ name?: string; type?: string }> | null
   ): MethodDiffType | undefined => {
     if (!methodName) return undefined;
-    const paramTypes = (parameters ?? []).map((p) => p.type ?? '').join(',');
+    const paramList = Array.isArray(parameters) ? parameters : [];
+    const paramTypes = paramList.map((p) => p?.type ?? '').join(',');
     const sigWithParams = `${methodName}(${paramTypes})`;
 
     if (qualifiedClassName) {

@@ -81,6 +81,22 @@ describe('SourceUpdateModal', () => {
     expect(mocks.generate).not.toHaveBeenCalled();
   });
 
+  it('does not promise Apply readiness after accepting items if UT is still incomplete', async () => {
+    const draft = { id: 11, status: 'READY_TO_APPLY', impactSummary: null,
+      items: [{ id: 1, targetType: 'UNIT_TEST', action: 'CREATE', reviewStatus: 'PENDING', afterData: '{}' }],
+      generationSummary: { stages: { UNIT_TEST: { state: 'SUCCEEDED', completed: false } }, conflicts: [], readyForApply: false } };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    mocks.patch.mockResolvedValue({});
+    mocks.fetch.mockResolvedValue({ ...draft, items: [{ ...draft.items[0], reviewStatus: 'ACCEPTED' }] });
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Chấp nhận tất cả đề xuất' }));
+    await act(async () => undefined);
+    expect(screen.queryByText(/Toàn bộ đã sẵn sàng để áp dụng/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Chưa áp dụng vào project/)).toBeVisible();
+    expect(mocks.apply).not.toHaveBeenCalled();
+  });
+
   it('reopens a failed partial draft so its completed output and conflicts can be resumed', async () => {
     mocks.fetchProject.mockResolvedValue([{ id: 11, items: [], status: 'FAILED', impactSummary: '{}',
       generationSummary: { stages: { BUSINESS_RULE: { state: 'SUCCEEDED', completed: true } }, conflicts: [], readyForApply: false } }]);
