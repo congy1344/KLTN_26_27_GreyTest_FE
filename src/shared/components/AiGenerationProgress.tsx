@@ -514,7 +514,7 @@ export function AiGenerationProgress({
         <aside
           role="complementary"
           aria-label={t('Tiến trình AI đang chạy', 'Running AI progress')}
-          className={`fixed bottom-5 right-5 z-50 w-[390px] sm:w-[450px] max-w-[calc(100vw-2.5rem)] flex flex-col rounded-2xl border border-border-default bg-neutral-primary-soft text-body shadow-2xl transition-all duration-300 animate-slide-in-up overflow-hidden ${
+          className={`fixed bottom-5 right-5 z-[60] w-[390px] sm:w-[450px] max-w-[calc(100vw-2.5rem)] flex flex-col rounded-2xl border border-border-default bg-neutral-primary-soft text-body shadow-2xl transition-all duration-300 animate-slide-in-up overflow-hidden ${
             isMinimized ? 'h-auto' : 'h-[min(720px,calc(100dvh-5.5rem))]'
           }`}
         >

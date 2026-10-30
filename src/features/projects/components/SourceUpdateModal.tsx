@@ -11,6 +11,7 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  Terminal,
   X,
 } from 'lucide-react';
 import {
@@ -38,6 +39,9 @@ import type {
 } from '../types';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { SourceUpdateHistory } from './SourceUpdateHistory';
+import { getLogMessageColor } from '../../../shared/components/AiGenerationProgress';
+import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
+import type { GenerationProgressStage } from '../../../shared/types/generation-progress';
 
 interface SourceUpdateModalProps {
   project: Project;
@@ -65,14 +69,16 @@ function withSourceUpdateTimeout<T>(
   operation: (signal: AbortSignal) => Promise<T>,
   timeoutMessage: string,
   controller = new AbortController(),
+  timeoutMs = SOURCE_UPDATE_TIMEOUT_MS,
 ): Promise<T> {
+  if (timeoutMs === 0) return operation(controller.signal);
   return new Promise<T>((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
       controller.abort();
       const error = new Error(timeoutMessage);
       error.name = TIMEOUT_ERROR_NAME;
       reject(error);
-    }, SOURCE_UPDATE_TIMEOUT_MS);
+    }, timeoutMs);
 
     try {
       operation(controller.signal)
@@ -118,6 +124,17 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeAbortRef = useRef<AbortController | null>(null);
   const operationVersionRef = useRef(0);
+  const modalLogContainerRef = useRef<HTMLDivElement>(null);
+  const [showLogsInModal, setShowLogsInModal] = useState(true);
+
+  const currentProgressStage: GenerationProgressStage = (generatingStage as GenerationProgressStage) || 'BUSINESS_RULE';
+  const generationProgress = useGenerationProgress(project.id, currentProgressStage, loading);
+
+  useEffect(() => {
+    if (modalLogContainerRef.current) {
+      modalLogContainerRef.current.scrollTop = modalLogContainerRef.current.scrollHeight;
+    }
+  }, [generationProgress.projectProgress?.logs]);
 
   useEffect(() => {
     if (isOpen && project.id) {
@@ -220,10 +237,11 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
   function runRequest<T>(
     operation: (signal: AbortSignal) => Promise<T>,
     timeoutMessage: string,
+    timeoutMs = SOURCE_UPDATE_TIMEOUT_MS,
   ) {
     const controller = new AbortController();
     activeAbortRef.current = controller;
-    return withSourceUpdateTimeout(operation, timeoutMessage, controller).finally(() => {
+    return withSourceUpdateTimeout(operation, timeoutMessage, controller, timeoutMs).finally(() => {
       if (activeAbortRef.current === controller) activeAbortRef.current = null;
     });
   }
@@ -377,7 +395,8 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       const prevCount = updateDraft.items?.length ?? 0;
       const result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, stage, { signal }),
-        `Sinh ${stageName} quá thời gian chờ ${SOURCE_UPDATE_TIMEOUT_MS / 1000} giây.`,
+        `Chưa xác nhận kết quả sinh ${stageName}.`,
+        0,
       );
       if (!isCurrentOperation(operationId)) return;
       setUpdateDraft(result);
@@ -411,7 +430,8 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       updateProgress(10, 'Server đang tiếp tục các phần BR → Test Plan → Test Case → Unit Test còn thiếu...');
       const result = await runRequest(
         (signal) => generateAllSourceUpdate(project.id, updateDraft.id, { signal }),
-        'Sinh tất cả quá thời gian chờ; các checkpoint đã lưu sẽ được tiếp tục ở lần sau.',
+        'Chưa xác nhận kết quả sinh; các checkpoint đã lưu sẽ được tiếp tục ở lần sau.',
+        0,
       );
       if (!isCurrentOperation(operationId)) return;
       setUpdateDraft(result);
@@ -620,7 +640,9 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
             </div>
           </div>
           <button
-            onClick={handleCancelDraft}
+            type="button"
+            onClick={onClose}
+            aria-label="Đóng modal"
             className="rounded-lg p-1 text-body-subtle hover:bg-neutral-secondary-soft hover:text-heading"
           >
             <X size={20} />
@@ -652,7 +674,113 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
           </div>
         )}
 
-        {progress && (
+        {(loading || generationProgress.showProgress) && generationProgress.projectProgress ? (
+          <div className="mx-6 mt-4 rounded-xl border border-brand/20 bg-brand/5 p-4 shadow-sm space-y-3" aria-live="polite">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand/10 text-brand">
+                  <Sparkles size={14} className={loading ? 'animate-spin' : ''} />
+                </span>
+                <span className="font-bold text-heading">
+                  Tiến trình sinh AI: {GENERATION_STAGE_NAMES[generationProgress.projectProgress.stage as keyof typeof GENERATION_STAGE_NAMES] || generationProgress.projectProgress.stage}
+                </span>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  generationProgress.projectProgress.status === 'COMPLETED'
+                    ? 'bg-success-soft text-fg-success-strong'
+                    : generationProgress.projectProgress.status === 'FAILED'
+                    ? 'bg-danger-soft text-fg-danger-strong'
+                    : 'bg-brand-soft text-fg-brand-strong'
+                }`}>
+                  {generationProgress.projectProgress.status === 'RUNNING' ? 'Đang sinh' : generationProgress.projectProgress.status}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-sm font-bold text-brand">
+                  {generationProgress.projectProgress.percent}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowLogsInModal((prev) => !prev)}
+                  className="flex items-center gap-1 rounded-md border border-border-default bg-neutral-primary px-2 py-1 text-xs text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading transition-colors"
+                >
+                  <Terminal size={12} />
+                  <span>{showLogsInModal ? 'Thu gọn nhật ký' : 'Xem nhật ký'}</span>
+                  {showLogsInModal ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Linear Progress Bar */}
+            <div
+              role="progressbar"
+              aria-label="Tiến trình sinh AI"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={generationProgress.projectProgress.percent}
+              className="h-2 overflow-hidden rounded-full bg-brand/15"
+            >
+              <div
+                className="h-full rounded-full bg-brand transition-[width] duration-300 ease-out"
+                style={{ width: `${generationProgress.projectProgress.percent}%` }}
+              />
+            </div>
+
+            {/* Current Step Batches */}
+            {generationProgress.projectProgress.steps && generationProgress.projectProgress.steps.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {generationProgress.projectProgress.steps.map((step, idx) => (
+                  <span
+                    key={idx}
+                    className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border ${
+                      step.status === 'COMPLETED'
+                        ? 'bg-success-soft text-fg-success-strong border-border-success-subtle'
+                        : step.status === 'RUNNING'
+                        ? 'bg-brand-soft text-fg-brand-strong border-border-brand-subtle animate-pulse'
+                        : step.status === 'FAILED'
+                        ? 'bg-danger-soft text-fg-danger-strong border-border-danger-subtle'
+                        : 'bg-neutral-secondary text-body-subtle border-border-default-subtle'
+                    }`}
+                  >
+                    {step.status === 'COMPLETED' && <CheckCircle2 size={11} />}
+                    {step.status === 'RUNNING' && <Loader2 size={11} className="animate-spin" />}
+                    {step.status === 'FAILED' && <XCircle size={11} />}
+                    {step.label}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Terminal Log Console inside Modal - Nền trắng chữ đen */}
+            {showLogsInModal && generationProgress.projectProgress.logs && generationProgress.projectProgress.logs.length > 0 && (
+              <div className="rounded-lg border border-slate-200 bg-white text-slate-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 overflow-hidden font-mono text-xs shadow-xs">
+                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Terminal size={12} className="text-emerald-600 dark:text-emerald-400" />
+                    <span>Nhật ký chi tiết AI ({generationProgress.projectProgress.logs.length} dòng)</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 dark:text-neutral-400">
+                    {loading ? 'Đang cập nhật thời gian thực...' : 'Đã hoàn tất'}
+                  </span>
+                </div>
+                <div
+                  ref={modalLogContainerRef}
+                  className="max-h-48 overflow-y-auto bg-white p-2.5 space-y-1 select-text scrollbar-thin dark:bg-neutral-900"
+                >
+                  {generationProgress.projectProgress.logs.map((log, index) => (
+                    <div key={`${log.timestamp}-${index}`} className="flex items-start gap-2 leading-relaxed">
+                      <span className="shrink-0 text-[10px] text-slate-400 dark:text-neutral-500 pt-0.5 whitespace-nowrap font-sans">
+                        {log.timestamp ? new Date(log.timestamp).toLocaleTimeString('vi-VN', { hour12: false }) : ''}
+                      </span>
+                      <span className={`break-words flex-1 text-[11px] text-slate-900 dark:text-neutral-100 ${getLogMessageColor(log.message)}`}>
+                        {log.message}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : progress ? (
           <div className="mx-6 mt-4 rounded-lg border border-brand/20 bg-brand/5 p-4" aria-live="polite">
             <div className="mb-2 flex items-center justify-between gap-3 text-sm">
               <span className="font-semibold text-heading">Tiến trình xử lý source code</span>
@@ -673,7 +801,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
             </div>
             <p className="mt-2 text-xs text-body-subtle">{progress.label}</p>
           </div>
-        )}
+        ) : null}
 
         {/* Content Body */}
         <div role="region" aria-label="Nội dung cập nhật source" className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -1125,13 +1253,24 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between border-t border-border-default px-6 py-4">
-          <button
-            type="button"
-            onClick={handleCancelDraft}
-            className="rounded-lg border border-border-default px-4 py-2 text-sm font-medium text-body hover:bg-neutral-secondary-soft"
-          >
-            {updateDraft && !isBusy() ? 'Hủy bản nháp' : 'Đóng'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-border-default px-4 py-2 text-sm font-medium text-body hover:bg-neutral-secondary-soft"
+            >
+              Đóng
+            </button>
+            {updateDraft && !isBusy() && (
+              <button
+                type="button"
+                onClick={handleCancelDraft}
+                className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-500/10 dark:text-red-400"
+              >
+                Hủy bản nháp
+              </button>
+            )}
+          </div>
 
           {updateDraft && (
             <div className="flex items-center gap-3">
