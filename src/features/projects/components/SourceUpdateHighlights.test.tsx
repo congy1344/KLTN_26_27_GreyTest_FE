@@ -102,7 +102,7 @@ describe('source update highlights after workflow approval and coverage', () => 
         fixtures.analysisFetching = pending === 'analysis';
         const { Panel } = stage;
         const visit = () => render(<QueryClientProvider client={client}><MemoryRouter>
-          <Panel projectId={105} projectStatus="COMPLETED" servicePath="backend/patient-service" />
+          <Panel projectId={105} projectStatus="TEST_GENERATED" servicePath="backend/patient-service" />
         </MemoryRouter></QueryClientProvider>);
         visit().unmount();
         fixtures.fetching = false;
@@ -152,7 +152,7 @@ describe('source update highlights after workflow approval and coverage', () => 
       client.clear();
     });
 
-    it.each<ProjectStatus>(['COVERAGE_ANALYZED', 'COMPLETED'])(`${stage.name}: keeps badges and orders new, modified, unchanged at %s`, (status) => {
+    it.each<ProjectStatus>(['COVERAGE_ANALYZED', 'COMPLETED'])(`${stage.name}: ${stage.name === 'Unit Tests' ? 'hides viewed generation indicators' : 'keeps badges and orders new, modified, unchanged'} at %s`, (status) => {
       localStorage.setItem('greytest.unit-tests-coverage-navigated.105', 'true');
       const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } });
       const changedMethods = [
@@ -172,8 +172,15 @@ describe('source update highlights after workflow approval and coverage', () => 
         <Panel projectId={105} projectStatus={status} />
       </MemoryRouter></QueryClientProvider>);
 
-      expect(screen.getAllByText('+ Mới thêm').length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/Code liên quan đã thay đổi|Có thay đổi liên quan/).length).toBeGreaterThan(0);
+      if (stage.name === 'Unit Tests') {
+        expect(screen.queryByText('+ Mới thêm')).not.toBeInTheDocument();
+        expect(screen.queryByText(/Code liên quan đã thay đổi|Có thay đổi liên quan/)).not.toBeInTheDocument();
+        expect(screen.queryByText('Test mới')).not.toBeInTheDocument();
+      } else {
+        expect(screen.getAllByText('+ Mới thêm').length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Code liên quan đã thay đổi|Có thay đổi liên quan/).length).toBeGreaterThan(0);
+      }
+
       const added = screen.getAllByText(stage.newLabel)[0];
       const modified = screen.getAllByText(stage.modifiedLabel)[0];
       const unchanged = screen.getAllByText(stage.oldLabel)[0];
