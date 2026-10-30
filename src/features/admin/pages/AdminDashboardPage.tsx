@@ -4,8 +4,11 @@ import { MetricCard } from '../../../shared/components/MetricCard';
 import { AdminShell } from '../components/AdminShell';
 import { UsageTrendChart } from '../components/UsageTrendChart';
 import { useAdminOverview, useAdminTrend, useServiceHealth, useTopUsers } from '../hooks/useAdmin';
+import { useLanguage } from '../../../shared/i18n/language';
+import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 
 export function AdminDashboardPage() {
+  const { language } = useLanguage();
   const overview = useAdminOverview();
   const trend = useAdminTrend(30, 'day');
   const top = useTopUsers(30);
@@ -36,7 +39,7 @@ export function AdminDashboardPage() {
       <GlassCard className="mt-6">
         <h2 className="font-semibold text-heading">Sức khỏe dịch vụ</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Object.entries(health.data ?? {}).map(([name, status]) => <div key={name} className="flex items-center justify-between rounded-default border border-border-default p-3"><span className="text-sm capitalize text-body">{name.replace(/([A-Z])/g, ' $1')}</span><span className={`rounded-full px-2 py-1 text-xs font-bold ${status === 'UP' ? 'bg-success-soft text-fg-success-strong' : 'bg-warning-soft text-fg-warning'}`}>{status}</span></div>)}
+          {Object.entries(health.data ?? {}).map(([name, status]) => <div key={name} className="flex items-center justify-between rounded-default border border-border-default p-3"><span className="text-sm capitalize text-body">{name.replace(/([A-Z])/g, ' $1')}</span><span className={`rounded-full px-2 py-1 text-xs font-bold ${status === 'UP' ? 'bg-success-soft text-fg-success-strong' : 'bg-warning-soft text-fg-warning'}`}>{formatSemanticLabel(status, language)}</span></div>)}
         </div>
       </GlassCard>
     </AdminShell>

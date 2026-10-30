@@ -15,6 +15,7 @@ import { createVnpayPaymentUrl } from '../../features/payment/api/payment-api';
 import { getErrorMessage } from '../api/api-client';
 import { useCurrentUser, useUserQuota } from '../../features/auth/hooks/useAuth';
 import type { UserTier } from '../../features/auth/types';
+import { useLanguage } from '../i18n/language';
 
 export interface UpgradeToProModalProps {
   open?: boolean;
@@ -31,6 +32,7 @@ export function UpgradeToProModal({
   initialTier,
   currentTier: explicitCurrentTier,
 }: UpgradeToProModalProps) {
+  const { t } = useLanguage();
   const { data: user } = useCurrentUser();
   const { data: quota } = useUserQuota();
 
@@ -158,15 +160,15 @@ export function UpgradeToProModal({
             <span className="text-body-subtle">Gói hiện tại:</span>
             {effectiveCurrentTier === 'PRO' ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 border border-purple-500/40 px-2.5 py-0.5 text-xs font-bold text-purple-600 dark:text-purple-400">
-                <Sparkles size={12} /> Gói Chuyên Nghiệp (PRO)
+                <Sparkles size={12} /> {t('Gói Chuyên Nghiệp (PRO)', 'Professional plan (PRO)')}
               </span>
             ) : effectiveCurrentTier === 'PLUS' ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 px-2.5 py-0.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                <Zap size={12} /> Gói Tiêu Chuẩn (PLUS)
+                <Zap size={12} /> {t('Gói Tiêu Chuẩn (PLUS)', 'Standard plan (PLUS)')}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-neutral-secondary border border-border-default px-2.5 py-0.5 text-xs font-semibold text-body">
-                <ShieldCheck size={12} /> Gói Miễn Phí (FREE)
+                <ShieldCheck size={12} /> {t('Gói Miễn Phí (FREE)', 'Free plan (FREE)')}
               </span>
             )}
           </div>
@@ -194,7 +196,7 @@ export function UpgradeToProModal({
             {/* Huy hiệu nhận biết gói đang dùng */}
             {effectiveCurrentTier === 'PLUS' && (
               <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-sm">
-                <CheckCircle2 size={10} strokeWidth={3} /> Đang sử dụng
+                <CheckCircle2 size={10} strokeWidth={3} /> {t('Đang sử dụng', 'Current plan')}
               </span>
             )}
 
@@ -274,11 +276,11 @@ export function UpgradeToProModal({
             {/* Huy hiệu nhận biết gói đang dùng hoặc khuyên dùng */}
             {effectiveCurrentTier === 'PRO' ? (
               <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-sm">
-                <CheckCircle2 size={10} strokeWidth={3} /> Đang sử dụng
+                <CheckCircle2 size={10} strokeWidth={3} /> {t('Đang sử dụng', 'Current plan')}
               </span>
             ) : (
               <span className="absolute -top-2.5 right-3 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-2.5 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider shadow-sm">
-                KHUYÊN DÙNG
+                {t('KHUYÊN DÙNG', 'RECOMMENDED')}
               </span>
             )}
 

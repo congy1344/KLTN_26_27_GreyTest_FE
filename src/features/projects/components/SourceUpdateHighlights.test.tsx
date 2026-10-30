@@ -108,7 +108,7 @@ describe('source update highlights after workflow approval and coverage', () => 
         fixtures.fetching = false;
         fixtures.analysisFetching = false;
         const loaded = visit();
-        expect(screen.getAllByText('+ MỚI THÊM').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('+ Mới thêm').length).toBeGreaterThan(0);
         loaded.unmount();
         client.clear();
       });
@@ -133,21 +133,21 @@ describe('source update highlights after workflow approval and coverage', () => 
       </MemoryRouter></QueryClientProvider>);
       cacheUpdate(200);
       const first = visit();
-      expect(screen.getAllByText('+ MỚI THÊM').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('+ Mới thêm').length).toBeGreaterThan(0);
       first.rerender(<QueryClientProvider client={client}><MemoryRouter>
         <Panel projectId={105} projectStatus="TEST_GENERATED" servicePath="backend/patient-service" />
       </MemoryRouter></QueryClientProvider>);
-      expect(screen.getAllByText('+ MỚI THÊM').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('+ Mới thêm').length).toBeGreaterThan(0);
       first.unmount();
       const second = visit();
-      expect(screen.queryByText('+ MỚI THÊM')).not.toBeInTheDocument();
-      expect(screen.queryByText('~ CẬP NHẬT THEO CODE')).not.toBeInTheDocument();
-      expect(screen.queryByText('NEW TEST')).not.toBeInTheDocument();
+      expect(screen.queryByText('+ Mới thêm')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Code liên quan đã thay đổi|Có thay đổi liên quan/)).not.toBeInTheDocument();
+      expect(screen.queryByText('Test mới')).not.toBeInTheDocument();
       expect(screen.getAllByText(stage.newLabel).length).toBeGreaterThan(0);
       second.unmount();
       cacheUpdate(201);
       const third = visit();
-      expect(screen.getAllByText('+ MỚI THÊM').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('+ Mới thêm').length).toBeGreaterThan(0);
       third.unmount();
       client.clear();
     });
@@ -172,8 +172,8 @@ describe('source update highlights after workflow approval and coverage', () => 
         <Panel projectId={105} projectStatus={status} />
       </MemoryRouter></QueryClientProvider>);
 
-      expect(screen.getAllByText('+ MỚI THÊM').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('~ CẬP NHẬT THEO CODE').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('+ Mới thêm').length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Code liên quan đã thay đổi|Có thay đổi liên quan/).length).toBeGreaterThan(0);
       const added = screen.getAllByText(stage.newLabel)[0];
       const modified = screen.getAllByText(stage.modifiedLabel)[0];
       const unchanged = screen.getAllByText(stage.oldLabel)[0];

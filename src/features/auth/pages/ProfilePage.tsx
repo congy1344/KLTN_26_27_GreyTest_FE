@@ -15,6 +15,7 @@ import {
 import { AppShell } from '../../../shared/components/AppShell';
 import { useCancelSubscription, useCurrentUser, useUserQuota } from '../hooks/useAuth';
 import { useLanguage } from '../../../shared/i18n/language';
+import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { UpgradeToProModal } from '../../../shared/components/UpgradeToProModal';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getErrorMessage } from '../../../shared/api/api-client';
@@ -23,7 +24,7 @@ import { PaymentHistory } from '../../payment/components/PaymentHistory';
 export function ProfilePage() {
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
   const { data: quota } = useUserQuota();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [modalTier, setModalTier] = useState<'PLUS' | 'PRO'>('PRO');
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -132,7 +133,7 @@ export function ProfilePage() {
                         : 'bg-neutral-secondary text-body-subtle'
                     }`}
                   >
-                    {user?.role ?? 'USER'}
+                    {formatSemanticLabel(user?.role ?? 'USER', language)}
                   </span>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-body-subtle">

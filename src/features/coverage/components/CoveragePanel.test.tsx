@@ -6,6 +6,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CoveragePanel } from './CoveragePanel';
 import type { CoverageReport } from '../types';
+import { LanguageProvider } from '../../../shared/i18n/language';
+import { LanguageToggle } from '../../../shared/components/LanguageToggle';
 
 const mockUseCoverageReport = vi.fn();
 const mockMutate = vi.fn();
@@ -19,6 +21,7 @@ vi.mock('../hooks/useCoverage', () => ({
 
 afterEach(() => {
   cleanup();
+  localStorage.removeItem('greytest.language');
   vi.clearAllMocks();
 });
 
@@ -54,6 +57,17 @@ const report: CoverageReport = {
 };
 
 describe('CoveragePanel', () => {
+  it('updates risk and refinement tags with the system language', () => {
+    mockUseCoverageReport.mockReturnValue({ data: report, isLoading: false, isError: false });
+    render(<LanguageProvider><LanguageToggle /><MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter></LanguageProvider>);
+    expect(screen.getByText('Cao')).toBeVisible();
+    expect(screen.getByText('Service · Có thể bổ sung')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+    expect(screen.getByText('High')).toBeVisible();
+    expect(screen.getByText('Service · Refinable')).toBeVisible();
+    expect(screen.queryByText('Cao')).not.toBeInTheDocument();
+  });
+
   it('shows an empty state when no report exists yet', () => {
     mockUseCoverageReport.mockReturnValue({ data: null, isLoading: false, isError: false });
 
@@ -75,7 +89,7 @@ describe('CoveragePanel', () => {
     expect(screen.getByText('92%')).toBeInTheDocument();
     expect(screen.getByText('OrderService.createOrder')).toBeInTheDocument();
     expect(screen.getByText(/Bổ sung test case/)).toBeInTheDocument();
-    expect(screen.getByText('HIGH')).toBeInTheDocument();
+    expect(screen.getByText('Cao')).toBeInTheDocument();
     // Hiển thị vòng upload và tiến bộ so với vòng trước
     expect(screen.getByText('Vòng 2')).toBeInTheDocument();
     expect(screen.getByText('+10% so với vòng trước')).toBeInTheDocument();

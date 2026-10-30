@@ -5,6 +5,9 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BusinessRulesPanel } from './BusinessRulesPanel';
+import type { ReviewStatus, RuleSource } from '../types';
+import { LanguageProvider } from '../../../shared/i18n/language';
+import { LanguageToggle } from '../../../shared/components/LanguageToggle';
 
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
@@ -21,8 +24,8 @@ const mocks = vi.hoisted(() => ({
     description: 'Email phai hop le.',
     reviewNote: null as string | null,
     suggestedDescription: null as string | null,
-    source: 'AI_GENERATED' as const,
-    status: 'PENDING_REVIEW' as const,
+    source: 'AI_GENERATED' as RuleSource,
+    status: 'PENDING_REVIEW' as ReviewStatus,
     isModified: false,
     createdAt: '',
     updatedAt: '',
@@ -61,10 +64,15 @@ vi.mock('../hooks/useBusinessRules', () => {
 });
 
 describe('BusinessRulesPanel', () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    localStorage.removeItem('greytest.language');
+  });
 
   beforeEach(() => {
     mocks.rules.splice(1);
+    mocks.rules[0].source = 'AI_GENERATED';
+    mocks.rules[0].status = 'PENDING_REVIEW';
     mocks.rules[0].isModified = false;
     mocks.rules[0].reviewNote = null;
     mocks.rules[0].suggestedDescription = null;
@@ -75,6 +83,36 @@ describe('BusinessRulesPanel', () => {
     mocks.classes = [];
     mocks.generating = false;
     mocks.progress = undefined;
+  });
+
+  it('switches every rule source and review status tag with the system language', () => {
+    mocks.rules[0].source = 'USER_MODIFIED';
+    mocks.rules[0].isModified = true;
+    mocks.rules.push(
+      { ...mocks.rules[0], id: 2, ruleCode: 'BR-002', source: 'AI_GENERATED', status: 'APPROVED', isModified: false },
+      { ...mocks.rules[0], id: 3, ruleCode: 'BR-003', source: 'USER_ADDED', status: 'REJECTED', isModified: false },
+      { ...mocks.rules[0], id: 4, ruleCode: 'BR-004', source: 'AI_REVIEW_SUGGESTED', isModified: false },
+    );
+    render(<LanguageProvider><LanguageToggle /><MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter></LanguageProvider>);
+
+    for (const label of ['Người dùng chỉnh sửa', 'AI sinh', 'Người dùng thêm', 'AI đề xuất', 'Đã chỉnh sửa', 'Đã duyệt', 'Đã từ chối']) {
+      expect(screen.getByText(label)).toBeVisible();
+    }
+    expect(screen.getAllByText('Chờ duyệt')).toHaveLength(2);
+    expect(screen.queryByText(/USER_MODIFIED|PENDING REVIEW|AI_GENERATED/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+    for (const label of ['User modified', 'AI generated', 'User added', 'AI suggested', 'Edited', 'Approved', 'Rejected']) {
+      expect(screen.getByText(label)).toBeVisible();
+    }
+    expect(screen.getAllByText('Pending review')).toHaveLength(2);
+    expect(screen.queryByText('Người dùng chỉnh sửa')).not.toBeInTheDocument();
+    expect(screen.getByText('BR-002')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'VI' }));
+    expect(screen.getByText('Người dùng chỉnh sửa')).toBeVisible();
+    expect(screen.getByText('Đã chỉnh sửa')).toBeVisible();
+    expect(screen.queryByText('User modified')).not.toBeInTheDocument();
   });
 
   it('shows generation progress next to the AI action while pending', () => {
@@ -271,6 +309,42 @@ describe('BusinessRulesPanel', () => {
     expect(screen.getByRole('button', { name: 'AI review thay đổi (1)' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
     expect(screen.getByText(/AI review là bước tư vấn tùy chọn/)).toBeVisible();
+    expect(screen.getByText('Đã chỉnh sửa')).toBeVisible();
+    expect(screen.queryByText('Code liên quan đã thay đổi')).not.toBeInTheDocument();
+  });
+
+  it('identifies source changes separately from manual edits', () => {
+    mocks.rules[0].isModified = true;
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} affectedRuleIds={new Set([1])} /></MemoryRouter>);
+    expect(screen.getByText('Code liên quan đã thay đổi')).toBeVisible();
+    expect(screen.queryByText('Đã chỉnh sửa')).not.toBeInTheDocument();
+  });
+
+  it('hides legacy category and manual-edit informational notes', () => {
+    mocks.rules[0].reviewNote = 'AI category: BUSINESS_LOGIC. User review/chinh sua truoc khi approve.';
+    const { rerender } = render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+    expect(screen.queryByText(/AI category:|User review\/chinh sua/)).not.toBeInTheDocument();
+
+    mocks.rules[0].reviewNote = 'Da sua thu cong. AI review lai la tuy chon.';
+    rerender(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+    expect(screen.queryByText(/Da sua thu cong/)).not.toBeInTheDocument();
+    expect(screen.getByText('Email phai hop le.')).toBeVisible();
+  });
+
+  it('localizes a review verdict and shows fresh feedback only once', () => {
+    mocks.rules[0].isModified = true;
+    mocks.rules[0].reviewNote = 'TOO_VAGUE: Thiếu điều kiện đầu vào.';
+    mocks.review.mockImplementation((_value, options) => options.onSuccess({
+      reviewedRules: [{ ruleId: 1, verdict: 'TOO_VAGUE', suggestedDescription: null,
+        reason: 'Thiếu điều kiện đầu vào.' }],
+      suggestedRules: [],
+    }));
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+    expect(screen.getByText('Mô tả chưa rõ: Thiếu điều kiện đầu vào.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'AI review thay đổi (1)' }));
+    expect(screen.getAllByText('Mô tả chưa rõ: Thiếu điều kiện đầu vào.')).toHaveLength(1);
+    expect(screen.queryByText(/TOO_VAGUE/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
   });
 
   it('keeps a persisted AI suggestion actionable after remount', () => {

@@ -10,6 +10,7 @@ import { useCurrentUser } from '../../auth/hooks/useAuth';
 import { AdminShell } from '../components/AdminShell';
 import { useAdminUserMutations, useAdminUsers } from '../hooks/useAdmin';
 import type { AdminUser, UserFilters, UserRole, UserTier } from '../types';
+import { useLanguage } from '../../../shared/i18n/language';
 
 interface QuotaEditorState { id: number; name: string; value: string; unlimited: boolean }
 interface RoleTargetState { user: AdminUser; role: UserRole }
@@ -17,6 +18,7 @@ interface TierTargetState { user: AdminUser; tier: UserTier }
 
 /** Danh sách quản trị người dùng với bộ lọc và thao tác tài khoản tập trung. */
 export function AdminUsersPage() {
+  const { t } = useLanguage();
   const [filters, setFilters] = useState<UserFilters>({ page: 0, size: 10, sort: 'createdAt', direction: 'desc' });
   const [statusTarget, setStatusTarget] = useState<AdminUser | null>(null);
   const [lockReason, setLockReason] = useState('');
@@ -108,7 +110,7 @@ export function AdminUsersPage() {
     <GlassCard>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><h2 className="text-lg font-semibold text-heading">Quản lý người dùng</h2><p className="mt-1 text-sm text-body-subtle">Tìm kiếm tài khoản, kiểm soát quyền truy cập và hạn mức LLM tại một nơi.</p></div>
-        <span className="rounded-full bg-neutral-secondary px-3 py-1 text-xs font-semibold text-body">{users.data?.totalElements ?? 0} tài khoản</span>
+        <span className="rounded-full bg-neutral-secondary px-3 py-1 text-xs font-semibold text-body">{users.data?.totalElements ?? 0} {t('tài khoản', 'accounts')}</span>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_auto]">
@@ -151,7 +153,7 @@ export function AdminUsersPage() {
             <td className="p-3"><div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-softer text-xs font-bold uppercase text-fg-brand">{(user.fullName || user.email).slice(0, 2)}</span><div className="min-w-0"><Link className="font-semibold text-heading hover:text-fg-brand hover:underline" to={`/admin/users/${user.id}`}>{user.fullName || 'Chưa cập nhật tên'}</Link><p className="max-w-xs truncate text-xs text-body-subtle xl:max-w-md">{user.email} · tạo {new Date(user.createdAt).toLocaleDateString('vi-VN')}</p></div></div></td>
             <td className="p-3"><select aria-label={`Vai trò của ${user.email}`} className="form-input min-w-[130px] py-1.5" value={user.role} disabled={isSelf || mutations.role.isPending} onChange={(event) => setRoleTarget({ user, role: event.target.value as UserRole })}><option value="USER">Người dùng</option><option value="ADMIN">Quản trị viên</option></select></td>
             <td className="p-3"><div className="flex items-center gap-1.5"><select aria-label={`Gói của ${user.email}`} className={`form-input min-w-[110px] py-1.5 text-xs font-semibold ${user.tier === 'PRO' ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300' : user.tier === 'PLUS' ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300' : 'bg-neutral-secondary-soft text-body'}`} value={user.tier || 'FREE'} disabled={mutations.tier.isPending} onChange={(event) => setTierTarget({ user, tier: event.target.value as UserTier })}><option value="FREE">Free (100)</option><option value="PLUS">Plus (200)</option><option value="PRO">Pro (300)</option></select>{user.tier === 'PRO' && <Crown size={15} className="shrink-0 text-amber-500" />}</div></td>
-            <td className="p-3"><span className={`inline-flex whitespace-nowrap items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${user.enabled ? 'bg-success-soft text-fg-success-strong' : 'bg-danger-soft text-fg-danger-strong'}`}><span className={`h-1.5 w-1.5 rounded-full ${user.enabled ? 'bg-success' : 'bg-danger'}`} />{user.enabled ? 'Hoạt động' : 'Đã khóa'}</span></td>
+            <td className="p-3"><span className={`inline-flex whitespace-nowrap items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${user.enabled ? 'bg-success-soft text-fg-success-strong' : 'bg-danger-soft text-fg-danger-strong'}`}><span className={`h-1.5 w-1.5 rounded-full ${user.enabled ? 'bg-success' : 'bg-danger'}`} />{user.enabled ? t('Hoạt động', 'Active') : t('Đã khóa', 'Locked')}</span></td>
             <td className="p-3"><span className="font-semibold text-heading">{user.totalGenerationRequests}</span><span className="ml-1 text-xs text-body-subtle">lượt</span></td>
             <td className="p-3 whitespace-nowrap text-xs text-body-subtle">{user.lastActivityAt ? new Date(user.lastActivityAt).toLocaleString('vi-VN') : 'Chưa có'}</td>
             <td className="p-3"><button type="button" className="group min-w-[170px] text-left" onClick={() => setQuotaEditor({ id: user.id, name: user.fullName || user.email, value: String(user.quota.limit ?? 0), unlimited: user.quota.limit === null })}>

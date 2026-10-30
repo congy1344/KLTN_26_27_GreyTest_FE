@@ -3,7 +3,7 @@ import { useLanguage } from '../../../shared/i18n/language';
 
 const STATUS_CONFIG: Record<ProjectStatus, { label: [string, string]; bg: string; border: string; text: string; dotColor: string }> = {
   UPLOADED: {
-    label: ['Đã upload', 'Uploaded'],
+    label: ['Đã tải lên', 'Uploaded'],
     bg: 'bg-brand-softer',
     border: 'border-border-brand-subtle',
     text: 'text-fg-brand-strong',
@@ -17,42 +17,42 @@ const STATUS_CONFIG: Record<ProjectStatus, { label: [string, string]; bg: string
     dotColor: 'bg-success',
   },
   BR_PENDING_REVIEW: {
-    label: ['BR chờ review', 'BR pending review'],
+    label: ['BR chờ duyệt', 'BR pending review'],
     bg: 'bg-warning-soft',
     border: 'border-border-warning-subtle',
     text: 'text-fg-warning',
     dotColor: 'bg-warning animate-pulse',
   },
   BR_APPROVED: {
-    label: ['BR đã approve', 'BR approved'],
+    label: ['BR đã duyệt', 'BR approved'],
     bg: 'bg-success-soft',
     border: 'border-border-success-subtle',
     text: 'text-fg-success-strong',
     dotColor: 'bg-success',
   },
   PLAN_PENDING_REVIEW: {
-    label: ['Plan chờ review', 'Plan pending review'],
+    label: ['Kế hoạch chờ duyệt', 'Plan pending review'],
     bg: 'bg-warning-soft',
     border: 'border-border-warning-subtle',
     text: 'text-fg-warning',
     dotColor: 'bg-warning animate-pulse',
   },
   PLAN_APPROVED: {
-    label: ['Plan đã approve', 'Plan approved'],
+    label: ['Kế hoạch đã duyệt', 'Plan approved'],
     bg: 'bg-success-soft',
     border: 'border-border-success-subtle',
     text: 'text-fg-success-strong',
     dotColor: 'bg-success',
   },
   CASE_PENDING_REVIEW: {
-    label: ['Case chờ review', 'Case pending review'],
+    label: ['Ca kiểm thử chờ duyệt', 'Case pending review'],
     bg: 'bg-warning-soft',
     border: 'border-border-warning-subtle',
     text: 'text-fg-warning',
     dotColor: 'bg-warning animate-pulse',
   },
   CASE_APPROVED: {
-    label: ['Case đã approve', 'Case approved'],
+    label: ['Ca kiểm thử đã duyệt', 'Case approved'],
     bg: 'bg-success-soft',
     border: 'border-border-success-subtle',
     text: 'text-fg-success-strong',

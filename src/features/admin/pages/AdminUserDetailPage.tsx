@@ -7,9 +7,12 @@ import { LoadingState } from '../../../shared/components/LoadingState';
 import { AdminShell } from '../components/AdminShell';
 import { useAdminUser } from '../hooks/useAdmin';
 import { activityLabel, formatActivityMetadata } from '../utils/activity-presentation';
+import { useLanguage } from '../../../shared/i18n/language';
+import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 
 /** Hồ sơ quản trị tổng hợp thông tin tài khoản, quota, dự án và lịch sử gần nhất. */
 export function AdminUserDetailPage() {
+  const { t, language } = useLanguage();
   const id = Number(useParams().id);
   const query = useAdminUser(id);
 
@@ -21,7 +24,7 @@ export function AdminUserDetailPage() {
       <GlassCard>
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="flex items-center gap-4"><span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-softer text-fg-brand"><UserRound size={24} /></span><div><h2 className="text-xl font-bold text-heading">{query.data.user.fullName || 'Chưa cập nhật tên'}</h2><p className="mt-1 flex items-center gap-1.5 text-sm text-body-subtle"><Mail size={13} /> {query.data.user.email}</p><p className="mt-1 flex items-center gap-1.5 text-xs text-body-subtle"><CalendarDays size={13} /> Tham gia {new Date(query.data.user.createdAt).toLocaleDateString('vi-VN')}</p></div></div>
-          <div className="flex flex-wrap gap-2"><span className="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full bg-brand-softer px-3 py-1 text-xs font-semibold text-fg-brand"><ShieldCheck size={13} /> {query.data.user.role === 'ADMIN' ? 'Quản trị viên' : 'Người dùng'}</span><span className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${query.data.user.enabled ? 'bg-success-soft text-fg-success-strong' : 'bg-danger-soft text-fg-danger-strong'}`}>{query.data.user.enabled ? 'Đang hoạt động' : 'Đã khóa'}</span></div>
+          <div className="flex flex-wrap gap-2"><span className="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full bg-brand-softer px-3 py-1 text-xs font-semibold text-fg-brand"><ShieldCheck size={13} /> {formatSemanticLabel(query.data.user.role, language)}</span><span className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${query.data.user.enabled ? 'bg-success-soft text-fg-success-strong' : 'bg-danger-soft text-fg-danger-strong'}`}>{query.data.user.enabled ? t('Đang hoạt động', 'Active') : t('Đã khóa', 'Locked')}</span></div>
         </div>
       </GlassCard>
 

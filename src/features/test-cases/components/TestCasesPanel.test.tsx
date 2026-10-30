@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestCasesPanel } from './TestCasesPanel';
+import { LanguageProvider } from '../../../shared/i18n/language';
+import { LanguageToggle } from '../../../shared/components/LanguageToggle';
 
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock('../hooks/useTestCases', () => ({
 
 afterEach(() => {
   cleanup();
+  localStorage.removeItem('greytest.language');
   vi.clearAllMocks();
   mocks.casesData = [];
   mocks.unitsData = [];
@@ -114,8 +117,20 @@ describe('TestCasesPanel', () => {
     mocks.casesData = [{ ...sampleCase(1), status: 'PENDING_REVIEW' }];
     render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
 
-    expect(screen.getByText('DRAFT')).toHaveClass('bg-warning-soft', 'text-fg-warning');
+    expect(screen.getByText('Bản nháp')).toHaveClass('bg-warning-soft', 'text-fg-warning');
     expect(screen.queryByText('PENDING REVIEW')).not.toBeInTheDocument();
+  });
+
+  it('switches type, priority and draft tags to the selected language', () => {
+    mocks.casesData = [{ ...sampleCase(1), status: 'PENDING_REVIEW' }];
+    render(<LanguageProvider><LanguageToggle /><MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter></LanguageProvider>);
+    expect(screen.getByText('Trường hợp hợp lệ')).toBeVisible();
+    expect(screen.getByText('Cao')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+    expect(screen.getByText('Happy path')).toBeVisible();
+    expect(screen.getByText('High')).toBeVisible();
+    expect(screen.getByText('Draft')).toHaveClass('bg-warning-soft');
+    expect(screen.queryByText('Cao')).not.toBeInTheDocument();
   });
 
   it('calls backend mutations instead of creating local fake cases', () => {
@@ -178,7 +193,7 @@ describe('TestCasesPanel', () => {
         <TestCasesPanel projectId={105} projectStatus="CASE_PENDING_REVIEW" />
       </MemoryRouter>,
     );
-    expect(screen.getByText('~ CẬP NHẬT THEO CODE')).toBeInTheDocument();
+    expect(screen.getByText('Có thay đổi liên quan')).toBeInTheDocument();
     unmount();
 
     // Đã qua bước case (đã approve hoặc sinh test) -> ẩn badge
@@ -187,6 +202,6 @@ describe('TestCasesPanel', () => {
         <TestCasesPanel projectId={105} projectStatus="CASE_APPROVED" />
       </MemoryRouter>,
     );
-    expect(screen.queryByText('~ CẬP NHẬT THEO CODE')).not.toBeInTheDocument();
+    expect(screen.queryByText('Có thay đổi liên quan')).not.toBeInTheDocument();
   });
 });

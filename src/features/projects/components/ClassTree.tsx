@@ -3,7 +3,8 @@ import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { Box, Boxes, ClipboardCheck, Code2, Database, FileCode2, Folder, Globe, ListTree, Table2, TestTube2 } from 'lucide-react';
 import type { ExistingTestInfo, JavaClassInfo, JavaMethodInfo } from '../types';
-import { useLanguage } from '../../../shared/i18n/language';
+import { useLanguage, type Language } from '../../../shared/i18n/language';
+import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 
 interface ClassTreeProps {
@@ -82,7 +83,7 @@ function entryIcon(kind: TreeEntryKind) {
   }
 }
 
-function methodDetail(method: JavaMethodInfo, diffType?: 'ADDED' | 'MODIFIED' | 'DELETED') {
+function methodDetail(method: JavaMethodInfo, language: Language, diffType?: 'ADDED' | 'MODIFIED' | 'DELETED') {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -91,17 +92,17 @@ function methodDetail(method: JavaMethodInfo, diffType?: 'ADDED' | 'MODIFIED' | 
         </div>
         {diffType === 'ADDED' && (
           <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-            + Phương thức mới thêm từ bản cập nhật
+            + {formatSemanticLabel('ADDED', language)}
           </span>
         )}
         {diffType === 'MODIFIED' && (
           <span className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
-            ~ Phương thức đã cập nhật theo mã nguồn mới
+            {formatSemanticLabel('MODIFIED', language)}
           </span>
         )}
         {diffType === 'DELETED' && (
           <span className="rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
-            - Phương thức đã bị xóa khỏi source code
+            - {formatSemanticLabel('DELETED', language)}
           </span>
         )}
       </div>
@@ -140,7 +141,7 @@ function classDetail(javaClass: JavaClassInfo, emptyMessage: string) {
   );
 }
 
-function renderEntries(entries: TreeEntry[], expandedIds: Set<string>): ReactNode {
+function renderEntries(entries: TreeEntry[], expandedIds: Set<string>, language: Language): ReactNode {
   return entries.map((entry) => (
     <TreeItem
       key={entry.id}
@@ -153,17 +154,17 @@ function renderEntries(entries: TreeEntry[], expandedIds: Set<string>): ReactNod
           <span className="truncate">{entry.label}</span>
           {entry.diffType === 'ADDED' && (
             <span className="ml-auto rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-              + MỚI THÊM
+              + {formatSemanticLabel('ADDED', language)}
             </span>
           )}
           {entry.diffType === 'MODIFIED' && (
             <span className="ml-auto rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-amber-600 dark:text-amber-400">
-              ~ CẬP NHẬT THEO CODE
+              {formatSemanticLabel('MODIFIED', language)}
             </span>
           )}
           {entry.diffType === 'DELETED' && (
             <span className="ml-auto rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-rose-600 dark:text-rose-400">
-              - ĐÃ XÓA
+              - {formatSemanticLabel('DELETED', language)}
             </span>
           )}
         </span>
@@ -171,7 +172,7 @@ function renderEntries(entries: TreeEntry[], expandedIds: Set<string>): ReactNod
       slotProps={{ groupTransition: { unmountOnExit: true } }}
     >
       {entry.children.length > 0 && (expandedIds.has(entry.id)
-        ? renderEntries(entry.children, expandedIds)
+        ? renderEntries(entry.children, expandedIds, language)
         : <TreeItem itemId={`${entry.id}:collapsed`} label="" disabled />)}
     </TreeItem>
   ));
@@ -179,7 +180,7 @@ function renderEntries(entries: TreeEntry[], expandedIds: Set<string>): ReactNod
 
 export function ClassTree({ classes, existingTests = EMPTY_TESTS, methodDiffMap }: ClassTreeProps) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const entries = useMemo(() => {
     const root: TreeEntry[] = [];
     classes.forEach((javaClass) => {
@@ -232,13 +233,13 @@ export function ClassTree({ classes, existingTests = EMPTY_TESTS, methodDiffMap 
         if (`method:${method.id}` === selectedId) {
           const diffType = methodDiffMap?.[`${javaClass.qualifiedName}#${method.methodName}`]
             || methodDiffMap?.[method.methodName];
-          return methodDetail(method, diffType);
+          return methodDetail(method, language, diffType);
         }
       }
     }
     const test = existingTests.find((item) => `test:${item.id}` === selectedId);
     return test ? <pre className={CODE_BLOCK_CLASS}><code>{test.sourceCode}</code></pre> : null;
-  }, [classes, existingTests, methodDiffMap, selectedId, t]);
+  }, [classes, existingTests, methodDiffMap, selectedId, t, language]);
 
   if (!classes.length && !existingTests.length) {
     return <div className="rounded-base border border-border-default bg-neutral-primary-soft p-8 text-center shadow-sm"><p className="text-sm font-semibold text-heading">{t('Chưa có source được trích xuất', 'No source has been extracted')}</p></div>;
@@ -253,7 +254,7 @@ export function ClassTree({ classes, existingTests = EMPTY_TESTS, methodDiffMap 
           expandedItems={expandedItems}
           onExpandedItemsChange={(_event, items) => setExpandedItems(items)}
         >
-          {renderEntries(entries, expandedIds)}
+          {renderEntries(entries, expandedIds, language)}
         </SimpleTreeView>
       </div>
       <div className="min-h-[220px] rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
