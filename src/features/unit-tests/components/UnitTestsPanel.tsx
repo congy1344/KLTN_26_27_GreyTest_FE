@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Bot, CheckCircle2, ChevronLeft, ChevronRight, Copy, Download, FileCode2, Loader2, ListFilter, Play, RotateCcw, Search, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Bot, CheckCircle2, Copy, Download, FileCode2, Loader2, ListFilter, Play, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
@@ -23,9 +23,8 @@ import { displaySourcePath } from '../../../shared/utils/source-path';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
 import { SourceUpdateDeletionHistory } from '../../projects/components/SourceUpdateDeletionHistory';
+import { UnitTestTree } from './UnitTestTree';
 import type { ProjectStatus } from '../../projects/types';
-
-const PAGE_SIZE = 8;
 
 export function UnitTestsPanel({
   projectId = 0,
@@ -83,8 +82,8 @@ export function UnitTestsPanel({
   const [activeId, setActiveId] = useState<number | null>(null);
   const [userSelectedMethod, setUserSelectedMethod] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const [downloadError, setDownloadError] = useState('');
+  const [skippedCases, setSkippedCases] = useState<string[]>([]);
   const { t, language } = useLanguage();
   const approvedCases = useMemo(() => (cases.data ?? []).filter((item) => item.status === 'APPROVED'), [cases.data]);
   const eligibleCases = approvedCases;
@@ -100,7 +99,7 @@ export function UnitTestsPanel({
   const missingCount = eligibleCases.length - coveredCount;
   const unexpectedCount = Math.max(0, (tests.data ?? []).length - coveredCount);
   const coverageHint = approvedCases.length === 0
-    ? t('Chưa có Test Case được approve', 'No approved Test Cases')
+    ? t('Chưa có Test Case được duyệt', 'No approved Test Cases')
     : [
       missingCount > 0 ? t(`Thiếu ${missingCount} case`, `${missingCount} cases missing`) : '',
       unexpectedCount > 0 ? t(`Trùng/thừa ${unexpectedCount} test`, `${unexpectedCount} duplicate/extra tests`) : '',
@@ -196,9 +195,6 @@ export function UnitTestsPanel({
     methodDiffMap,
     getMethodDiff,
   ]);
-  const totalPages = Math.ceil(visible.length / PAGE_SIZE) || 1;
-  const safePage = Math.min(Math.max(1, currentPage), totalPages);
-  const paginatedVisible = visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const active = visible.find((item) => item.id === activeId) ?? visible[0];
   const sourceTraceByRule = useMemo(
     () => buildRuleSourceIndex(analysis.data, rules.data ?? []),
@@ -232,14 +228,21 @@ export function UnitTestsPanel({
     return matches.length === 1 ? matches[0] : undefined;
   };
   const activeFile = active ? fileForTest(active) : undefined;
+  // File xuất có thể đổi tên khi tách fixture, nên cây lấy đường dẫn theo đúng file sẽ hiển thị.
+  const treeFilePath = useMemo(() => {
+    const paths = new Map(visible.map((test) => [test.id, fileForTest(test)?.filePath ?? test.filePath]));
+    return (test: UnitTest) => paths.get(test.id) ?? test.filePath;
+    // fileForTest chỉ phụ thuộc danh sách file và case.
+  }, [visible, files.data, approvedCaseById]);
   const error = cases.error ?? plans.error ?? rules.error ?? analysis.error
     ?? tests.error ?? files.error ?? generate.error;
 
   const handleDownload = async () => {
     try {
       setDownloadError('');
+      setSkippedCases([]);
       setDownloading(true);
-      await downloadUnitTestsZip(projectId, servicePath);
+      setSkippedCases(await downloadUnitTestsZip(projectId, servicePath));
     } catch (downloadException) {
       setDownloadError(getErrorMessage(downloadException, true));
     } finally {
@@ -276,7 +279,7 @@ export function UnitTestsPanel({
   return (
     <section className="mt-8 animate-fade-in">
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Unit Tests</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh JUnit/Mockito từ Test Case đã approve và lưu về backend.', 'AI generates JUnit/Mockito tests from approved Test Cases and persists them in the backend.')}</p></div>
+        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Unit Tests</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh JUnit/Mockito từ Test Case đã duyệt và lưu về backend.', 'AI generates JUnit/Mockito tests from approved Test Cases and persists them in the backend.')}</p></div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
           {coveredCount > 0 && missingCount > 0 ? (
             <>
@@ -333,10 +336,10 @@ export function UnitTestsPanel({
         </div>
       </div>
       {(cases.data ?? []).length > 0 && eligibleCases.length === 0 && (
-        <p className="mb-3 text-xs text-fg-warning">{t('Hãy approve Test Case trước khi sinh Unit Test.', 'Approve Test Cases before generating Unit Tests.')}</p>
+        <p className="mb-3 text-xs text-fg-warning">{t('Hãy duyệt Test Case trước khi sinh Unit Test.', 'Approve Test Cases before generating Unit Tests.')}</p>
       )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={CheckCircle2} label={t('Test Case đã approve', 'Approved Cases')} value={approvedCases.length} />
+        <MetricCard icon={CheckCircle2} label={t('Test Case đã duyệt', 'Approved Cases')} value={approvedCases.length} />
         <MetricCard icon={FileCode2} label={t('Test file', 'Test Files')} value={(files.data ?? []).length} />
         <MetricCard icon={ShieldCheck} label={t('Unit test đã sinh', 'Generated Tests')} value={(tests.data ?? []).length} />
         <MetricCard icon={ShieldCheck} label={t('Case đã có test', 'Cases Covered')} value={`${coveredCount}/${approvedCases.length}`} tone={coverageReady ? 'brand' : 'neutral'} hint={coverageHint} />
@@ -344,8 +347,16 @@ export function UnitTestsPanel({
       <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
         {error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
         {downloadError && <InlineAlert tone="danger">{downloadError}</InlineAlert>}
+        {skippedCases.length > 0 && (
+          <InlineAlert tone="warning">
+            {t(
+              `Gói tải về không gồm ${skippedCases.length} Test Case chưa có Unit Test đạt kiểm tra: ${skippedCases.join(', ')}. Dùng Tiếp tục sinh để sinh lại; lý do nằm trong file GREYTEST-SKIPPED-CASES.txt.`,
+              `The package leaves out ${skippedCases.length} Test Cases without a passing Unit Test: ${skippedCases.join(', ')}. Use Continue generation to retry; reasons are in GREYTEST-SKIPPED-CASES.txt.`,
+            )}
+          </InlineAlert>
+        )}
         {(tests.data ?? []).length > 0 && (coverageReady
-          ? <InlineAlert key="coverage-ready" tone="success" autoDismissMs={5000}>{t('Đã kiểm chứng đủ: mỗi Test Case được approve có đúng một Unit Test.', 'Verified: every approved Test Case has exactly one Unit Test.')}</InlineAlert>
+          ? <InlineAlert key="coverage-ready" tone="success" autoDismissMs={5000}>{t('Đã kiểm chứng đủ: mỗi Test Case được duyệt có đúng một Unit Test.', 'Verified: every approved Test Case has exactly one Unit Test.')}</InlineAlert>
           : <InlineAlert key={coverageWarning} tone="warning" autoDismissMs={5000}>{t(`Chưa nên sang Coverage: ${coverageWarning}.`, `Not ready for Coverage: ${coverageWarning}.`)}</InlineAlert>)}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -368,7 +379,7 @@ export function UnitTestsPanel({
             <input aria-label={t('Tìm Unit Test', 'Search Unit Tests')} className="form-input pl-9" value={query} onChange={(event) => { setQuery(event.target.value); setActiveId(null); setUserSelectedMethod(false); }} placeholder={t('Tìm TC-001, UserServiceTest, method...', 'Search TC-001, UserServiceTest, method...')} />
           </label>
           <select aria-label={t('Lọc Test Case', 'Filter by Test Case')} className="form-input" value={caseId} onChange={(event) => { setCaseId(event.target.value); setActiveId(null); setUserSelectedMethod(false); }}>
-            <option value="">{t('Tất cả Test Case đã approve', 'All approved Test Cases')}</option>
+            <option value="">{t('Tất cả Test Case đã duyệt', 'All approved Test Cases')}</option>
             {approvedCases.map((item) => <option key={item.id} value={item.id}>{item.caseCode} - {item.description}</option>)}
           </select>
         </div>
@@ -381,19 +392,25 @@ export function UnitTestsPanel({
               <p className="text-xs font-semibold uppercase tracking-wide text-body-subtle">{t('Danh sách method', 'Method index')}</p>
               <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-xs font-semibold text-heading">{visible.length}</span>
             </div>
-            {totalPages > 1 && (
-              <span className="text-[11px] font-mono text-body-subtle">
-                {t(`Trang ${safePage}/${totalPages}`, `Page ${safePage}/${totalPages}`)}
-              </span>
-            )}
           </div>
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 max-h-[720px] overflow-auto">
           {tests.isLoading ? (
             <LoadingState label={t('Đang tải Unit Test...', 'Loading Unit Tests...')} minHeight="min-h-[160px]" />
           ) : visible.length === 0 ? (
-            <EmptyState icon={FileCode2} title={t('Chưa có Unit Test', 'No Unit Tests yet')} hint={t('Approve Test Case rồi bấm "AI sinh Unit Test".', 'Approve Test Cases, then select "Generate with AI".')} minHeight="min-h-[200px]" />
-          ) : paginatedVisible.map((item, index) => {
-              const overallIndex = (safePage - 1) * PAGE_SIZE + index;
+            <EmptyState icon={FileCode2} title={t('Chưa có Unit Test', 'No Unit Tests yet')} hint={t('Duyệt Test Case rồi bấm "AI sinh Unit Test".', 'Approve Test Cases, then select "Generate with AI".')} minHeight="min-h-[200px]" />
+          ) : (
+            <UnitTestTree
+              tests={visible}
+              activeId={active?.id}
+              filtering={Boolean(normalizedQuery || caseId)}
+              scrollToActive={userSelectedMethod}
+              filePathOf={treeFilePath}
+              labelOf={(item) => `${approvedCaseById.get(item.testCaseId)?.caseCode ?? `Case ${item.testCaseId}`} ${item.testMethodName}`}
+              onSelect={(id) => {
+                setUserSelectedMethod(true);
+                setActiveId(id);
+              }}
+              renderMethod={(item) => {
               const testCase = approvedCaseById.get(item.testCaseId);
             const testPlan = testCase ? (plans.data ?? []).find((p) => p.id === testCase.testPlanId) : null;
             const ruleIds = testPlan?.coveredRuleIds?.length
@@ -432,19 +449,8 @@ export function UnitTestsPanel({
                   : '';
 
             return (
-            <button
-              key={item.id}
-              type="button"
-              aria-label={`${testCase?.caseCode ?? `Case ${item.testCaseId}`} ${item.testMethodName}`}
-              aria-current={active?.id === item.id ? 'true' : undefined}
-              className={`block w-full border-b border-border-default px-4 py-3 text-left transition-colors last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand ${diffBorder} ${active?.id === item.id ? 'bg-brand-softer' : 'hover:bg-neutral-secondary-soft/40'}`}
-              onClick={() => {
-                setUserSelectedMethod(true);
-                setActiveId(item.id);
-              }}
-            >
+            <span className={`block rounded-sm px-2 py-1.5 text-left ${diffBorder}`}>
               <span className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold tabular-nums text-body-subtle">{String(overallIndex + 1).padStart(2, '0')}</span>
                 <span className="rounded-full bg-brand-softer px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong">{testCase?.caseCode ?? `#${item.testCaseId}`}</span>
                 {hasAdded && (
                   <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
@@ -466,62 +472,13 @@ export function UnitTestsPanel({
                 )}
               </span>
               <span className="mt-2 block break-all font-mono text-xs font-semibold text-heading">{item.testMethodName}</span>
-              <span className="mt-1 block truncate text-xs text-body-subtle">{item.testClassName}</span>
               {testCase?.description && <span className="mt-1 block line-clamp-2 text-[11px] leading-relaxed text-body-subtle">{testCase.description}</span>}
-            </button>
-          );})}
+            </span>
+          );}}
+            />
+          )}
             </div>
           </div>
-          {totalPages > 1 && (
-            <div className="mt-auto flex shrink-0 items-center justify-between border-t border-border-default bg-neutral-primary-soft/90 px-3 py-2 text-xs">
-              <button
-                type="button"
-                disabled={safePage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-body hover:bg-neutral-secondary-medium disabled:opacity-40 disabled:pointer-events-none transition-colors"
-                aria-label={t('Trang trước', 'Previous page')}
-              >
-                <ChevronLeft size={14} />
-                <span>{t('Trước', 'Prev')}</span>
-              </button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                  const isCurrent = pageNum === safePage;
-                  if (totalPages > 6 && Math.abs(pageNum - safePage) > 1 && pageNum !== 1 && pageNum !== totalPages) {
-                    if (pageNum === 2 || pageNum === totalPages - 1) {
-                      return <span key={pageNum} className="px-1 text-body-subtle">…</span>;
-                    }
-                    return null;
-                  }
-                  return (
-                    <button
-                      key={pageNum}
-                      type="button"
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`h-6 min-w-6 rounded px-1.5 text-center font-mono text-[11px] transition-colors ${
-                        isCurrent
-                          ? 'bg-brand-soft text-fg-brand-strong font-bold border border-border-brand-subtle'
-                          : 'text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading'
-                      }`}
-                      aria-current={isCurrent ? 'page' : undefined}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                disabled={safePage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-body hover:bg-neutral-secondary-medium disabled:opacity-40 disabled:pointer-events-none transition-colors"
-                aria-label={t('Trang sau', 'Next page')}
-              >
-                <span>{t('Sau', 'Next')}</span>
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          )}
         </div>
         <div className="flex min-w-0 flex-col rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
           {!active ? (
@@ -602,8 +559,6 @@ export function UnitTestsPanel({
                     (test) => approvedCaseById.get(test.testCaseId)?.caseCode === code && fileForTest(test) === activeFile
                   );
                   if (targetIndex >= 0) {
-                    const targetPage = Math.floor(targetIndex / PAGE_SIZE) + 1;
-                    setCurrentPage(targetPage);
                     setUserSelectedMethod(true);
                     setActiveId(visible[targetIndex].id);
                   }

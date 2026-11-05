@@ -66,8 +66,9 @@ describe('TestPlansPanel', () => {
     render(<MemoryRouter><TestPlansPanel projectId={105} projectStatus="BR_PENDING_REVIEW" /></MemoryRouter>);
 
     expect(screen.getByRole('button', { name: /AI sinh Plan/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Test Plan thủ công' }));
     expect(screen.getAllByRole('combobox')[0]).toBeDisabled();
-    expect(screen.getByText('Hãy approve Business Rule trước khi sinh Test Plan.')).toBeVisible();
+    expect(screen.getByText('Hãy duyệt Business Rule trước khi sinh Test Plan.')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /AI sinh Plan/ }));
     expect(mocks.generate).not.toHaveBeenCalled();
   });
@@ -77,6 +78,8 @@ describe('TestPlansPanel', () => {
     render(<MemoryRouter><TestPlansPanel projectId={105} projectStatus="BR_APPROVED" /></MemoryRouter>);
 
     expect(screen.getByRole('button', { name: /AI sinh Plan/ })).toBeEnabled();
+    expect(screen.getByText(/Còn 1 Business Rule chờ duyệt lại/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Test Plan thủ công' }));
     expect(within(screen.getAllByRole('combobox')[0]).getAllByRole('option')).toHaveLength(2);
     expect(screen.queryByRole('option', { name: /BR-008/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Tiếp tục sinh/ })).not.toBeInTheDocument();
@@ -85,6 +88,7 @@ describe('TestPlansPanel', () => {
   it('disables manual creation when the selected rule loses approval', () => {
     const panel = <MemoryRouter><TestPlansPanel projectId={105} projectStatus="BR_APPROVED" /></MemoryRouter>;
     const { rerender } = render(panel);
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Test Plan thủ công' }));
     fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: '7' } });
     fireEvent.change(screen.getByPlaceholderText('Tiêu đề Test Plan'), { target: { value: 'Equality' } });
     fireEvent.change(screen.getByPlaceholderText('Mục tiêu test'), { target: { value: 'Allow equality' } });
@@ -117,7 +121,7 @@ describe('TestPlansPanel', () => {
     render(<MemoryRouter><TestPlansPanel projectId={105} projectStatus="COVERAGE_ANALYZED" /></MemoryRouter>);
 
     expect(screen.getByText('UserService.createUser')).toBeVisible();
-    expect(screen.getByText('IF-1-TRUE TRUE')).toBeVisible();
+    expect(screen.getByText('IF-1-TRUE')).toBeVisible();
     const generateButton = screen.getByRole('button', { name: /AI sinh Plan/ });
     expect(generateButton).toBeEnabled();
     fireEvent.click(generateButton);

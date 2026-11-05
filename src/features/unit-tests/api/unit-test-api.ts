@@ -23,10 +23,13 @@ export async function generateUnitTests(projectId: number, servicePath?: string,
 }
 
 /** Tải ZIP toàn bộ file test đã gộp (cần JWT header nên đi qua apiClient thay vì <a href>). */
-export async function downloadUnitTestsZip(projectId: number, servicePath?: string) {
+export async function downloadUnitTestsZip(projectId: number, servicePath?: string): Promise<string[]> {
   let data: Blob;
+  let skippedHeader: unknown;
   try {
-    ({ data } = await apiClient.get<Blob>(`/projects/${projectId}/unit-tests/download`, { responseType: 'blob', params: serviceParams(servicePath) }));
+    const response = await apiClient.get<Blob>(`/projects/${projectId}/unit-tests/download`, { responseType: 'blob', params: serviceParams(servicePath) });
+    data = response.data;
+    skippedHeader = response.headers?.['x-greytest-skipped-cases'];
   } catch (error) {
     const responseData = (error as { response?: { data?: unknown } }).response?.data;
     if (responseData instanceof Blob) {
@@ -42,6 +45,7 @@ export async function downloadUnitTestsZip(projectId: number, servicePath?: stri
     }
     throw error;
   }
+  const skippedCases = typeof skippedHeader === 'string' ? skippedHeader.split(',').filter(Boolean) : [];
   const url = URL.createObjectURL(data);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -52,4 +56,5 @@ export async function downloadUnitTestsZip(projectId: number, servicePath?: stri
     URL.revokeObjectURL(url);
     anchor.remove();
   }, 0);
+  return skippedCases;
 }

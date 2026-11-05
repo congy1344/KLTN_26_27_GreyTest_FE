@@ -20,6 +20,7 @@ interface ProjectWorkflowTabsProps {
   active: WorkflowStepId;
   status: ProjectStatus;
   servicePath?: string;
+  reachedStatus?: ProjectStatus;
 }
 
 const tabs = [
@@ -41,19 +42,21 @@ const disabledDescriptions: Record<string, [string, string]> = {
   report: ['Phân tích coverage trước khi xuất Report', 'Analyze coverage before exporting a Report'],
 };
 
-export function ProjectWorkflowTabs({ projectId, active, status, servicePath }: ProjectWorkflowTabsProps) {
+export function ProjectWorkflowTabs({ projectId, active, status, reachedStatus, servicePath }: ProjectWorkflowTabsProps) {
   const { t } = useLanguage();
   const currentWorkflowStep = active === 'report' && canOpenReport(status) && status !== 'COMPLETED'
     ? 'report'
     : getCurrentWorkflowStep(status);
+  // Trang sau đã có dữ liệu thì vẫn mở được, kể cả khi một BR vừa sửa đang chờ duyệt lại.
+  const openable = reachedStatus ?? status;
   const enabledByTab: Record<string, boolean> = {
     analysis: true,
-    'test-plans': canOpenTestPlans(status),
-    'test-cases': canOpenTestCases(status),
-    'unit-tests': canOpenUnitTests(status),
-    coverage: canOpenCoverage(status),
-    traceability: canOpenTraceability(status),
-    report: canOpenReport(status),
+    'test-plans': canOpenTestPlans(openable),
+    'test-cases': canOpenTestCases(openable),
+    'unit-tests': canOpenUnitTests(openable),
+    coverage: canOpenCoverage(openable),
+    traceability: canOpenTraceability(openable),
+    report: canOpenReport(openable),
   };
   return (
     <nav className="mb-6 grid gap-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7" aria-label="Project workflow">

@@ -44,7 +44,7 @@ export function UnitTestsPage() {
     );
   }
 
-  if (serviceScope.selected && status && !canOpenUnitTests(status)) {
+  if (serviceScope.selected && status && !canOpenUnitTests(serviceScope.selected?.reachedStatus ?? status)) {
     return <Navigate to={projectWorkflowPath(projectId, 'test-cases', serviceScope.servicePath)} replace />;
   }
 
@@ -59,7 +59,7 @@ export function UnitTestsPage() {
       />
       {serviceScope.selected && status && (
         <>
-          <ProjectWorkflowTabs projectId={projectId} active="unit-tests" status={status} servicePath={serviceScope.servicePath} />
+          <ProjectWorkflowTabs projectId={projectId} active="unit-tests" reachedStatus={serviceScope.selected?.reachedStatus} status={status} servicePath={serviceScope.servicePath} />
           <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
           <UnitTestsPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} servicePath={serviceScope.servicePath} projectStatus={status} />
         </>

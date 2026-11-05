@@ -10,11 +10,13 @@ import { LanguageProvider } from '../../../shared/i18n/language';
 import { LanguageToggle } from '../../../shared/components/LanguageToggle';
 
 const mocks = vi.hoisted(() => ({
+  download: vi.fn(),
   generate: vi.fn(),
   generating: false,
   progress: undefined as unknown,
   review: vi.fn(),
   update: vi.fn(),
+  plans: [] as { id: number; businessRuleId: number; coveredRuleIds?: number[] }[],
   classes: [] as unknown[],
   rules: [{
     id: 1,
@@ -33,6 +35,8 @@ const mocks = vi.hoisted(() => ({
   }],
 }));
 
+vi.mock('../utils/business-rule-export', () => ({ downloadBusinessRules: mocks.download }));
+
 vi.mock('../../../shared/hooks/useGenerationProgress', () => ({
   useGenerationProgress: () => ({ data: mocks.progress }),
 }));
@@ -42,7 +46,7 @@ vi.mock('../../projects/hooks/useProjects', () => ({
 }));
 
 vi.mock('../../test-plans/hooks/useTestPlans', () => ({
-  useTestPlans: () => ({ data: [], isLoading: false, error: null }),
+  useTestPlans: () => ({ data: mocks.plans, isLoading: false, error: null }),
 }));
 
 vi.mock('../hooks/useBusinessRules', () => {
@@ -63,6 +67,27 @@ vi.mock('../hooks/useBusinessRules', () => {
   };
 });
 
+const serviceWithMethods = (...methodIds: number[]) => [{
+  id: 10,
+  packageName: 'demo',
+  className: 'UserService',
+  qualifiedName: 'demo.UserService',
+  classType: 'SERVICE',
+  filePath: 'src/main/java/demo/UserService.java',
+  methods: methodIds.map((id) => ({
+    id,
+    methodName: `method${id}`,
+    returnType: 'void',
+    parameters: [],
+    throwsList: [],
+    visibility: 'PUBLIC',
+    sourceCode: '',
+    lineStart: id,
+    lineEnd: id,
+    endpoints: [],
+  })),
+}];
+
 describe('BusinessRulesPanel', () => {
   afterEach(() => {
     cleanup();
@@ -70,6 +95,7 @@ describe('BusinessRulesPanel', () => {
   });
 
   beforeEach(() => {
+    mocks.download.mockReset();
     mocks.rules.splice(1);
     mocks.rules[0].source = 'AI_GENERATED';
     mocks.rules[0].status = 'PENDING_REVIEW';
@@ -80,9 +106,16 @@ describe('BusinessRulesPanel', () => {
     mocks.review.mockReset();
     mocks.generate.mockReset();
     mocks.update.mockReset();
+    mocks.plans = [];
     mocks.classes = [];
     mocks.generating = false;
     mocks.progress = undefined;
+  });
+
+  it('downloads the currently loaded service rules with their analysis', () => {
+    render(<LanguageProvider><MemoryRouter><BusinessRulesPanel projectId={1} servicePath="service-a" /></MemoryRouter></LanguageProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'Tải BR (JSON)' }));
+    expect(mocks.download).toHaveBeenCalledWith(1, 'service-a', mocks.rules, { classes: mocks.classes });
   });
 
   it('switches every rule source and review status tag with the system language', () => {
@@ -123,7 +156,58 @@ describe('BusinessRulesPanel', () => {
     expect(screen.getByRole('complementary')).toBeVisible();
   });
 
+  it('hides the resume action once every service method has a rule', () => {
+    mocks.classes = serviceWithMethods(11);
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+
+    expect(screen.queryByRole('button', { name: /Tiếp tục sinh/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sinh lại BR' })).toBeInTheDocument();
+  });
+
+  it('closes the editor without saving when the text did not change', () => {
+    mocks.plans = [{ id: 5, businessRuleId: 1 }];
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sửa rule' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Lưu' })).not.toBeInTheDocument();
+  });
+
+  it('asks before a real edit deletes the plans covering the rule', () => {
+    mocks.plans = [{ id: 5, businessRuleId: 9, coveredRuleIds: [1, 9] }];
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sửa rule' }));
+    fireEvent.change(screen.getByDisplayValue('Email phai hop le.'), { target: { value: 'Email moi.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+
+    expect(mocks.update).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu và xóa phần liên quan' }));
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves a real edit directly when no plan covers the rule', () => {
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sửa rule' }));
+    fireEvent.change(screen.getByDisplayValue('Email phai hop le.'), { target: { value: 'Email moi.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps manual entry collapsed until the user opens it', () => {
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+
+    expect(screen.queryByRole('button', { name: 'Thêm BR' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Business Rule thủ công' }));
+    expect(screen.getByRole('button', { name: 'Thêm BR' })).toBeInTheDocument();
+  });
+
   it('shows the background acceptance message without hiding the rule list', () => {
+    mocks.classes = serviceWithMethods(11, 99);
     mocks.generate.mockImplementation((_value, options) => options.onSuccess({
       stage: 'BUSINESS_RULE',
       status: 'QUEUED',
@@ -199,6 +283,7 @@ describe('BusinessRulesPanel', () => {
   });
 
   it('continues with resume and requires confirmation before regenerating BRs', () => {
+    mocks.classes = serviceWithMethods(11, 99);
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục sinh' }));
     expect(mocks.generate).toHaveBeenCalledWith(true, expect.any(Object));
@@ -254,6 +339,7 @@ describe('BusinessRulesPanel', () => {
 
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Business Rule thủ công' }));
     fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: '11' } });
     expect(screen.getAllByRole('combobox')).toHaveLength(2);
     expect(screen.getByRole('option', { name: /src\/main\/java\/demo\/UserService.java/ }))
@@ -262,7 +348,7 @@ describe('BusinessRulesPanel', () => {
     expect(screen.queryByText(/Li\u00ean k\u1ebft quy\u1ebft \u0111\u1ecbnh source/)).not.toBeInTheDocument();
     expect(screen.getByText('Dòng nguồn L22-22')).toBeVisible();
     expect(screen.getByText('Dòng nguồn L23-23')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Duyệt tất cả' })).toBeEnabled();
   });
 
   it('disables creating multiple rules for one source decision', () => {
@@ -293,6 +379,7 @@ describe('BusinessRulesPanel', () => {
 
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm Business Rule thủ công' }));
     fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: '11' } });
     fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'IF-1' } });
     fireEvent.change(document.querySelector('form textarea')!, {
@@ -306,9 +393,9 @@ describe('BusinessRulesPanel', () => {
     mocks.rules[0].isModified = true;
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
-    expect(screen.getByRole('button', { name: 'AI review thay đổi (1)' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
-    expect(screen.getByText(/AI review là bước tư vấn tùy chọn/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'AI rà soát thay đổi (1)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Duyệt tất cả' })).toBeEnabled();
+    expect(screen.getByText(/AI rà soát là bước tư vấn tùy chọn/)).toBeVisible();
     expect(screen.getByText('Đã chỉnh sửa')).toBeVisible();
     expect(screen.queryByText('Code liên quan đã thay đổi')).not.toBeInTheDocument();
   });
@@ -341,10 +428,10 @@ describe('BusinessRulesPanel', () => {
     }));
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
     expect(screen.getByText('Mô tả chưa rõ: Thiếu điều kiện đầu vào.')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'AI review thay đổi (1)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'AI rà soát thay đổi (1)' }));
     expect(screen.getAllByText('Mô tả chưa rõ: Thiếu điều kiện đầu vào.')).toHaveLength(1);
     expect(screen.queryByText(/TOO_VAGUE/)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Duyệt tất cả' })).toBeEnabled();
   });
 
   it('keeps a persisted AI suggestion actionable after remount', () => {
@@ -357,7 +444,7 @@ describe('BusinessRulesPanel', () => {
 
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
     expect(screen.getByRole('button', { name: 'Dùng gợi ý AI' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Duyệt tất cả' })).toBeEnabled();
   });
 
   it('removes an obsolete review suggestion after a manual edit', () => {
@@ -374,7 +461,7 @@ describe('BusinessRulesPanel', () => {
     mocks.update.mockImplementation((_value, options) => options.onSuccess());
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI review thay đổi (1)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'AI rà soát thay đổi (1)' }));
     expect(screen.getByRole('button', { name: 'Dùng gợi ý AI' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Sửa rule' }));
     fireEvent.change(screen.getByDisplayValue('Email phai hop le.'), {
@@ -397,7 +484,7 @@ describe('BusinessRulesPanel', () => {
     expect(screen.getByText(/BR không khớp với code: BR allows equality/)).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Dùng gợi ý AI' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Giữ của tôi' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Duyệt tất cả' })).toBeEnabled();
   });
 
   it('shows a fresh mismatch review and allows approval without applying an AI suggestion', () => {
@@ -408,11 +495,11 @@ describe('BusinessRulesPanel', () => {
       suggestedRules: [],
     }));
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: 'AI review thay đổi (1)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'AI rà soát thay đổi (1)' }));
 
     expect(screen.getByText(/BR không khớp với code: BR allows equality/)).toBeVisible();
-    expect(screen.getByText('AI đã review 1 BR')).toBeVisible();
+    expect(screen.getByText('AI đã rà soát 1 BR')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Dùng gợi ý AI' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Approve tất cả' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Duyệt tất cả' })).toBeEnabled();
   });
 });

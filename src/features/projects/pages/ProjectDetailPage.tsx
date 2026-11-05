@@ -216,7 +216,7 @@ export function ProjectDetailPage() {
         </div>
       </header>
       {hasAnalysis && serviceScope.selected && workflowStatus && (
-        <ProjectWorkflowTabs projectId={projectId} active="analysis" status={workflowStatus} servicePath={serviceScope.servicePath} />
+        <ProjectWorkflowTabs projectId={projectId} active="analysis" reachedStatus={serviceScope.selected?.reachedStatus} status={workflowStatus} servicePath={serviceScope.servicePath} />
       )}
       {hasAnalysis && <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
       {hasAnalysis && serviceScope.isError && (

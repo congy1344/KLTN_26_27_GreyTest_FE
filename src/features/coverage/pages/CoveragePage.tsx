@@ -51,7 +51,7 @@ export function CoveragePage() {
     );
   }
 
-  if (serviceScope.selected && status && !canOpenCoverage(status)) {
+  if (serviceScope.selected && status && !canOpenCoverage(serviceScope.selected?.reachedStatus ?? status)) {
     return <Navigate to={projectWorkflowPath(projectId, 'unit-tests', serviceScope.servicePath)} replace />;
   }
 
@@ -66,9 +66,9 @@ export function CoveragePage() {
       />
       {serviceScope.selected && status && (
         <>
-          <ProjectWorkflowTabs projectId={projectId} active="coverage" status={status} servicePath={serviceScope.servicePath} />
+          <ProjectWorkflowTabs projectId={projectId} active="coverage" reachedStatus={serviceScope.selected?.reachedStatus} status={status} servicePath={serviceScope.servicePath} />
           <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
-          <CoveragePanel projectId={projectId} projectStatus={status} servicePath={serviceScope.servicePath} />
+          <CoveragePanel projectId={projectId} projectStatus={status === 'CASE_APPROVED' ? serviceScope.selected?.reachedStatus ?? status : status} servicePath={serviceScope.servicePath} />
         </>
       )}
     </AppShell>

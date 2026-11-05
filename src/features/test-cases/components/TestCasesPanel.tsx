@@ -7,6 +7,7 @@ import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { MetricCard } from '../../../shared/components/MetricCard';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { ManualEntrySection } from '../../../shared/components/ManualEntrySection';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
 import { formatSemanticLabel, SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
@@ -225,7 +226,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
   return (
     <section className="mt-8 animate-fade-in">
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Test Cases</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh từ Test Plan đã approve và lưu trực tiếp về backend.', 'AI generates Test Cases from approved Test Plans and persists them in the backend.')}</p></div>
+        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Test Cases</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh từ Test Plan đã duyệt và lưu trực tiếp về backend.', 'AI generates Test Cases from approved Test Plans and persists them in the backend.')}</p></div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
           {coveredPlanCount > 0 && missingPlanCount > 0 ? (
             <>
@@ -291,22 +292,22 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
             }}
           >
             {approve.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-            {pending > 0 ? 'Approve' : t('Tiếp tục sang Unit Test', 'Continue to Unit Tests')}
+            {pending > 0 ? t('Duyệt tất cả', 'Approve all') : t('Tiếp tục sang Unit Test', 'Continue to Unit Tests')}
           </button>
         </div>
       </div>
       {(plans.data ?? []).length > 0 && eligiblePlans.length === 0 && (
-        <p className="mb-3 text-xs text-fg-warning">{t('Hãy approve Test Plan trước khi sinh Test Case.', 'Approve Test Plans before generating Test Cases.')}</p>
+        <p className="mb-3 text-xs text-fg-warning">{t('Hãy duyệt Test Plan trước khi sinh Test Case.', 'Approve Test Plans before generating Test Cases.')}</p>
       )}
       <div className="grid gap-3 md:grid-cols-3">
-        <MetricCard icon={ClipboardCheck} label={t('Test Plan đã approve', 'Approved Plans')} value={approvedPlans.length} />
+        <MetricCard icon={ClipboardCheck} label={t('Test Plan đã duyệt', 'Approved Plans')} value={approvedPlans.length} />
         <MetricCard icon={FileText} label={t('Test Case pending', 'Pending Cases')} value={pending} />
-        <MetricCard icon={Database} label={t('Test Case đã approve', 'Approved Cases')} value={approved} />
+        <MetricCard icon={Database} label={t('Test Case đã duyệt', 'Approved Cases')} value={approved} />
       </div>
 
-      <div id="manual-case-form" className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
-        <div className="flex items-center gap-3"><PlusCircle size={16} className="text-fg-brand-strong" /><span className="text-sm font-semibold text-heading">{t('Thêm Test Case thủ công', 'Add a Test Case manually')}</span></div>
-        <form onSubmit={handleCreate} className="mt-4 grid gap-3">
+      <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 pb-0 shadow-sm">
+        <ManualEntrySection title={t('Thêm Test Case thủ công', 'Add a Test Case manually')}>
+        <form onSubmit={handleCreate} className="grid gap-3">
           <div className="grid gap-3 md:grid-cols-3">
             <select className="form-input" aria-label={t('Chọn Test Plan', 'Select Test Plan')} value={formPlanId} onChange={(e) => setFormPlanId(e.target.value)} disabled={busy || eligiblePlans.length === 0}>
               <option value="">{t('Chọn Test Plan', 'Select Test Plan')}</option>
@@ -331,13 +332,14 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
             {t('Thêm Case', 'Add Case')}
           </button>
         </form>
+        </ManualEntrySection>
       </div>
 
       <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
         {error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
         <div className="flex items-center gap-3"><ListFilter size={16} className="text-fg-brand-strong" /><span className="text-sm font-semibold text-heading">{t('Lọc danh sách theo Test Plan', 'Filter list by Test Plan')}</span></div>
         <select aria-label={t('Lọc Test Plan', 'Filter by Test Plan')} className="form-input mt-4" value={planId} onChange={(e) => setPlanId(e.target.value)} disabled={plans.isLoading}>
-          <option value="">{t('Tất cả Test Plan đã approve', 'All approved Test Plans')}</option>
+          <option value="">{t('Tất cả Test Plan đã duyệt', 'All approved Test Plans')}</option>
           {approvedPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.planCode} - {plan.title}</option>)}
         </select>
       </div>

@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bot,
+  Download,
   Check,
   CheckCircle2,
   FileCode2,
@@ -15,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
+import { ManualEntrySection } from '../../../shared/components/ManualEntrySection';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
@@ -36,6 +38,7 @@ import {
   useUpdateBusinessRule,
 } from '../hooks/useBusinessRules';
 import type { BusinessRule, BusinessRuleReview } from '../types';
+import { downloadBusinessRules } from '../utils/business-rule-export';
 import { cleanAiText, formatBusinessRuleReviewNote, splitBusinessRuleText } from '../utils/business-rule-text';
 import { useLanguage } from '../../../shared/i18n/language';
 import { displaySourcePath } from '../../../shared/utils/source-path';
@@ -85,6 +88,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
   const [reviewResult, setReviewResult] = useState<BusinessRuleReview | null>(null);
   const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<Set<number>>(new Set());
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
+  const [changeToConfirm, setChangeToConfirm] = useState<{ rule: BusinessRule; change: () => void } | null>(null);
   const [editDescription, setEditDescription] = useState('');
   const [generationMessage, setGenerationMessage] = useState<string | null>(null);
   const [ruleToDelete, setRuleToDelete] = useState<BusinessRule | null>(null);
@@ -186,6 +190,9 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
       return methodTotal + sourceDecisions(method.branches ?? [])
         .filter((decision) => !covered.has(decision.decisionId)).length;
     }, 0), 0);
+  // Cùng điều kiện với backend: method có quyết định thì phải đủ quyết định, không có thì cần ít nhất một rule.
+  const uncoveredPlainMethodCount = serviceGroups.reduce((total, javaClass) => total
+    + javaClass.methods.filter((method) => sourceDecisions(method.branches ?? []).length === 0 && method.rules.length === 0).length, 0);
   const createMutation = useCreateBusinessRules(projectId, servicePath);
   const generateMutation = useGenerateBusinessRules(projectId, servicePath);
   const generationProgress = useGenerationProgress(projectId, 'BUSINESS_RULE', generateMutation.isPending);
@@ -260,9 +267,23 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
     setEditDescription(cleanAiText(rule.description));
   };
 
+  const plansCovering = (rule: BusinessRule) => (plansQuery.data ?? []).filter((plan) =>
+    plan.businessRuleId === rule.id || plan.coveredRuleIds?.includes(rule.id));
+
+  // Đổi nội dung BR sẽ xóa Plan phủ nó cùng Case và Unit Test liên quan, nên hỏi trước khi làm.
+  const runAfterConfirm = (rule: BusinessRule, change: () => void) => {
+    if (plansCovering(rule).length > 0) setChangeToConfirm({ rule, change });
+    else change();
+  };
+
   const handleSaveEdit = (rule: BusinessRule) => {
     if (!editDescription.trim()) return;
-    updateMutation.mutate(
+    if (editDescription.trim() === cleanAiText(rule.description).trim()) {
+      setEditingRuleId(null);
+      setEditDescription('');
+      return;
+    }
+    runAfterConfirm(rule, () => updateMutation.mutate(
       { rule, description: editDescription },
       {
         onSuccess: () => {
@@ -271,7 +292,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
           setDismissedSuggestionIds((current) => new Set(current).add(rule.id));
         },
       },
-    );
+    ));
   };
 
   const handleDelete = (rule: BusinessRule) => {
@@ -279,14 +300,14 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
   };
 
   const handleUseSuggestion = (rule: BusinessRule) => {
-    acceptSuggestionMutation.mutate(
+    runAfterConfirm(rule, () => acceptSuggestionMutation.mutate(
       rule.id,
       {
         onSuccess: () => {
           setDismissedSuggestionIds((current) => new Set(current).add(rule.id));
         },
       },
-    );
+    ));
   };
 
   const handleKeepMine = (ruleId: number) => {
@@ -472,12 +493,19 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-heading">Business Rules</h3>
           <p className="mt-1 text-xs text-body-subtle">
-            {t('AI review là bước tư vấn tùy chọn. Bạn có thể tự kiểm tra và approve trực tiếp.', 'AI review is optional advice. You can verify and approve directly.')}
+            {t('AI rà soát là bước tư vấn tùy chọn. Bạn có thể tự kiểm tra và duyệt trực tiếp.', 'AI review is optional advice. You can verify and approve directly.')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+          <button type="button" className="btn btn-secondary"
+            disabled={pending || isFetching || analysisQuery.isFetching || !analysis || rules.length === 0}
+            onClick={() => analysis && downloadBusinessRules(projectId, servicePath, rules, analysis)}>
+            <Download size={14} />
+            {t('Tải BR (JSON)', 'Download BRs (JSON)')}
+          </button>
           <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
-            {rules.length > 0 ? (
+            {rules.length > 0 ? (uncoveredDecisionCount > 0 || uncoveredPlainMethodCount > 0
+              || generateMutation.isPending || generationRunning) && (
               <button
                 className="btn btn-brand"
                 disabled={pending}
@@ -522,7 +550,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
           </div>
           <button className="btn btn-secondary" disabled={pending || dirtyRuleCount === 0} onClick={handleReview}>
             {reviewMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            {t('AI review thay đổi', 'AI review changes')}{dirtyRuleCount > 0 ? ` (${dirtyRuleCount})` : ''}
+            {t('AI rà soát thay đổi', 'AI review changes')}{dirtyRuleCount > 0 ? ` (${dirtyRuleCount})` : ''}
           </button>
           <button
             className="btn btn-brand"
@@ -537,7 +565,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
               : undefined}
           >
             {approveMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-            {t('Approve tất cả', 'Approve all')}
+            {t('Duyệt tất cả', 'Approve all')}
           </button>
         </div>
       </div>
@@ -548,7 +576,8 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
             {generationMessage}
           </div>
         )}
-        <form onSubmit={handleCreate} className="mb-4 grid gap-3 md:grid-cols-[1fr_auto]">
+        <ManualEntrySection title={t('Thêm Business Rule thủ công', 'Add a Business Rule manually')}>
+        <form onSubmit={handleCreate} className="grid gap-3 md:grid-cols-[1fr_auto]">
           <div className="space-y-3">
             <select
               className="form-input"
@@ -595,13 +624,14 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
             {draftRules.length > 1 ? t(`Thêm ${draftRules.length} BR`, `Add ${draftRules.length} BRs`) : t('Thêm BR', 'Add BR')}
           </button>
         </form>
+        </ManualEntrySection>
 
         {mutationError && <InlineAlert tone="danger">{getErrorMessage(mutationError)}</InlineAlert>}
         {error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
 
         {reviewResult && (
           <div className="mb-4 rounded-default border border-border-brand-subtle bg-brand-softer p-3 text-xs font-medium text-fg-brand-strong">
-            {t(`AI đã review ${reviewResult.reviewedRules.length} BR`, `AI reviewed ${reviewResult.reviewedRules.length} BRs`)}
+            {t(`AI đã rà soát ${reviewResult.reviewedRules.length} BR`, `AI reviewed ${reviewResult.reviewedRules.length} BRs`)}
             {unresolvedSuggestionCount > 0 ? ` Con ${unresolvedSuggestionCount} goi y can chon.` : ''}
           </div>
         )}
@@ -612,7 +642,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
           <EmptyState
             icon={Sparkles}
             title={t('Chưa có Business Rule', 'No Business Rules yet')}
-            hint={t('Dùng AI sinh từ static analysis hoặc nhập rule thủ công để AI review.', 'Generate them from static analysis or add rules manually for AI review.')}
+            hint={t('Dùng AI sinh từ static analysis hoặc nhập rule thủ công để AI rà soát.', 'Generate them from static analysis or add rules manually for AI review.')}
             minHeight="min-h-[180px]"
           />
         ) : (
@@ -759,6 +789,21 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
         pending={generateMutation.isPending}
         onCancel={() => setRegenerateConfirmOpen(false)}
         onConfirm={() => { setRegenerateConfirmOpen(false); handleGenerate(false); }}
+      />
+      <ConfirmDialog
+        open={changeToConfirm != null}
+        title={t('Lưu thay đổi Business Rule?', 'Save the Business Rule change?')}
+        description={changeToConfirm
+          ? t(
+              `${changeToConfirm.rule.ruleCode} đang có ${plansCovering(changeToConfirm.rule).length} Test Plan phủ. Các Test Plan này cùng Test Case và Unit Test của chúng sẽ bị xóa để sinh lại bằng "Tiếp tục sinh" ở từng bước. Các phần khác giữ nguyên.`,
+              `${changeToConfirm.rule.ruleCode} is covered by ${plansCovering(changeToConfirm.rule).length} Test Plan(s). They and their Test Cases and Unit Tests will be deleted so "Continue" can regenerate them at each step. Everything else stays.`,
+            )
+          : ''}
+        confirmLabel={t('Lưu và xóa phần liên quan', 'Save and delete related items')}
+        cancelLabel={t('Tiếp tục sửa', 'Keep editing')}
+        pending={updateMutation.isPending || acceptSuggestionMutation.isPending}
+        onCancel={() => setChangeToConfirm(null)}
+        onConfirm={() => { changeToConfirm?.change(); setChangeToConfirm(null); }}
       />
       <ConfirmDialog
         open={ruleToDelete != null}

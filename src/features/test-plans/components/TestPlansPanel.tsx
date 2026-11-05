@@ -7,6 +7,7 @@ import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { ManualEntrySection } from '../../../shared/components/ManualEntrySection';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
 import { SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
@@ -194,9 +195,12 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-heading">Test Plans</h3>
-          <p className="mt-1 text-xs text-body-subtle">{t('Sinh Test Plan theo method/feature từ Business Rule đã approve.', 'Generate Test Plans by method or feature from approved Business Rules.')}</p>
+          <p className="mt-1 text-xs text-body-subtle">{t('Sinh Test Plan theo method/feature từ Business Rule đã duyệt.', 'Generate Test Plans by method or feature from approved Business Rules.')}</p>
           {rules.length > 0 && eligibleRules.length === 0 && (
-            <p className="mt-1 text-xs text-fg-warning">{t('Hãy approve Business Rule trước khi sinh Test Plan.', 'Approve Business Rules before generating Test Plans.')}</p>
+            <p className="mt-1 text-xs text-fg-warning">{t('Hãy duyệt Business Rule trước khi sinh Test Plan.', 'Approve Business Rules before generating Test Plans.')}</p>
+          )}
+          {eligibleRules.length > 0 && rules.length > eligibleRules.length && (
+            <p className="mt-1 text-xs text-fg-warning">{t(`Còn ${rules.length - eligibleRules.length} Business Rule chờ duyệt lại. Hãy duyệt để sinh Test Plan cho chúng.`, `${rules.length - eligibleRules.length} Business Rule(s) await approval. Approve them to generate their Test Plans.`)}</p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
@@ -257,13 +261,14 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
             })}
           >
             {approveMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-            Approve
+            {t('Duyệt tất cả', 'Approve all')}
           </button>
         </div>
       </div>
 
       <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
-        <form onSubmit={handleCreate} className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px]">
+        <ManualEntrySection title={t('Thêm Test Plan thủ công', 'Add a Test Plan manually')}>
+        <form onSubmit={handleCreate} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px]">
           <div className="grid gap-3 md:grid-cols-2">
             <select
               className="form-input"
@@ -310,6 +315,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
             {t('Thêm Plan', 'Add Plan')}
           </button>
         </form>
+        </ManualEntrySection>
 
         {mutationError && <InlineAlert tone="danger">{getErrorMessage(mutationError)}</InlineAlert>}
         {error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
@@ -320,7 +326,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
           <EmptyState
             icon={ClipboardList}
             title={t('Chưa có Test Plan', 'No Test Plans yet')}
-            hint={t('Bấm "AI sinh Plan" hoặc thêm thủ công từ Business Rule đã approve.', 'Select "Generate with AI" or add one manually from approved Business Rules.')}
+            hint={t('Bấm "AI sinh Plan" hoặc thêm thủ công từ Business Rule đã duyệt.', 'Select "Generate with AI" or add one manually from approved Business Rules.')}
             minHeight="min-h-[180px]"
           />
         ) : (

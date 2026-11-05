@@ -457,7 +457,10 @@ export function AiGenerationProgress({
     : now;
 
   const executionSeconds = startTimeMs ? Math.max(0, Math.round((endTimeMs - startTimeMs) / 1000)) : 0;
-  const executionTimeText = startTimeMs ? formatDuration(executionSeconds) : (latestTime || '');
+  const metrics = currentProgress?.runMetrics;
+  const executionTimeText = metrics
+    ? `${(metrics.elapsedMillis / 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} s`
+    : startTimeMs ? formatDuration(executionSeconds) : (latestTime || '');
 
   const currentMessage = latestLog
     ? formatHumanLogMessage(latestLog.message)
@@ -610,7 +613,28 @@ export function AiGenerationProgress({
 
           {/* Nội dung chi tiết - có thể thu gọn */}
           {!isMinimized && (
-            <div className="p-3.5 space-y-3 bg-neutral-primary-soft flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="p-3.5 space-y-3 bg-neutral-primary-soft flex-1 flex flex-col min-h-0 overflow-y-auto">
+              {metrics && (
+                <section aria-label={t('Số liệu lượt chạy', 'Run metrics')} className="shrink-0 rounded-xl border border-border-default-subtle bg-neutral-secondary p-3 text-xs">
+                  <p className="font-semibold text-heading">
+                    {t('Lượt chạy hiện tại', 'Current run')}: {currentProgress?.stage.replace(/_/g, ' ')}
+                  </p>
+                  <dl className="mt-2 grid grid-cols-2 gap-2">
+                    <div><dt className="text-body-subtle">{t('Tổng thời gian xử lý', 'Total processing time')}</dt><dd className="font-mono font-semibold">{executionTimeText}</dd></div>
+                    <div><dt className="text-body-subtle">{t('Token đã ghi nhận', 'Recorded tokens')}</dt><dd className="font-mono font-semibold">{metrics.recordedCalls > 0 ? metrics.totalTokens.toLocaleString() : '—'}</dd></div>
+                    <div><dt className="text-body-subtle">{t('Token đầu vào / đầu ra', 'Input / output tokens')}</dt><dd className="font-mono">{metrics.inputTokens.toLocaleString()} / {metrics.outputTokens.toLocaleString()}</dd></div>
+                    <div><dt className="text-body-subtle">{t('Phản hồi AI đã ghi nhận', 'Recorded AI responses')}</dt><dd className="font-mono">{metrics.recordedCalls}</dd></div>
+                  </dl>
+                  <p className="mt-2 text-[10px] text-body-subtle">
+                    {t('Thời gian thực từ lúc bắt đầu ở 0% đến khi hoàn tất 100%, gồm cả chờ xử lý; không cộng thời gian từng batch.', 'Wall-clock time from starting at 0% to completion at 100%, including queue time; batch durations are not added together.')}
+                    {' '}{metrics.estimatedCalls > 0
+                      ? t(`Có ${metrics.estimatedCalls} phản hồi dùng token ước tính.`, `${metrics.estimatedCalls} responses use estimated tokens.`)
+                      : metrics.recordedCalls > 0 ? t('Token do provider trả về.', 'Tokens reported by the provider.') : t('Chưa có dữ liệu token.', 'No token usage available yet.')}
+                    {' '}{t('Request lỗi không có usage chưa được tính token.', 'Failed requests without usage are excluded from token totals.')}
+                  </p>
+                  <p className="mt-1 break-all font-mono text-[10px] text-body-subtle" title={metrics.runId}>ID: {metrics.runId}</p>
+                </section>
+              )}
               {/* Thông báo trạng thái mới nhất - nền đặc */}
               <div className="shrink-0 flex items-start justify-between gap-2.5 rounded-xl bg-neutral-secondary p-3 border border-border-default-subtle">
                 <div className="flex-1 min-w-0">
@@ -654,8 +678,8 @@ export function AiGenerationProgress({
                     className="shrink-0 inline-flex items-center gap-1 rounded-md bg-neutral-primary-soft px-2 py-0.5 font-mono text-[10px] font-semibold text-body-subtle border border-border-default shadow-2xs"
                     title={
                       isCompleted
-                        ? t(`Thời gian làm của AI: ${executionTimeText}`, `AI execution time: ${executionTimeText}`)
-                        : t(`Thời gian AI đang làm: ${executionTimeText}`, `AI elapsed time: ${executionTimeText}`)
+                        ? t(`Thời gian từ 0% đến 100%: ${executionTimeText}`, `Time from 0% to 100%: ${executionTimeText}`)
+                        : t(`Thời gian đã trôi qua: ${executionTimeText}`, `Elapsed time: ${executionTimeText}`)
                     }
                   >
                     <Clock3 size={11} className="text-fg-brand opacity-80" />

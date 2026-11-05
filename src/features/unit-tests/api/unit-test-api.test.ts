@@ -27,6 +27,17 @@ describe('downloadUnitTestsZip', () => {
     expect(revoke).toHaveBeenCalledWith('blob:greytest');
   });
 
+  it('returns the cases the backend left out of the package', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: new Blob(['zip']), headers: { 'x-greytest-skipped-cases': 'TC-004,TC-014' } } as never);
+    const anchor = document.createElement('a');
+    vi.spyOn(anchor, 'click').mockImplementation(() => undefined);
+    vi.spyOn(document, 'createElement').mockReturnValue(anchor);
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:greytest') });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+
+    await expect(downloadUnitTestsZip(1)).resolves.toEqual(['TC-004', 'TC-014']);
+  });
+
   it('exposes backend validation errors returned as a Blob', async () => {
     vi.mocked(apiClient.get).mockRejectedValue({
       response: { data: new Blob([JSON.stringify({ message: 'Unit Test khong hop le' })], { type: 'application/json' }) },

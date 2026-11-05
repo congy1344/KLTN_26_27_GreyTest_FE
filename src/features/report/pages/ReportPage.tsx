@@ -44,7 +44,7 @@ export function ReportPage() {
     );
   }
 
-  if (serviceScope.selected && status && !canOpenReport(status)) {
+  if (serviceScope.selected && status && !canOpenReport(serviceScope.selected?.reachedStatus ?? status)) {
     return <Navigate to={projectWorkflowPath(projectId, 'coverage', serviceScope.servicePath)} replace />;
   }
 
@@ -58,7 +58,7 @@ export function ReportPage() {
         backLabel="Traceability"
       />
 
-      <ProjectWorkflowTabs projectId={projectId} active="report" status={status ?? project.status} servicePath={serviceScope.servicePath} />
+      <ProjectWorkflowTabs projectId={projectId} active="report" reachedStatus={serviceScope.selected?.reachedStatus} status={status ?? project.status} servicePath={serviceScope.servicePath} />
       <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       <ReportPanel projectId={projectId} servicePath={serviceScope.servicePath} />
     </AppShell>

@@ -46,7 +46,7 @@ export function TraceabilityPage() {
     );
   }
 
-  if (serviceScope.selected && status && !canOpenTraceability(status)) {
+  if (serviceScope.selected && status && !canOpenTraceability(serviceScope.selected?.reachedStatus ?? status)) {
     return <Navigate to={projectWorkflowPath(projectId, 'unit-tests', serviceScope.servicePath)} replace />;
   }
 
@@ -60,7 +60,7 @@ export function TraceabilityPage() {
         backLabel="Coverage"
       />
 
-      <ProjectWorkflowTabs projectId={projectId} active="traceability" status={status ?? project.status} servicePath={serviceScope.servicePath} />
+      <ProjectWorkflowTabs projectId={projectId} active="traceability" reachedStatus={serviceScope.selected?.reachedStatus} status={status ?? project.status} servicePath={serviceScope.servicePath} />
       <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       <TraceabilityMatrix projectId={projectId} servicePath={serviceScope.servicePath} />
 

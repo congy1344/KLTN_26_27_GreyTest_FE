@@ -37,7 +37,7 @@ export function TestCasesPage() {
     );
   }
 
-  if (serviceScope.selected && status && !canOpenTestCases(status)) {
+  if (serviceScope.selected && status && !canOpenTestCases(serviceScope.selected?.reachedStatus ?? status)) {
     return <Navigate to={projectWorkflowPath(projectId, 'test-plans', serviceScope.servicePath)} replace />;
   }
 
@@ -46,13 +46,13 @@ export function TestCasesPage() {
       <ProjectPageHeader
         project={project}
         titlePrefix="Test Case"
-        subtitle={t('Chuẩn bị test data từ các Test Plan đã approve.', 'Prepare test data from approved Test Plans.')}
+        subtitle={t('Chuẩn bị test data từ các Test Plan đã duyệt.', 'Prepare test data from approved Test Plans.')}
         backTo={projectWorkflowPath(projectId, 'test-plans', serviceScope.servicePath)}
         backLabel="Test Plan"
       />
       {serviceScope.selected && status && (
         <>
-          <ProjectWorkflowTabs projectId={projectId} active="test-cases" status={status} servicePath={serviceScope.servicePath} />
+          <ProjectWorkflowTabs projectId={projectId} active="test-cases" reachedStatus={serviceScope.selected?.reachedStatus} status={status} servicePath={serviceScope.servicePath} />
           <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
           <TestCasesPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} projectStatus={status} servicePath={serviceScope.servicePath} />
         </>

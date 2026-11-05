@@ -20,6 +20,19 @@ const runningProgress: GenerationProgress = {
 };
 
 describe('AiGenerationProgress', () => {
+  it('uses server run totals and clearly labels estimated token usage', () => {
+    render(<AiGenerationProgress active={false} label="Sinh Test Plan" progress={{
+      ...runningProgress, status: 'COMPLETED',
+      runMetrics: { runId: 'run-1', startedAt: '2026-08-15T08:00:00Z', finishedAt: '2026-08-15T08:00:12Z',
+        elapsedMillis: 12500, recordedCalls: 3, inputTokens: 100, outputTokens: 50,
+        totalTokens: 150, estimatedCalls: 1 },
+    }} />);
+    const metrics = screen.getByRole('region', { name: 'Số liệu lượt chạy' });
+    expect(within(metrics).getByText('150')).toBeVisible();
+    expect(within(metrics).getByText('100 / 50')).toBeVisible();
+    expect(within(metrics).getByText(/12[,.]50 s/)).toBeVisible();
+    expect(within(metrics).getByText(/Có 1 phản hồi dùng token ước tính/)).toBeVisible();
+  });
   it('shows partial results as terminal with the blocked reason and no success percentage', () => {
     render(<AiGenerationProgress active label="Sinh Unit Test" progress={{
       ...runningProgress, status: 'PARTIAL', percent: 100,
