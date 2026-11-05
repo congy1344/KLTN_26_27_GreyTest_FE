@@ -1,9 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Archive, ArrowLeft, GitBranch } from 'lucide-react';
+import { Archive, ArrowLeft, GitBranch, RefreshCw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Project } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
+import { useLanguage } from '../../../shared/i18n/language';
+import { SourceUpdateModal } from './SourceUpdateModal';
 
 interface ProjectPageHeaderProps {
   project: Project;
@@ -12,10 +15,32 @@ interface ProjectPageHeaderProps {
   backTo: string;
   backLabel: string;
   actions?: ReactNode;
+  servicePath?: string | null;
+  showSourceUpdate?: boolean;
 }
 
-/** Header dùng chung cho các trang workflow: back link + icon + tên project + StatusBadge. */
-export function ProjectPageHeader({ project, titlePrefix, subtitle, backTo, backLabel, actions }: ProjectPageHeaderProps) {
+function useOptionalQueryClient() {
+  try {
+    return useQueryClient();
+  } catch {
+    return null;
+  }
+}
+
+/** Header dùng chung cho các trang workflow: back link + icon + tên project + StatusBadge + nút cập nhật source. */
+export function ProjectPageHeader({
+  project,
+  titlePrefix,
+  subtitle,
+  backTo,
+  backLabel,
+  actions,
+  servicePath,
+  showSourceUpdate = true,
+}: ProjectPageHeaderProps) {
+  const { t } = useLanguage();
+  const queryClient = useOptionalQueryClient();
+  const [showSourceUpdateModal, setShowSourceUpdateModal] = useState(false);
   const location = useLocation();
   const workflowNotice = (location.state as { workflowNotice?: string } | null)?.workflowNotice;
   const [showNotice, setShowNotice] = useState(Boolean(workflowNotice));
@@ -61,9 +86,22 @@ export function ProjectPageHeader({ project, titlePrefix, subtitle, backTo, back
                 <p className="mt-2 text-sm leading-relaxed text-body-subtle">{subtitle}</p>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-3">
-              {actions}
+            <div className="flex shrink-0 flex-wrap items-center gap-3">
               <StatusBadge status={project.status} />
+
+              {showSourceUpdate && (
+                <button
+                  type="button"
+                  onClick={() => setShowSourceUpdateModal(true)}
+                  className="btn btn-outline flex items-center gap-1.5"
+                  id="btn-source-update"
+                >
+                  <RefreshCw size={14} strokeWidth={1.8} />
+                  {t('Cập nhật source', 'Update source')}
+                </button>
+              )}
+
+              {actions}
             </div>
           </div>
         </div>
@@ -72,6 +110,31 @@ export function ProjectPageHeader({ project, titlePrefix, subtitle, backTo, back
         <div className="mb-6 animate-fade-in transition-opacity duration-300" aria-live="polite">
           <InlineAlert tone="success">{workflowNotice}</InlineAlert>
         </div>
+      )}
+
+      {showSourceUpdate && (
+        <SourceUpdateModal
+          project={project}
+          servicePath={servicePath}
+          isOpen={showSourceUpdateModal}
+          onClose={() => setShowSourceUpdateModal(false)}
+          onApplied={() => {
+            if (queryClient) {
+              queryClient.invalidateQueries({ queryKey: ['project', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['project-services', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['source-updates', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['analysis', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['business-rules', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['test-plans', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['test-cases', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['unit-tests', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['unit-test-files', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['coverage', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['traceability', project.id] });
+              queryClient.invalidateQueries({ queryKey: ['report', project.id] });
+            }
+          }}
+        />
       )}
     </>
   );

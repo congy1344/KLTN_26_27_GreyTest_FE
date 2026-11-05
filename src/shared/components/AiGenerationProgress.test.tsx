@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { GenerationProgress } from '../types/generation-progress';
-import { AiGenerationProgress, formatHumanLogMessage, getLogMessageColor } from './AiGenerationProgress';
+import { AiGenerationProgress, formatHumanLogMessage, getLogMessageColor, isUserFacingLog } from './AiGenerationProgress';
 
 const runningProgress: GenerationProgress = {
   stage: 'TEST_PLAN',
@@ -303,6 +303,9 @@ describe('AiGenerationProgress', () => {
     const successMsg = "Đã sinh 3 Test Plan thành công.";
     expect(getLogMessageColor(successMsg)).toBe('text-fg-success-strong font-medium');
 
+    const batchCompletedMsg = "Hoàn thành batch 7/11";
+    expect(getLogMessageColor(batchCompletedMsg)).toBe('text-fg-success-strong font-medium');
+
     const runningMsg = "Đang phân tích mã nguồn...";
     expect(getLogMessageColor(runningMsg)).toBe('text-fg-brand-strong font-medium');
 
@@ -314,6 +317,10 @@ describe('AiGenerationProgress', () => {
 
     const rawTestabilityMsg = "Testability method 16759: UNKNOWN — COLLECTION_MUTATION @ Service.java:1 execute — detail";
     expect(getLogMessageColor(rawTestabilityMsg)).toBe('text-amber-600 dark:text-amber-400 font-medium');
+
+    expect(getLogMessageColor('Hoàn tất một phần. Một số Test Case chưa có Unit Test.')).toBe('text-amber-600 dark:text-amber-400 font-medium');
+    expect(getLogMessageColor('Partially completed. Some test cases have no unit test.')).toBe('text-amber-600 dark:text-amber-400 font-medium');
+    expect(getLogMessageColor('Hoàn tất một phần: đã lưu 2 Unit Test, còn 1 Test Case bị chặn')).toBe('text-amber-600 dark:text-amber-400 font-medium');
   });
 
   it('formats raw testability log messages into human-readable concise Vietnamese descriptions', () => {
@@ -337,5 +344,114 @@ describe('AiGenerationProgress', () => {
 
     const normalLog = 'Đã nhận 3 Test Plan từ AI.';
     expect(formatHumanLogMessage(normalLog)).toBe('Đã nhận 3 Test Plan từ AI.');
+
+    const rawAstLog =
+      "Unsolved symbol : Method 'thenReturn' cannot be resolved in context when(visitRepository.findByPetId(42)).thenReturn(repositoryResult) (line: 50) MethodCallExprContext{wrapped=when(visitRepository.findByPetId(42)).then Parameter types: [ReferenceType{java.util.Collection, typeParametersMap=TypeParametersMap{...}";
+    expect(formatHumanLogMessage(rawAstLog)).toBe(
+      "Unsolved symbol : Method 'thenReturn' cannot be resolved in context when(visitRepository.findByPetId(42)).thenReturn(repositoryResult) (line: 50)"
+    );
+  });
+
+  it('filters internal processing messages while keeping batch lifecycle logs', () => {
+    expect(isUserFacingLog('Gọi AI Agent sinh Unit Test - batch 3/11 (4 case)')).toBe(true);
+    expect(isUserFacingLog('Hoàn thành batch 7/11')).toBe(true);
+    expect(isUserFacingLog('Hoàn tất sinh Unit Test.')).toBe(true);
+
+    expect(isUserFacingLog('[Lưu ý] findPetTypeById: Có lời gọi helper nội bộ cần kiểm tra.')).toBe(false);
+    expect(isUserFacingLog('[Lưu ý] findVetById: Có lời gọi helper nội bộ cần kiểm tra.')).toBe(false);
+    expect(isUserFacingLog('[Cảnh báo] Tạm bỏ qua ca kiểm thử TC-40: Nhánh Math.random() không thể điều khiển tự động.')).toBe(false);
+    expect(isUserFacingLog('Testability method 16759: UNKNOWN — COLLECTION_MUTATION @ Service.java:1')).toBe(false);
+    expect(isUserFacingLog('Đang đối chiếu setup mock với source và thử cách kiểm chứng bằng dependency thật.')).toBe(false);
+  });
+
+  it('renders only user-facing logs in the terminal, excluding internal warnings', () => {
+    const progressWithInternalLogs: GenerationProgress = {
+      ...runningProgress,
+      logs: [
+        { timestamp: '2026-08-15T08:00:00Z', message: 'Gọi AI Agent sinh Unit Test - batch 3/11 (4 case)' },
+        { timestamp: '2026-08-15T08:00:01Z', message: '[Lưu ý] findPetTypeById: Có lời gọi helper nội bộ cần kiểm tra.' },
+        { timestamp: '2026-08-15T08:00:02Z', message: 'Hoàn thành batch 3/11' },
+      ],
+    };
+
+    render(<AiGenerationProgress active label="Sinh Unit Test" progress={progressWithInternalLogs} />);
+
+    const floatingDock = screen.getByRole('complementary');
+    expect(within(floatingDock).getByText('Gọi AI Agent sinh Unit Test - batch 3/11 (4 case)')).toBeVisible();
+    expect(within(floatingDock).getAllByText('Hoàn thành batch 3/11').length).toBeGreaterThanOrEqual(1);
+    expect(within(floatingDock).queryByText('[Lưu ý] findPetTypeById: Có lời gọi helper nội bộ cần kiểm tra.')).not.toBeInTheDocument();
+  });
+
+  it('toggles ai-progress-dock-open class on body when dock opens and closes', () => {
+    const { unmount } = render(<AiGenerationProgress active label="Sinh Unit Test" progress={runningProgress} />);
+    expect(document.body.classList.contains('ai-progress-dock-open')).toBe(true);
+
+    // Thu nhỏ dock
+    fireEvent.click(screen.getByRole('button', { name: /Thu nhỏ/i }));
+    expect(document.body.classList.contains('ai-progress-dock-open')).toBe(false);
+
+    // Mở rộng lại
+    fireEvent.click(screen.getByRole('button', { name: /Mở rộng/i }));
+    expect(document.body.classList.contains('ai-progress-dock-open')).toBe(true);
+
+    // Unmount
+    unmount();
+    expect(document.body.classList.contains('ai-progress-dock-open')).toBe(false);
+  });
+
+  it('renders pause and cancel buttons when running and executes callbacks', () => {
+    const handlePause = vi.fn();
+    const handleCancel = vi.fn();
+
+    render(
+      <AiGenerationProgress
+        active
+        label="Sinh Unit Test"
+        progress={runningProgress}
+        onPause={handlePause}
+        onCancel={handleCancel}
+      />,
+    );
+
+    const pauseBtn = screen.getByRole('button', { name: /Tạm dừng/i });
+    expect(pauseBtn).toBeVisible();
+    fireEvent.click(pauseBtn);
+    expect(handlePause).toHaveBeenCalledTimes(1);
+
+    const cancelBtn = screen.getByRole('button', { name: /Hủy sinh/i });
+    expect(cancelBtn).toBeVisible();
+    fireEvent.click(cancelBtn);
+
+    // Confirm dialog should open
+    expect(screen.getByText('Hủy tiến trình AI?')).toBeVisible();
+    const confirmBtn = screen.getByRole('button', { name: /Xác nhận hủy/i });
+    fireEvent.click(confirmBtn);
+    expect(handleCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders resume and cancel buttons when paused', () => {
+    const handleResume = vi.fn();
+    const handleCancel = vi.fn();
+
+    render(
+      <AiGenerationProgress
+        active
+        label="Sinh Unit Test"
+        progress={{ ...runningProgress, status: 'PAUSED' }}
+        onResume={handleResume}
+        onCancel={handleCancel}
+      />,
+    );
+
+    const resumeBtn = screen.getByRole('button', { name: /Tiếp tục sinh/i });
+    expect(resumeBtn).toBeVisible();
+    fireEvent.click(resumeBtn);
+    expect(handleResume).toHaveBeenCalledTimes(1);
+
+    const cancelBtn = screen.getByRole('button', { name: /Hủy sinh/i });
+    expect(cancelBtn).toBeVisible();
+    fireEvent.click(cancelBtn);
+
+    expect(screen.getByText('Hủy tiến trình AI?')).toBeVisible();
   });
 });

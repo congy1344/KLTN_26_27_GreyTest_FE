@@ -45,6 +45,7 @@ export function TestCasesPage() {
     <AppShell maxWidth="wide">
       <ProjectPageHeader
         project={project}
+        servicePath={serviceScope.servicePath}
         titlePrefix="Test Case"
         subtitle={t('Chuẩn bị test data từ các Test Plan đã approve.', 'Prepare test data from approved Test Plans.')}
         backTo={projectWorkflowPath(projectId, 'test-plans', serviceScope.servicePath)}

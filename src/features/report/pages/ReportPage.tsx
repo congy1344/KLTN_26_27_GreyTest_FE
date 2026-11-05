@@ -52,6 +52,7 @@ export function ReportPage() {
     <AppShell maxWidth="wide">
       <ProjectPageHeader
         project={project}
+        servicePath={serviceScope.servicePath}
         titlePrefix="Report"
         subtitle={t('Xuất Report dạng JSON hoặc Markdown cho kết quả GreyTest.', 'Export GreyTest results as JSON or Markdown.')}
         backTo={projectWorkflowPath(projectId, 'traceability', serviceScope.servicePath)}

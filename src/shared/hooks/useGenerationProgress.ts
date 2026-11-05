@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  cancelGenerationProgress,
   fetchGenerationProgress,
   pauseGenerationOnUnload,
   pauseGenerationProgress,
@@ -156,6 +157,13 @@ export function useGenerationProgress(
     return updated;
   };
 
+  const cancel = async () => {
+    const targetStage = currentlyActive?.stage ?? trackedProjectStage.current ?? stage;
+    const updated = await cancelGenerationProgress(projectId, targetStage);
+    queryClient.setQueryData(['generation-progress', projectId, targetStage], updated);
+    return updated;
+  };
+
   const isPaused = query.data?.status === 'PAUSED';
 
   return {
@@ -165,5 +173,6 @@ export function useGenerationProgress(
     projectRunning,
     isPaused,
     pause,
+    cancel,
   };
 }

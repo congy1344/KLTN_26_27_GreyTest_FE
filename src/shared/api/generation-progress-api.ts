@@ -21,6 +21,16 @@ export async function pauseGenerationProgress(
   return data;
 }
 
+export async function cancelGenerationProgress(
+  projectId: number,
+  stage: GenerationProgressStage,
+): Promise<GenerationProgress> {
+  const { data } = await apiClient.post<GenerationProgress>(
+    `/projects/${projectId}/generation-progress/${stage}/cancel`,
+  );
+  return data;
+}
+
 /** Gửi yêu cầu tạm dừng ngay cả khi tab bị đóng hoặc chuyển trang qua fetch keepalive. */
 export function pauseGenerationOnUnload(projectId: number, stage: GenerationProgressStage): void {
   const token = localStorage.getItem('greytest.token');

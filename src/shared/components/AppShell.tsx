@@ -22,9 +22,9 @@ export function AppShell({
 }: AppShellProps) {
   const widthClass =
     maxWidth === 'full'
-      ? 'max-w-[1600px]'
+      ? 'w-full max-w-[98%]'
       : maxWidth === 'wide'
-        ? 'max-w-7xl'
+        ? 'w-full max-w-[96%]'
         : 'max-w-5xl';
   const navigate = useNavigate();
   const { data: user } = useCurrentUser();
@@ -39,7 +39,7 @@ export function AppShell({
   return (
     <div className="min-h-[100dvh] text-body">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-1/2 top-0 h-px w-[82vw] -translate-x-1/2 bg-gradient-to-r from-transparent via-border-brand-subtle to-transparent" />
+        <div className="absolute left-1/2 top-0 h-px w-[94vw] -translate-x-1/2 bg-gradient-to-r from-transparent via-border-brand-subtle to-transparent" />
         <div className="absolute right-[8%] top-[-18rem] h-[34rem] w-[34rem] rounded-full bg-brand/[0.08] blur-[110px]" />
       </div>
 
