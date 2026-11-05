@@ -2,23 +2,28 @@ name: GreyTest Frontend CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, dev ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, dev ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
-    name: Build & Test (Node.js 20 / Vite)
-    runs-on: ubuntu-latest
+    name: Build & Test (Node.js 22 / Vite)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -29,3 +34,69 @@ jobs:
 
       - name: TypeCheck & Build Production Assets
         run: npm run build
+
+  publish-and-deploy:
+    name: Publish frontend and deploy if enabled
+    needs: build-and-test
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main' && vars.AWS_PUBLISH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: aws-production
+    timeout-minutes: 45
+    concurrency:
+      group: aws-frontend-deployment
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
+      EXPECTED_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_PAGER: ''
+      ECR_REPOSITORY: greytest/frontend
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Validate target account
+        shell: bash
+        run: |
+          [[ "$EXPECTED_AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]] || { echo 'Set AWS_ACCOUNT_ID to the 12-digit target account'; exit 1; }
+      - name: Authenticate with protected deployment credentials
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.EXPECTED_AWS_ACCOUNT_ID }}
+      - name: Publish immutable Linux image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          account=$(aws sts get-caller-identity --query Account --output text)
+          registry="$account.dkr.ecr.$AWS_REGION.amazonaws.com"
+          image="$registry/$ECR_REPOSITORY:sha-$GITHUB_SHA"
+          if ! aws ecr describe-images --repository-name "$ECR_REPOSITORY" --image-ids "imageTag=sha-$GITHUB_SHA" >/dev/null 2>&1; then
+            aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+            docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "$image" .
+            docker push "$image"
+          fi
+          printf 'image=%s\n' "$image" >> "$GITHUB_OUTPUT"
+          printf 'Published image: %s\n' "$image" >> "$GITHUB_STEP_SUMMARY"
+      - name: Deploy current main through Session Manager
+        if: vars.AWS_DEPLOY_ENABLED == 'true'
+        env:
+          AWS_INSTANCE_ID: ${{ vars.AWS_INSTANCE_ID }}
+          DEPLOY_SERVICE: web
+          DEPLOY_IMAGE: ${{ steps.image.outputs.image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current=$(git ls-remote origin refs/heads/main | cut -f 1)
+          if [[ "$current" != "$GITHUB_SHA" ]]; then
+            echo 'A newer main commit exists; skip deploying this older image.'
+            exit 0
+          fi
+          python3 .github/scripts/deploy-ssm.py

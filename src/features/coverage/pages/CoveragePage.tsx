@@ -59,6 +59,7 @@ export function CoveragePage() {
     <AppShell maxWidth="wide">
       <ProjectPageHeader
         project={project}
+        servicePath={serviceScope.servicePath}
         titlePrefix="Coverage"
         subtitle={t('Upload JaCoCo XML để xem coverage và gợi ý bổ sung test.', 'Upload JaCoCo XML to inspect coverage and test suggestions.')}
         backTo={projectWorkflowPath(projectId, 'unit-tests', serviceScope.servicePath)}

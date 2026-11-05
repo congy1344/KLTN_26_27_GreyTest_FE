@@ -21,7 +21,7 @@ export function SourceUpdateDeletionHistory({ update, impact, targetType, curren
   if (update?.status !== 'APPLIED') return null;
 
   const current = new Set(currentIds);
-  const removed = update.items.filter((item) => item.targetType === targetType && item.action === 'REMOVE'
+  const removed = (update.items ?? []).filter((item) => item.targetType === targetType && item.action === 'REMOVE'
     && (item.reviewStatus === 'ACCEPTED' || item.reviewStatus === 'MODIFIED')
     && item.targetId != null && !current.has(item.targetId));
   if (removed.length === 0) return null;

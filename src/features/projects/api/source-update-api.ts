@@ -105,7 +105,7 @@ export async function generateIncrementalSourceUpdate(
   const { data } = await apiClient.post<SourceUpdateDto>(
     `/projects/${projectId}/source-updates/${updateId}/generate?stage=${stage}`,
     undefined,
-    requestConfig(options),
+    { ...requestConfig(options), timeout: 0 },
   );
   return data;
 }
@@ -143,7 +143,7 @@ export async function generateAllSourceUpdate(
   const { data } = await apiClient.post<SourceUpdateDto>(
     `/projects/${projectId}/source-updates/${updateId}/generate-all`,
     undefined,
-    requestConfig(options),
+    { ...requestConfig(options), timeout: 0 },
   );
   return data;
 }

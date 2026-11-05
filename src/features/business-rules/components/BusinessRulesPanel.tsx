@@ -337,10 +337,10 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
          || effectiveMethodDiffMap[`${javaClass?.qualifiedName}#${method.methodName}`]
          || effectiveMethodDiffMap[method.methodName])
       : undefined;
-    const isAdded = addedRuleIds.has(rule.id) || diffType === 'ADDED';
+    const isAdded = !impactData.changesSeen && (addedRuleIds.has(rule.id) || diffType === 'ADDED');
     const isDeleted = deletedRuleIds.has(rule.id) || diffType === 'DELETED';
-    const sourceChanged = modifiedRuleIds.has(rule.id) || effectiveAffectedRuleIds.has(rule.id) || diffType === 'MODIFIED';
-    const isModified = !isAdded && !isDeleted && (
+    const sourceChanged = !impactData.changesSeen && (modifiedRuleIds.has(rule.id) || effectiveAffectedRuleIds.has(rule.id) || diffType === 'MODIFIED');
+    const isModified = !impactData.changesSeen && !isAdded && !isDeleted && (
       sourceChanged || (!isPastRules && rule.isModified)
     );
 
@@ -504,48 +504,51 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
             {t('Tải BR (JSON)', 'Download BRs (JSON)')}
           </button>
           <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
-            {rules.length > 0 ? (uncoveredDecisionCount > 0 || uncoveredPlainMethodCount > 0
-              || generateMutation.isPending || generationRunning) && (
-              <button
-                className="btn btn-brand"
-                disabled={pending}
-                onClick={() => handleGenerate(true)}
-                title={t(
-                  uncoveredDecisionCount > 0
-                    ? `Tiếp tục sinh Business Rule cho ${uncoveredDecisionCount} nhánh/quyết định còn thiếu`
-                    : 'Tiếp tục sinh Business Rule từ tiến trình trước',
-                  uncoveredDecisionCount > 0
-                    ? `Continue generating Business Rules for ${uncoveredDecisionCount} remaining branches/decisions`
-                    : 'Resume Business Rule generation from previous progress'
-                )}
-              >
-                {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                {t(
-                  uncoveredDecisionCount > 0
-                    ? `Tiếp tục sinh (${uncoveredDecisionCount} nhánh còn thiếu)`
-                    : 'Tiếp tục sinh',
-                  uncoveredDecisionCount > 0
-                    ? `Continue (${uncoveredDecisionCount} missing)`
-                    : 'Resume generation'
-                )}
-              </button>
-            ) : (
+            {rules.length === 0 ? (
               <button className="btn btn-secondary" disabled={pending} onClick={() => handleGenerate(true)}>
                 {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
                 {t('AI sinh BR', 'Generate BRs with AI')}
               </button>
-            )}
-            {rules.length > 0 && !isPastRules && (
-              <button className="btn btn-secondary" disabled={pending} onClick={() => setRegenerateConfirmOpen(true)}>
-                {t('Sinh lại BR', 'Regenerate BRs')}
-              </button>
+            ) : (
+              <>
+                {/* Cùng điều kiện với backend: còn method chưa có BR hoặc đang sinh thì vẫn cho tiếp tục. */}
+                {(uncoveredDecisionCount > 0 || uncoveredPlainMethodCount > 0
+                  || generateMutation.isPending || generationRunning) && (
+                  <button
+                    className="btn btn-brand"
+                    disabled={pending}
+                    onClick={() => handleGenerate(true)}
+                    title={t(
+                      uncoveredDecisionCount > 0
+                        ? `Tiếp tục sinh Business Rule cho ${uncoveredDecisionCount} nhánh/quyết định còn thiếu`
+                        : 'Tiếp tục sinh Business Rule từ tiến trình trước',
+                      uncoveredDecisionCount > 0
+                        ? `Continue generating Business Rules for ${uncoveredDecisionCount} remaining branches/decisions`
+                        : 'Resume Business Rule generation from previous progress'
+                    )}
+                  >
+                    {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                    {t(
+                      uncoveredDecisionCount > 0 ? `Tiếp tục sinh (${uncoveredDecisionCount} nhánh còn thiếu)` : 'Tiếp tục sinh',
+                      uncoveredDecisionCount > 0 ? `Continue (${uncoveredDecisionCount} missing)` : 'Resume generation'
+                    )}
+                  </button>
+                )}
+                {!isPastRules && (
+                  <button className="btn btn-secondary" disabled={pending} onClick={() => setRegenerateConfirmOpen(true)}>
+                    {t('Sinh lại BR', 'Regenerate BRs')}
+                  </button>
+                )}
+              </>
             )}
             <AiGenerationProgress
               projectId={projectId}
               active={generateMutation.isPending || generationRunning || generationProgress.showProgress}
               label={t('Tiến trình AI của dự án', 'Project AI progress')}
               progress={generationProgress.projectProgress ?? generationProgress.data}
+              onPause={generationProgress.pause}
               onResume={() => handleGenerate(true)}
+              onCancel={generationProgress.cancel}
             />
           </div>
           <button className="btn btn-secondary" disabled={pending || dirtyRuleCount === 0} onClick={handleReview}>

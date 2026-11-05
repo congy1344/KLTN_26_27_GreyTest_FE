@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Clock,
 } from 'lucide-react';
 import {
   createZipSourceUpdate,
@@ -67,14 +68,16 @@ function withSourceUpdateTimeout<T>(
   operation: (signal: AbortSignal) => Promise<T>,
   timeoutMessage: string,
   controller = new AbortController(),
+  timeoutMs = SOURCE_UPDATE_TIMEOUT_MS,
 ): Promise<T> {
+  if (timeoutMs === 0) return operation(controller.signal);
   return new Promise<T>((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
       controller.abort();
       const error = new Error(timeoutMessage);
       error.name = TIMEOUT_ERROR_NAME;
       reject(error);
-    }, SOURCE_UPDATE_TIMEOUT_MS);
+    }, timeoutMs);
 
     try {
       operation(controller.signal)
@@ -99,6 +102,15 @@ function isSourceUpdateTimeout(error: unknown): boolean {
 
 const progressPercent = (percent: number) => Math.min(100, Math.max(0, Math.round(percent)));
 
+/** Định dạng số giây thực thi (giây -> Xs hoặc Xm Ys). */
+function formatDuration(totalSeconds: number): string {
+  if (totalSeconds < 0) totalSeconds = 0;
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  if (mins === 0) return `${secs}s`;
+  return `${mins}m ${secs.toString().padStart(2, '0')}s`;
+}
+
 export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApplied }: SourceUpdateModalProps) {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'ZIP' | 'GITHUB'>(project.sourceType === 'GITHUB' ? 'GITHUB' : 'ZIP');
@@ -112,6 +124,9 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
   const [loading, setLoading] = useState(false);
   const [generatingStage, setGeneratingStage] = useState<string | null>(null);
   const [progress, setProgress] = useState<SourceUpdateProgress | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [finalDurationText, setFinalDurationText] = useState<string | null>(null);
+  const timerStartRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stageNotice, setStageNotice] = useState<{ type: 'success' | 'error'; message: string; timestamp: string } | null>(null);
   const completedStages = Object.fromEntries(Object.entries(updateDraft?.generationSummary?.stages ?? {})
@@ -122,11 +137,39 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
   const activeAbortRef = useRef<AbortController | null>(null);
   const operationVersionRef = useRef(0);
 
+  // Theo dõi thời gian thực thi của tác vụ đang chạy
+  useEffect(() => {
+    const busy = loading || generatingStage !== null || updateDraft?.generationSummary?.running === true;
+    if (busy) {
+      if (timerStartRef.current === null) {
+        timerStartRef.current = Date.now();
+        setFinalDurationText(null);
+        setElapsedSeconds(0);
+      }
+      const interval = setInterval(() => {
+        if (timerStartRef.current) {
+          setElapsedSeconds(Math.max(0, Math.round((Date.now() - timerStartRef.current) / 1000)));
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      if (timerStartRef.current !== null) {
+        const total = Math.max(0, Math.round((Date.now() - timerStartRef.current) / 1000));
+        setFinalDurationText(formatDuration(total));
+        setElapsedSeconds(total);
+        timerStartRef.current = null;
+      }
+    }
+  }, [loading, generatingStage, updateDraft?.generationSummary?.running]);
+
   useEffect(() => {
     if (isOpen && project.id) {
       setError(null);
       setProgress(null);
       setStageNotice(null);
+      setFinalDurationText(null);
+      setElapsedSeconds(0);
+      timerStartRef.current = null;
     } else if (!isOpen) {
       cancelActiveOperation();
       setUpdateDraft(null);
@@ -141,6 +184,9 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       setProgress(null);
       setLoading(false);
       setGeneratingStage(null);
+      setFinalDurationText(null);
+      setElapsedSeconds(0);
+      timerStartRef.current = null;
     }
   }, [isOpen, project.id]);
 
@@ -223,10 +269,11 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
   function runRequest<T>(
     operation: (signal: AbortSignal) => Promise<T>,
     timeoutMessage: string,
+    timeoutMs = SOURCE_UPDATE_TIMEOUT_MS,
   ) {
     const controller = new AbortController();
     activeAbortRef.current = controller;
-    return withSourceUpdateTimeout(operation, timeoutMessage, controller).finally(() => {
+    return withSourceUpdateTimeout(operation, timeoutMessage, controller, timeoutMs).finally(() => {
       if (activeAbortRef.current === controller) activeAbortRef.current = null;
     });
   }
@@ -380,7 +427,8 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       const prevCount = updateDraft.items?.length ?? 0;
       const result = await runRequest(
         (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, stage, { signal }),
-        `Sinh ${stageName} quá thời gian chờ ${SOURCE_UPDATE_TIMEOUT_MS / 1000} giây.`,
+        `Chưa xác nhận kết quả sinh ${stageName}.`,
+        0,
       );
       if (!isCurrentOperation(operationId)) return;
       setUpdateDraft(result);
@@ -414,7 +462,8 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       updateProgress(10, 'Server đang tiếp tục các phần BR → Test Plan → Test Case → Unit Test còn thiếu...');
       const result = await runRequest(
         (signal) => generateAllSourceUpdate(project.id, updateDraft.id, { signal }),
-        'Sinh tất cả quá thời gian chờ; các checkpoint đã lưu sẽ được tiếp tục ở lần sau.',
+        'Chưa xác nhận kết quả sinh; các checkpoint đã lưu sẽ được tiếp tục ở lần sau.',
+        0,
       );
       if (!isCurrentOperation(operationId)) return;
       setUpdateDraft(result);
@@ -522,7 +571,9 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       updateProgress(100, `Đã chấp nhận thành công tất cả ${pendingItems.length} đề xuất!`);
       setStageNotice({
         type: 'success',
-        message: `✓ Đã chấp nhận tất cả ${pendingItems.length} đề xuất. Toàn bộ đã sẵn sàng để áp dụng vào project!`,
+        message: refreshed.generationSummary?.readyForApply
+          ? `✓ Đã chấp nhận tất cả ${pendingItems.length} đề xuất. Chưa áp dụng vào project; bấm Áp Dụng Cập Nhật để ghi nhận cả Unit Test.`
+          : `Đã chấp nhận ${pendingItems.length} đề xuất. Chưa áp dụng vào project; cần hoàn tất hoặc xác thực các bước còn thiếu trước khi Apply.`,
         timestamp: new Date().toLocaleTimeString(),
       });
     } catch (err) {
@@ -623,7 +674,9 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
             </div>
           </div>
           <button
-            onClick={handleCancelDraft}
+            type="button"
+            onClick={onClose}
+            aria-label="Đóng modal"
             className="rounded-lg p-1 text-body-subtle hover:bg-neutral-secondary-soft hover:text-heading"
           >
             <X size={20} />
@@ -632,7 +685,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
 
         {/* Error alert */}
         {error && (
-          <div role="alert" className="m-4 flex max-h-32 shrink-0 items-center gap-2 overflow-y-auto rounded-lg bg-red-500/10 p-3 text-sm text-red-500 border border-red-500/20">
+          <div role="alert" className="mx-6 mt-4 flex max-h-32 shrink-0 items-center gap-2 overflow-y-auto rounded-lg bg-red-500/10 p-3 text-sm text-red-500 border border-red-500/20">
             <AlertTriangle size={16} />
             <span>{error}</span>
           </div>
@@ -645,7 +698,10 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
               <CheckCircle2 size={16} className="shrink-0" />
               <div>
                 <p className="font-semibold">{stageNotice.message}</p>
-                <p className="mt-0.5 text-[11px] opacity-80">Thời gian: {stageNotice.timestamp}</p>
+                <p className="mt-0.5 text-[11px] opacity-80">
+                  Thời gian: {stageNotice.timestamp}
+                  {finalDurationText ? ` · Tổng thời gian: ${finalDurationText}` : ''}
+                </p>
               </div>
             </div>
             <button type="button" onClick={() => setStageNotice(null)}
@@ -655,31 +711,46 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
           </div>
         )}
 
-        {progress && (
-          <div className="mx-6 mt-4 rounded-lg border border-brand/20 bg-brand/5 p-4" aria-live="polite">
-            <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-              <span className="font-semibold text-heading">Tiến trình xử lý source code</span>
-              <span className="font-bold text-brand">{progress.percent}%</span>
-            </div>
-            <div
-              role="progressbar"
-              aria-label="Tiến trình xử lý source code"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={progress.percent}
-              className="h-2 overflow-hidden rounded-full bg-brand/10"
-            >
-              <div
-                className="h-full rounded-full bg-brand transition-[width] duration-300 ease-out"
-                style={{ width: `${progress.percent}%` }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-body-subtle">{progress.label}</p>
-          </div>
-        )}
-
         {/* Content Body */}
         <div role="region" aria-label="Nội dung cập nhật source" className="flex-1 overflow-y-auto p-6 space-y-6">
+          {progress ? (
+            <div className="rounded-lg border border-brand/20 bg-brand/5 p-4" aria-live="polite">
+              <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-heading">Tiến trình xử lý source code</span>
+                  {isBusy() && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand">
+                      <Clock size={12} className="animate-spin" />
+                      <span>Thời gian: {formatDuration(elapsedSeconds)}</span>
+                    </span>
+                  )}
+                </div>
+                <span className="font-bold text-brand">{progress.percent}%</span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Tiến trình xử lý source code"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progress.percent}
+                className="h-2 overflow-hidden rounded-full bg-brand/10"
+              >
+                <div
+                  className="h-full rounded-full bg-brand transition-[width] duration-300 ease-out"
+                  style={{ width: `${progress.percent}%` }}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs text-body-subtle">
+                <p>{progress.label}</p>
+                {finalDurationText && !isBusy() && (
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                    ✓ Hoàn tất trong {finalDurationText}
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : null}
+
           <SourceUpdateHistory updates={history} loading={historyLoading} error={historyError} servicePath={servicePath} />
           {!updateDraft ? (
             /* Bước 1: Upload source mới */
@@ -769,21 +840,21 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                     </div>
                   </div>
                   <div className="rounded-lg border border-border-default bg-neutral-secondary-soft p-3">
-                    <p className="text-xs text-body-subtle">Quy tắc (BR) ảnh hưởng</p>
+                    <p className="text-xs text-body-subtle">Business Rule (BR) ảnh hưởng</p>
                     <p className="text-xl font-bold text-heading">{impactSummary.affectedBusinessRuleIds?.length ?? 0}</p>
                     <p className="mt-1 text-[10px] text-body-subtle">Cần sinh / cập nhật</p>
                   </div>
                   <div className="rounded-lg border border-border-default bg-neutral-secondary-soft p-3">
                     <p className="text-xs text-body-subtle">Test Plan ảnh hưởng</p>
                     <p className="text-xl font-bold text-heading">{impactSummary.affectedTestPlanIds?.length ?? 0}</p>
-                    <p className="mt-1 text-[10px] text-body-subtle">Kế hoạch kiểm thử</p>
+                    <p className="mt-1 text-[10px] text-body-subtle">Test Plan</p>
                   </div>
                   <div className="rounded-lg border border-border-default bg-neutral-secondary-soft p-3">
                     <p className="text-xs text-body-subtle">Test Case / Unit Test</p>
                     <p className="text-xl font-bold text-heading">
                       {(impactSummary.affectedTestCaseIds?.length ?? 0) + (impactSummary.affectedUnitTestIds?.length ?? 0)}
                     </p>
-                    <p className="mt-1 text-[10px] text-body-subtle">Các ca & mã test</p>
+                    <p className="mt-1 text-[10px] text-body-subtle">Test Case & Unit Test</p>
                   </div>
                 </div>
               )}
@@ -1127,16 +1198,40 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between border-t border-border-default px-6 py-4">
-          <button
-            type="button"
-            onClick={handleCancelDraft}
-            className="rounded-lg border border-border-default px-4 py-2 text-sm font-medium text-body hover:bg-neutral-secondary-soft"
-          >
-            {updateDraft && !isBusy() ? 'Hủy bản nháp' : 'Đóng'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-border-default px-4 py-2 text-sm font-medium text-body hover:bg-neutral-secondary-soft"
+            >
+              Đóng
+            </button>
+            {updateDraft && (
+              <button
+                type="button"
+                disabled={loading || generatingStage !== null}
+                onClick={handleCancelDraft}
+                className="rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50 dark:text-red-400"
+              >
+                Hủy bản nháp
+              </button>
+            )}
+          </div>
 
           {updateDraft && (
             <div className="flex items-center gap-3">
+              {isBusy() && elapsedSeconds > 0 && (
+                <span className="flex items-center gap-1.5 rounded-md bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand">
+                  <Clock size={13} className="animate-spin" />
+                  <span>Đang xử lý: {formatDuration(elapsedSeconds)}</span>
+                </span>
+              )}
+              {!isBusy() && finalDurationText && (
+                <span className="flex items-center gap-1.5 rounded-md bg-neutral-secondary-soft px-2.5 py-1 text-xs text-body-subtle border border-border-default">
+                  <Clock size={13} className="text-emerald-600 dark:text-emerald-400" />
+                  <span>Tổng thời gian: <strong className="text-heading">{finalDurationText}</strong></span>
+                </span>
+              )}
               <button
                 type="button"
                 disabled={isBusy()}

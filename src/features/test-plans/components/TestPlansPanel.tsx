@@ -45,6 +45,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
   const { data: plans = [], isLoading, isFetching, error } = useTestPlans(projectId, servicePath);
   const {
     activeUpdate,
+    changesSeen,
     impact,
     methodDiffMap,
     getMethodDiff,
@@ -248,7 +249,9 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
               active={generateMutation.isPending || generationRunning || generationProgress.showProgress}
               label={t('Tiến trình AI của dự án', 'Project AI progress')}
               progress={generationProgress.projectProgress ?? generationProgress.data}
+              onPause={generationProgress.pause}
               onResume={() => handleGenerate(true)}
+              onCancel={generationProgress.cancel}
             />
           </div>
           <button
@@ -345,17 +348,18 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
                      || methodDiffMap[method.methodName])
                   : undefined;
               });
-              const hasAdded = addedPlanIds.has(plan.id) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => addedRuleIds.has(r.id));
+              const hasAdded = !changesSeen && (addedPlanIds.has(plan.id) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => addedRuleIds.has(r.id)));
               const hasDeleted = deletedPlanIds.has(plan.id) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => deletedRuleIds.has(r.id));
-              const hasModified = !hasAdded && !hasDeleted && (
+              const hasModified = !changesSeen && !hasAdded && !hasDeleted && (
                 modifiedPlanIds.has(plan.id) || affectedPlanIds.has(plan.id) || ruleDiffs.includes('MODIFIED') || coveredRules.some((r) => modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id))
+                || (!isPastPlans && plan.isModified)
               );
 
               const cardClass = hasAdded
                 ? 'rounded-default border-2 border-emerald-500/60 bg-emerald-500/[0.04] p-3 shadow-xs transition-colors'
                 : hasDeleted
                   ? 'rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 shadow-xs transition-colors'
-                  : (hasModified || (!isPastPlans && plan.isModified))
+                  : hasModified
                     ? 'rounded-default border-2 border-amber-500/60 bg-amber-500/[0.04] p-3 shadow-xs transition-colors'
                     : 'rounded-default border border-border-default bg-neutral-secondary-soft p-3';
 
@@ -379,7 +383,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
                       {t('- Đã xóa', '- Deleted')}
                     </span>
                   )}
-                  {(hasModified || (!isPastPlans && plan.isModified)) && (
+                  {hasModified && (
                     <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
                       {t('Có thay đổi liên quan', 'Related changes')}
                     </span>

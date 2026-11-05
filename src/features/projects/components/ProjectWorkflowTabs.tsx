@@ -76,7 +76,7 @@ export function ProjectWorkflowTabs({ projectId, active, status, reachedStatus, 
             : isCompleted
               ? 'completed'
               : 'available';
-        const className = `min-h-[108px] rounded-base border p-3 shadow-sm transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+        const className = `min-h-[108px] rounded-base border px-2.5 py-3 sm:p-3 shadow-sm transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${
           isDisabled
             ? 'cursor-not-allowed border-border-default bg-neutral-secondary-soft text-body-subtle opacity-70'
             : `hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
@@ -92,35 +92,35 @@ export function ProjectWorkflowTabs({ projectId, active, status, reachedStatus, 
           : t(tab.description[0], tab.description[1]);
         const content = (
           <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between gap-2">
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-default transition-colors ${
-              isCurrent
-                ? 'bg-brand text-neutral-primary-soft shadow-sm'
-                : isCompleted
-                  ? 'bg-success-soft text-fg-success-strong'
-                  : 'bg-neutral-secondary-medium text-body-subtle'
-            }`}>
-              <Icon size={15} strokeWidth={1.8} />
-            </span>
-              <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold text-body-subtle">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className={`flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-default transition-colors ${
+                isCurrent
+                  ? 'bg-brand text-neutral-primary-soft shadow-sm'
+                  : isCompleted
+                    ? 'bg-success-soft text-fg-success-strong'
+                    : 'bg-neutral-secondary-medium text-body-subtle'
+              }`}>
+                <Icon size={14} className="sm:h-[15px] sm:w-[15px]" strokeWidth={1.8} />
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[10px] font-semibold text-body-subtle">
                 <span>{String(index + 1).padStart(2, '0')}</span>
                 {isWorkflowCurrent && (
                   <span
-                    className="inline-flex items-center gap-1 rounded-full border border-border-brand-subtle bg-brand-softer px-1.5 py-0.5 font-sans text-[9px] font-bold text-fg-brand-strong"
+                    className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border-brand-subtle bg-brand-softer px-1.5 py-0.5 font-sans text-[9px] font-bold text-fg-brand-strong"
                     title={t('Giai đoạn hiện tại của quy trình', 'Current workflow stage')}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-hidden="true" />
-                    {t('Đang thực hiện', 'In progress')}
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true" />
+                    <span className="whitespace-nowrap">{t('Đang thực hiện', 'In progress')}</span>
                   </span>
                 )}
                 {isFailedStep && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-1.5 py-0.5 font-sans text-[9px] font-bold text-fg-danger-strong">
+                  <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-danger-soft px-1.5 py-0.5 font-sans text-[9px] font-bold text-fg-danger-strong">
                     <AlertCircle size={11} strokeWidth={2} aria-hidden="true" />
-                    {t('Lỗi', 'Failed')}
+                    <span className="whitespace-nowrap">{t('Lỗi', 'Failed')}</span>
                   </span>
                 )}
                 {isCompleted && (
-                  <span className="inline-flex items-center text-fg-success-strong">
+                  <span className="inline-flex shrink-0 items-center text-fg-success-strong">
                     <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" />
                     <span className="sr-only">{t('Hoàn thành', 'Completed')}</span>
                   </span>

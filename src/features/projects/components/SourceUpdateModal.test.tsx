@@ -1,9 +1,26 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render as rtlRender, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SourceUpdateModal } from './SourceUpdateModal';
+
+const createTestQueryClient = () => new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+});
+
+const render = (ui: React.ReactElement, options?: Parameters<typeof rtlRender>[1]) => {
+  const queryClient = createTestQueryClient();
+  const Wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  return rtlRender(ui, { wrapper: Wrapper, ...options });
+};
 
 const mocks = vi.hoisted(() => ({
   createZip: vi.fn(),
@@ -62,6 +79,22 @@ describe('SourceUpdateModal', () => {
     await act(async () => undefined);
     expect(screen.getByRole('button', { name: '✓ Đã sinh BR' })).toBeEnabled();
     expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it('does not promise Apply readiness after accepting items if UT is still incomplete', async () => {
+    const draft = { id: 11, status: 'READY_TO_APPLY', impactSummary: null,
+      items: [{ id: 1, targetType: 'UNIT_TEST', action: 'CREATE', reviewStatus: 'PENDING', afterData: '{}' }],
+      generationSummary: { stages: { UNIT_TEST: { state: 'SUCCEEDED', completed: false } }, conflicts: [], readyForApply: false } };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    mocks.patch.mockResolvedValue({});
+    mocks.fetch.mockResolvedValue({ ...draft, items: [{ ...draft.items[0], reviewStatus: 'ACCEPTED' }] });
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Chấp nhận tất cả đề xuất' }));
+    await act(async () => undefined);
+    expect(screen.queryByText(/Toàn bộ đã sẵn sàng để áp dụng/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Chưa áp dụng vào project/)).toBeVisible();
+    expect(mocks.apply).not.toHaveBeenCalled();
   });
 
   it('reopens a failed partial draft so its completed output and conflicts can be resumed', async () => {
@@ -133,7 +166,7 @@ describe('SourceUpdateModal', () => {
     await act(async () => undefined);
     expect(screen.getByRole('button', { name: 'Sinh Tất Cả' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Đóng' })).toBeEnabled();
-    expect(screen.queryByRole('button', { name: 'Hủy bản nháp' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hủy bản nháp' })).toBeVisible();
     await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
     expect(screen.getByRole('button', { name: '✓ Đã sinh BR' })).toBeEnabled();
     expect(mocks.generate).not.toHaveBeenCalled();
@@ -147,7 +180,7 @@ describe('SourceUpdateModal', () => {
         diffType: 'DELETED', methodKey: 'demo.PatientService#countActivePatients()', servicePath: 'backend/patient-service',
       }] }),
       items: [
-        { id: 1, targetType: 'METHOD', targetKey: 'demo.PatientService#countActivePatients()', action: 'REMOVE', reviewStatus: 'ACCEPTED', reason: 'Method đã xóa', beforeData: 'public long countActivePatients() { return 1; }' },
+        { id: 1, targetType: 'TEST_CASE', targetId: 2655, action: 'REMOVE', reviewStatus: 'ACCEPTED', reason: 'Test Case đã xóa', beforeData: '{"caseCode":"TC-001"}' },
         { id: 2, targetType: 'BUSINESS_RULE', targetId: 4047, action: 'CREATE', reviewStatus: 'ACCEPTED', reason: 'Thêm kiểm tra nhóm máu', afterData: '{"description":"Nhóm máu không được rỗng"}' },
         { id: 3, targetType: 'TEST_PLAN', targetId: 1908, action: 'UPDATE', reviewStatus: 'MODIFIED', reason: 'Cập nhật Test Plan', afterData: '{"title":"Kiểm tra nhóm máu"}' },
         { id: 4, targetType: 'TEST_CASE', targetId: 2654, action: 'REMOVE', reviewStatus: 'REJECTED', reason: 'Đề xuất bị từ chối' },
@@ -169,7 +202,7 @@ describe('SourceUpdateModal', () => {
     expect(within(history).getByRole('heading', { name: 'Đã thêm (1)' })).toBeVisible();
     expect(within(history).getByRole('heading', { name: 'Đã sửa (1)' })).toBeVisible();
     expect(within(history).getByRole('heading', { name: 'Đã xóa (1)' })).toBeVisible();
-    expect(within(history).getByText('demo.PatientService#countActivePatients()')).toBeVisible();
+    expect(within(history).getByText('Test Case đã xóa')).toBeVisible();
     expect(within(history).getByText('Thêm kiểm tra nhóm máu')).toBeVisible();
     expect(within(history).getByText('Cập nhật Test Plan')).toBeVisible();
     expect(within(history).queryByText('Đề xuất bị từ chối')).not.toBeInTheDocument();
@@ -201,11 +234,28 @@ describe('SourceUpdateModal', () => {
     expect(screen.queryByRole('button', { name: /Bản cập nhật #200/ })).not.toBeInTheDocument();
   });
 
+  it.each(['all', 'stage'])('waits beyond five minutes for %s generation without submitting again', async (kind) => {
+    const draft = { id: 11, items: [], impactSummary: null, status: 'ANALYZED' };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    let finish!: (value: unknown) => void;
+    const request = new Promise((resolve) => { finish = resolve; });
+    (kind === 'all' ? mocks.generateAll : mocks.generate).mockReturnValue(request);
+    render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole('button', { name: kind === 'all' ? 'Sinh Tất Cả' : '1. Sinh BR' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(301_000); });
+    const signal = (kind === 'all' ? mocks.generateAll.mock.calls[0][2] : mocks.generate.mock.calls[0][3]).signal;
+    expect(signal.aborted).toBe(false);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mocks.generateAll.mock.calls.length + mocks.generate.mock.calls.length).toBe(1);
+    await act(async () => { finish(draft); });
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');
+  });
   it('reports a generate-all timeout even when the draft can be fetched again', async () => {
     const draft = { id: 11, items: [], impactSummary: null, status: 'ANALYZED' };
     mocks.fetchProject.mockResolvedValue([draft]);
     mocks.fetch.mockResolvedValue(draft);
-    mocks.generateAll.mockReturnValue(new Promise(() => undefined));
+    mocks.generateAll.mockRejectedValue(Object.assign(new Error('quá thời gian chờ'), { name: 'SourceUpdateTimeoutError' }));
     render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
     await act(async () => undefined);
 
@@ -245,7 +295,7 @@ describe('SourceUpdateModal', () => {
   it('shows the timeout immediately while checking the draft is also stalled', async () => {
     mocks.fetchProject.mockResolvedValue([{ id: 11, items: [], impactSummary: null, status: 'ANALYZED' }]);
     mocks.fetch.mockReturnValue(new Promise(() => undefined));
-    mocks.generateAll.mockReturnValue(new Promise(() => undefined));
+    mocks.generateAll.mockRejectedValue(Object.assign(new Error('quá thời gian chờ'), { name: 'SourceUpdateTimeoutError' }));
     render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
     await act(async () => undefined);
     fireEvent.click(screen.getByRole('button', { name: 'Sinh Tất Cả' }));
@@ -260,7 +310,7 @@ describe('SourceUpdateModal', () => {
     const draft = { id: 11, items: [], impactSummary: null, status: 'READY_TO_APPLY' };
     mocks.fetchProject.mockResolvedValue([draft]);
     mocks.fetch.mockResolvedValue(draft);
-    mocks.generate.mockReturnValue(new Promise(() => undefined));
+    mocks.generate.mockRejectedValue(Object.assign(new Error('quá thời gian chờ'), { name: 'SourceUpdateTimeoutError' }));
     render(<SourceUpdateModal project={project} isOpen onClose={vi.fn()} onApplied={vi.fn()} />);
     await act(async () => undefined);
 
@@ -306,6 +356,12 @@ describe('SourceUpdateModal', () => {
 
     expect(screen.getByRole('progressbar', { name: 'Tiến trình xử lý source code' })).toHaveAttribute('aria-valuenow', '23');
     expect(screen.getByText(/Đang tải source code/i)).toBeVisible();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(screen.getByText(/Thời gian: 3s/)).toBeVisible();
   });
 
   it('shows a timeout error and releases the loading state when upload hangs', async () => {
@@ -428,6 +484,7 @@ describe('SourceUpdateModal', () => {
 
     expect(screen.getByRole('button', { name: /Ph/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Project/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Hủy bản nháp' })).toBeDisabled();
   });
 
   it('clears the generation state when the modal is closed and reopened', async () => {
@@ -459,4 +516,74 @@ describe('SourceUpdateModal', () => {
 
     expect(screen.getByRole('button', { name: /1\. Sinh BR/i })).toBeEnabled();
   });
+
+  it('allows closing modal during generation without cancelling the draft', async () => {
+    const draft = {
+      id: 11,
+      projectId: 7,
+      status: 'GENERATING' as const,
+      items: [],
+      impactSummary: null,
+      generationSummary: { stages: {}, conflicts: [], readyForApply: false, running: true },
+    };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    const onClose = vi.fn();
+    render(<SourceUpdateModal project={project} isOpen onClose={onClose} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+
+    // Click footer Đóng button
+    const closeBtn = screen.getByRole('button', { name: 'Đóng' });
+    expect(closeBtn).toBeEnabled();
+    fireEvent.click(closeBtn);
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(mocks.cancel).not.toHaveBeenCalled();
+  });
+
+  it('allows closing modal via header X icon without cancelling the draft', async () => {
+    const draft = {
+      id: 11,
+      projectId: 7,
+      status: 'ANALYZED' as const,
+      items: [],
+      impactSummary: null,
+    };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    const onClose = vi.fn();
+    render(<SourceUpdateModal project={project} isOpen onClose={onClose} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+
+    const headerCloseBtn = screen.getByRole('button', { name: 'Đóng modal' });
+    fireEvent.click(headerCloseBtn);
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(mocks.cancel).not.toHaveBeenCalled();
+  });
+
+  it('cancels draft only when user explicitly clicks Hủy bản nháp', async () => {
+    const draft = {
+      id: 11,
+      projectId: 7,
+      status: 'ANALYZED' as const,
+      items: [],
+      impactSummary: null,
+    };
+    mocks.fetchProject.mockResolvedValue([draft]);
+    mocks.cancel.mockResolvedValue(undefined);
+    const onClose = vi.fn();
+    render(<SourceUpdateModal project={project} isOpen onClose={onClose} onApplied={vi.fn()} />);
+    await act(async () => undefined);
+
+    const cancelDraftBtn = screen.getByRole('button', { name: 'Hủy bản nháp' });
+    expect(cancelDraftBtn).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(cancelDraftBtn);
+      await Promise.resolve();
+    });
+
+    expect(mocks.cancel).toHaveBeenCalledWith(7, 11, expect.anything());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 });
+

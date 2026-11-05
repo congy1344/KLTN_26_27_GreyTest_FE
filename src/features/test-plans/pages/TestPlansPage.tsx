@@ -45,6 +45,7 @@ export function TestPlansPage() {
     <AppShell maxWidth="wide">
       <ProjectPageHeader
         project={project}
+        servicePath={serviceScope.servicePath}
         titlePrefix="Test Plan"
         subtitle={t('Sinh và rà soát Test Plan từ các Business Rule đã duyệt.', 'Generate and review Test Plans from approved Business Rules.')}
         backTo={projectWorkflowPath(projectId, undefined, serviceScope.servicePath)}
