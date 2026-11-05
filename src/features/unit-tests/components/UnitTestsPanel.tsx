@@ -247,9 +247,8 @@ export function UnitTestsPanel({
   const activeFile = active ? fileForTest(active) : undefined;
   // File xuất có thể đổi tên khi tách fixture, nên cây lấy đường dẫn theo đúng file sẽ hiển thị.
   const treeFilePath = useMemo(() => {
-    const paths = new Map(visible.map((test) => [test.id, fileForTest(test)?.filePath ?? test.filePath]));
-    return (test: UnitTest) => paths.get(test.id) ?? test.filePath;
-    // fileForTest chỉ phụ thuộc danh sách file và case.
+    const paths = new Map(visible.map((test) => [test.id, fileForTest(test)?.filePath || test.filePath || `${test.testClassName}.java`]));
+    return (test: UnitTest) => paths.get(test.id) ?? `${test.testClassName}.java`;
   }, [visible, files.data, approvedCaseById]);
   const error = cases.error ?? plans.error ?? rules.error ?? analysis.error
     ?? tests.error ?? files.error ?? generate.error;
