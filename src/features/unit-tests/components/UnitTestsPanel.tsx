@@ -5,6 +5,7 @@ import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { MetricCard } from '../../../shared/components/MetricCard';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
@@ -85,6 +86,7 @@ export function UnitTestsPanel({
   const [downloading, setDownloading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [downloadError, setDownloadError] = useState('');
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const { t, language } = useLanguage();
   const approvedCases = useMemo(() => (cases.data ?? []).filter((item) => item.status === 'APPROVED'), [cases.data]);
   const eligibleCases = approvedCases;
@@ -308,7 +310,13 @@ export function UnitTestsPanel({
               <button
                 className="btn btn-secondary"
                 disabled={generate.isPending || generationRunning || eligibleCases.length === 0}
-                onClick={() => handleGenerate(false)}
+                onClick={() => {
+                  if ((tests.data ?? []).length > 0) {
+                    setShowRegenerateConfirm(true);
+                  } else {
+                    handleGenerate(false);
+                  }
+                }}
                 title={t('Xóa toàn bộ Unit Test cũ và sinh lại từ đầu', 'Regenerate all unit tests from scratch')}
               >
                 <RotateCcw size={14} /> {t('Sinh lại từ đầu', 'Regenerate all')}
@@ -318,7 +326,13 @@ export function UnitTestsPanel({
             <button
               className={coveredCount > 0 && missingCount === 0 ? "btn btn-secondary" : "btn btn-brand"}
               disabled={generate.isPending || generationRunning || eligibleCases.length === 0 || pendingDraftCaseCount > 0}
-              onClick={() => handleGenerate(false)}
+              onClick={() => {
+                if (coveredCount > 0 || (tests.data ?? []).length > 0) {
+                  setShowRegenerateConfirm(true);
+                } else {
+                  handleGenerate(false);
+                }
+              }}
             >
               {generate.isPending || generationRunning ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -337,7 +351,9 @@ export function UnitTestsPanel({
             active={generate.isPending || generationRunning || generationProgress.showProgress}
             label={t('Tiến trình AI của dự án', 'Project AI progress')}
             progress={generationProgress.projectProgress ?? generationProgress.data}
+            onPause={generationProgress.pause}
             onResume={pendingDraftCaseCount > 0 ? undefined : () => handleGenerate(true)}
+            onCancel={generationProgress.cancel}
           />
           <button
             className="btn btn-brand shrink-0"
@@ -639,6 +655,22 @@ export function UnitTestsPanel({
       </div>
       <SourceUpdateDeletionHistory update={activeUpdate} impact={impact} targetType="UNIT_TEST"
         currentIds={(tests.data ?? []).map((item) => item.id)} servicePath={servicePath} />
+      <ConfirmDialog
+        open={showRegenerateConfirm}
+        title={t('Sinh lại toàn bộ Unit Test?', 'Regenerate all Unit Tests?')}
+        description={t(
+          'Hệ thống sẽ xóa toàn bộ Unit Test hiện tại và gọi AI sinh lại từ đầu cho các Test Case đã approve. Thao tác này có thể tốn thêm quota.',
+          'All current Unit Tests will be deleted and AI will regenerate them from scratch for approved Test Cases. This may use additional quota.'
+        )}
+        confirmLabel={t('Xác nhận sinh lại', 'Confirm regeneration')}
+        cancelLabel={t('Giữ Unit Test hiện tại', 'Keep current tests')}
+        pending={generate.isPending}
+        onCancel={() => setShowRegenerateConfirm(false)}
+        onConfirm={() => {
+          setShowRegenerateConfirm(false);
+          handleGenerate(false);
+        }}
+      />
     </section>
   );
 }

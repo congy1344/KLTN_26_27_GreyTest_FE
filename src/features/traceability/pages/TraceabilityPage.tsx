@@ -54,6 +54,7 @@ export function TraceabilityPage() {
     <AppShell maxWidth="wide">
       <ProjectPageHeader
         project={project}
+        servicePath={serviceScope.servicePath}
         titlePrefix="Traceability"
         subtitle={t('Truy vết từng Business Rule tới Test Plan, Test Case và Unit Test tương ứng.', 'Trace each Business Rule to its Test Plans, Test Cases, and Unit Tests.')}
         backTo={projectWorkflowPath(projectId, 'coverage', serviceScope.servicePath)}

@@ -513,7 +513,9 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
               active={generateMutation.isPending || generationRunning || generationProgress.showProgress}
               label={t('Tiến trình AI của dự án', 'Project AI progress')}
               progress={generationProgress.projectProgress ?? generationProgress.data}
+              onPause={generationProgress.pause}
               onResume={() => handleGenerate(true)}
+              onCancel={generationProgress.cancel}
             />
           </div>
           <button className="btn btn-secondary" disabled={pending || dirtyRuleCount === 0} onClick={handleReview}>

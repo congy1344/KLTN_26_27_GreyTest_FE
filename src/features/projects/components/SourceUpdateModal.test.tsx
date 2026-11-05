@@ -166,7 +166,7 @@ describe('SourceUpdateModal', () => {
     await act(async () => undefined);
     expect(screen.getByRole('button', { name: 'Sinh Tất Cả' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Đóng' })).toBeEnabled();
-    expect(screen.queryByRole('button', { name: 'Hủy bản nháp' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hủy bản nháp' })).toBeVisible();
     await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
     expect(screen.getByRole('button', { name: '✓ Đã sinh BR' })).toBeEnabled();
     expect(mocks.generate).not.toHaveBeenCalled();
@@ -180,7 +180,7 @@ describe('SourceUpdateModal', () => {
         diffType: 'DELETED', methodKey: 'demo.PatientService#countActivePatients()', servicePath: 'backend/patient-service',
       }] }),
       items: [
-        { id: 1, targetType: 'METHOD', targetKey: 'demo.PatientService#countActivePatients()', action: 'REMOVE', reviewStatus: 'ACCEPTED', reason: 'Method đã xóa', beforeData: 'public long countActivePatients() { return 1; }' },
+        { id: 1, targetType: 'TEST_CASE', targetId: 2655, action: 'REMOVE', reviewStatus: 'ACCEPTED', reason: 'Test Case đã xóa', beforeData: '{"caseCode":"TC-001"}' },
         { id: 2, targetType: 'BUSINESS_RULE', targetId: 4047, action: 'CREATE', reviewStatus: 'ACCEPTED', reason: 'Thêm kiểm tra nhóm máu', afterData: '{"description":"Nhóm máu không được rỗng"}' },
         { id: 3, targetType: 'TEST_PLAN', targetId: 1908, action: 'UPDATE', reviewStatus: 'MODIFIED', reason: 'Cập nhật Test Plan', afterData: '{"title":"Kiểm tra nhóm máu"}' },
         { id: 4, targetType: 'TEST_CASE', targetId: 2654, action: 'REMOVE', reviewStatus: 'REJECTED', reason: 'Đề xuất bị từ chối' },
@@ -202,7 +202,7 @@ describe('SourceUpdateModal', () => {
     expect(within(history).getByRole('heading', { name: 'Đã thêm (1)' })).toBeVisible();
     expect(within(history).getByRole('heading', { name: 'Đã sửa (1)' })).toBeVisible();
     expect(within(history).getByRole('heading', { name: 'Đã xóa (1)' })).toBeVisible();
-    expect(within(history).getByText('demo.PatientService#countActivePatients()')).toBeVisible();
+    expect(within(history).getByText('Test Case đã xóa')).toBeVisible();
     expect(within(history).getByText('Thêm kiểm tra nhóm máu')).toBeVisible();
     expect(within(history).getByText('Cập nhật Test Plan')).toBeVisible();
     expect(within(history).queryByText('Đề xuất bị từ chối')).not.toBeInTheDocument();
@@ -356,6 +356,12 @@ describe('SourceUpdateModal', () => {
 
     expect(screen.getByRole('progressbar', { name: 'Tiến trình xử lý source code' })).toHaveAttribute('aria-valuenow', '23');
     expect(screen.getByText(/Đang tải source code/i)).toBeVisible();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(screen.getByText(/Thời gian: 3s/)).toBeVisible();
   });
 
   it('shows a timeout error and releases the loading state when upload hangs', async () => {
@@ -478,6 +484,7 @@ describe('SourceUpdateModal', () => {
 
     expect(screen.getByRole('button', { name: /Ph/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Project/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Hủy bản nháp' })).toBeDisabled();
   });
 
   it('clears the generation state when the modal is closed and reopened', async () => {

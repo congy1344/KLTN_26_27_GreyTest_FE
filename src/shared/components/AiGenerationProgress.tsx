@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Check,
@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/language';
+import { ConfirmDialog } from './ConfirmDialog';
 import type { GenerationProgress, GenerationProgressStepStatus } from '../types/generation-progress';
 
 interface AiGenerationProgressProps {
@@ -23,7 +24,9 @@ interface AiGenerationProgressProps {
   label: string;
   progress?: GenerationProgress;
   projectId?: number;
+  onPause?: () => void;
   onResume?: () => void;
+  onCancel?: () => void;
 }
 
 const STEP_STYLES: Record<GenerationProgressStepStatus, string> = {
@@ -175,7 +178,43 @@ export function formatHumanLogMessage(message: string): string {
       .replace(/^\[Cảnh báo kiểm thử\]/, '[Cảnh báo]');
   }
 
+  // Lược bỏ các đoạn context dump AST nội bộ của JavaParser (MethodCallExprContext{...}, Context{wrapped=...)
+  if (/[A-Za-z0-9_]*Context\{wrapped=/i.test(message)) {
+    message = message.replace(/\s*[A-Za-z0-9_]*Context\{wrapped=[\s\S]*$/i, '').trim();
+  }
+
   return message;
+}
+
+/** Lọc bỏ các thông điệp kỹ thuật/nội bộ (cảnh báo testability, helper, collection nội bộ...) để nhật ký dễ hiểu cho người dùng */
+export function isUserFacingLog(message: string): boolean {
+  if (!message || !message.trim()) return false;
+  const humanized = formatHumanLogMessage(message);
+  const lower = humanized.toLowerCase();
+
+  // Bỏ qua các cảnh báo / lưu ý phân tích tĩnh mã nguồn, testability, helper nội bộ
+  if (
+    humanized.startsWith('[Lưu ý') ||
+    humanized.startsWith('[Cảnh báo') ||
+    lower.startsWith('testability') ||
+    lower.includes('helper nội bộ') ||
+    lower.includes('collection nội bộ') ||
+    lower.includes('nhánh ngẫu nhiên') ||
+    lower.includes('collaborator final') ||
+    lower.includes('cấu trúc mã nguồn khi sinh test') ||
+    lower.includes('cần lưu ý cấu trúc mã nguồn') ||
+    lower.includes('chưa đủ điều kiện sinh test') ||
+    lower.includes('chưa đủ điều kiện sinh unit test') ||
+    lower.includes('đang đối chiếu setup mock') ||
+    lower.includes('chưa đạt kiểm tra nội dung') ||
+    lower.includes('chưa khớp bằng chứng source') ||
+    lower.includes('chưa đúng schema') ||
+    lower.includes('còn thiếu nhánh hoặc chưa khớp source') ||
+    lower.includes('ngân sách retry tinh chỉnh context')
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /** Hiển thị tóm tắt ngắn gọn ở dòng log thu gọn ngoài danh sách */
@@ -195,8 +234,7 @@ function formatCollapsedLogMessage(message: string): string {
 /** Tùy biến màu chữ thông điệp log phù hợp theo ngữ cảnh (thành công, lỗi, cảnh báo/lưu ý, đang xử lý) */
 export function getLogMessageColor(message: string): string {
   const lower = message.toLowerCase();
-  // Ưu tiên kiểm tra lỗi trước: log lỗi (thất bại, dừng ở batch, quota...) luôn phải hiển thị màu đỏ,
-  // kể cả khi câu có chứa từ ngữ như "đã sinh trước đó" hoặc "đã lưu".
+  // 1. Ưu tiên kiểm tra lỗi trước: log lỗi (thất bại, dừng ở batch, quota...) luôn phải hiển thị màu đỏ
   if (
     lower.includes('thất bại') ||
     lower.includes('lỗi') ||
@@ -205,12 +243,15 @@ export function getLogMessageColor(message: string): string {
     lower.includes('failure') ||
     lower.includes('exception') ||
     lower.includes('dừng ở batch') ||
+    lower.includes('hết số lần thử') ||
     lower.includes('quota')
   ) {
     return 'text-fg-danger-strong font-medium';
   }
-  // Cảnh báo / lưu ý khả năng kiểm thử / testability hiển thị màu cam/hổ phách nổi bật
+  // 2. Cảnh báo / hoàn tất một phần / testability hiển thị màu cam/hổ phách (phải kiểm tra trước hoàn thành/hoàn tất)
   if (
+    lower.includes('hoàn tất một phần') ||
+    lower.includes('partially') ||
     lower.includes('cảnh báo') ||
     lower.includes('lưu ý') ||
     lower.includes('testability') ||
@@ -223,10 +264,27 @@ export function getLogMessageColor(message: string): string {
   ) {
     return 'text-amber-600 dark:text-amber-400 font-medium';
   }
-  if (lower.includes('hoàn tất') || lower.includes('thành công') || lower.includes('đã sinh') || lower.includes('hợp lệ')) {
+  // 3. Các thông điệp hoàn thành/thành công có màu xanh lá nổi bật ở tất cả các giao diện AI sinh
+  if (
+    lower.includes('hoàn thành') ||
+    lower.includes('hoàn tất') ||
+    lower.includes('thành công') ||
+    lower.includes('đã sinh') ||
+    lower.includes('đã lưu') ||
+    lower.includes('hợp lệ') ||
+    lower.includes('completed') ||
+    lower.includes('success')
+  ) {
     return 'text-fg-success-strong font-medium';
   }
-  if (lower.includes('đang gọi ai') || lower.includes('đang xử lý') || lower.includes('đang phân tích') || lower.includes('đang kiểm tra') || lower.includes('đang gửi')) {
+  if (
+    lower.includes('đang gọi ai') ||
+    lower.includes('gọi ai agent') ||
+    lower.includes('đang xử lý') ||
+    lower.includes('đang phân tích') ||
+    lower.includes('đang kiểm tra') ||
+    lower.includes('đang gửi')
+  ) {
     return 'text-fg-brand-strong font-medium';
   }
   return 'text-heading';
@@ -279,8 +337,11 @@ export function AiGenerationProgress({
   progress,
   projectId,
   onResume,
+  onPause,
+  onCancel,
 }: AiGenerationProgressProps) {
   const { t } = useLanguage();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const storageScope = projectId != null ? String(projectId) : 'global';
   const dismissedStorageKey = `${STORAGE_DISMISSED_PREFIX}${storageScope}`;
   const minimizedStorageKey = `${STORAGE_MINIMIZED_PREFIX}${storageScope}`;
@@ -403,12 +464,16 @@ export function AiGenerationProgress({
     });
   };
 
+  const visibleLogs = useMemo(() => {
+    return (currentProgress?.logs || []).filter((log) => isUserFacingLog(log.message));
+  }, [currentProgress?.logs]);
+
   // Tự động cuộn xuống cuối khi có log mới
   useEffect(() => {
     if (logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
-  }, [currentProgress?.logs]);
+  }, [visibleLogs.length]);
 
   const hasProgress = Boolean(
     active || (currentProgress && currentProgress.status && currentProgress.status !== 'IDLE')
@@ -427,8 +492,8 @@ export function AiGenerationProgress({
     };
   }, [hasProgress, floatingDismissed, isMinimized]);
 
-  const latestLog = currentProgress?.logs && currentProgress.logs.length > 0
-    ? currentProgress.logs[currentProgress.logs.length - 1]
+  const latestLog = visibleLogs.length > 0
+    ? visibleLogs[visibleLogs.length - 1]
     : null;
   const latestTime = formatLogTime(latestLog?.timestamp);
 
@@ -475,8 +540,8 @@ export function AiGenerationProgress({
             : t('Đang xử lý...', 'Processing...'));
 
   const handleCopyLogs = () => {
-    if (!currentProgress?.logs || currentProgress.logs.length === 0) return;
-    const text = currentProgress.logs
+    if (visibleLogs.length === 0) return;
+    const text = visibleLogs
       .map((l) => `[${formatLogTime(l.timestamp)}] ${formatHumanLogMessage(l.message)}`)
       .join('\n');
     navigator.clipboard.writeText(text).then(() => {
@@ -612,21 +677,57 @@ export function AiGenerationProgress({
           {!isMinimized && (
             <div className="p-3.5 space-y-3 bg-neutral-primary-soft flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Thông báo trạng thái mới nhất - nền đặc */}
-              <div className="shrink-0 flex items-start justify-between gap-2.5 rounded-xl bg-neutral-secondary p-3 border border-border-default-subtle">
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-medium leading-relaxed ${getLogMessageColor(currentMessage)}`}>
+              <div className="shrink-0 flex items-start justify-between gap-2.5 rounded-xl bg-neutral-secondary p-3 border border-border-default-subtle overflow-hidden">
+                <div className="flex-1 min-w-0 max-h-44 overflow-y-auto custom-scrollbar pr-1">
+                  <p className={`text-xs font-medium leading-relaxed break-words [overflow-wrap:anywhere] ${getLogMessageColor(currentMessage)}`}>
                     {currentMessage}
                   </p>
-                  {isPaused && onResume && (
-                    <div className="mt-2.5 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={onResume}
-                        className="btn btn-brand !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
-                      >
-                        <Play size={13} className="fill-current text-white" />
-                        <span className="text-white font-semibold">{t('Tiếp tục sinh', 'Resume generation')}</span>
-                      </button>
+                  {isRunning && (onPause || onCancel) && (
+                    <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                      {onPause && (
+                        <button
+                          type="button"
+                          onClick={onPause}
+                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        >
+                          <Pause size={13} />
+                          <span>{t('Tạm dừng', 'Pause')}</span>
+                        </button>
+                      )}
+                      {onCancel && (
+                        <button
+                          type="button"
+                          onClick={() => setShowCancelConfirm(true)}
+                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer text-fg-danger-strong hover:bg-danger-soft"
+                        >
+                          <X size={13} />
+                          <span>{t('Hủy sinh', 'Cancel generation')}</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {isPaused && (
+                    <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                      {onResume && (
+                        <button
+                          type="button"
+                          onClick={onResume}
+                          className="btn btn-brand !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        >
+                          <Play size={13} className="fill-current text-white" />
+                          <span className="text-white font-semibold">{t('Tiếp tục sinh', 'Resume generation')}</span>
+                        </button>
+                      )}
+                      {onCancel && (
+                        <button
+                          type="button"
+                          onClick={() => setShowCancelConfirm(true)}
+                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer text-fg-danger-strong hover:bg-danger-soft"
+                        >
+                          <X size={13} />
+                          <span>{t('Hủy sinh', 'Cancel generation')}</span>
+                        </button>
+                      )}
                       <span className="text-[11px] text-body-subtle">
                         {t('(Tiếp tục từ batch còn dang dở)', '(Resumes from pending batches)')}
                       </span>
@@ -687,7 +788,7 @@ export function AiGenerationProgress({
                             {step.label}
                           </span>
                           {step.status === 'FAILED' && step.errorMessage && (
-                            <span className="mt-0.5 block whitespace-normal break-words text-[10px] font-normal leading-relaxed text-fg-danger-strong">
+                            <span className="mt-0.5 block whitespace-normal break-words [overflow-wrap:anywhere] text-[10px] font-normal leading-relaxed text-fg-danger-strong">
                               {step.errorMessage}
                             </span>
                           )}
@@ -706,7 +807,7 @@ export function AiGenerationProgress({
               )}
 
               {/* Console Log Terminal tinh tế - nền đặc 100% */}
-              {currentProgress?.logs && currentProgress.logs.length > 1 && (
+              {visibleLogs.length > 1 && (
                 <div className="flex-1 flex flex-col min-h-0 space-y-1.5">
                   <div className="shrink-0 flex items-center justify-between px-1">
                     <div className="flex items-center gap-1.5 text-body-subtle">
@@ -715,7 +816,7 @@ export function AiGenerationProgress({
                         {t('Nhật ký xử lý', 'Execution Logs')}
                       </span>
                       <span className="text-[10px] rounded-full bg-neutral-secondary-medium px-1.5 py-0.2 font-mono font-semibold text-body">
-                        {currentProgress.logs.length}
+                        {visibleLogs.length}
                       </span>
                     </div>
 
@@ -745,7 +846,7 @@ export function AiGenerationProgress({
                     ref={logContainerRef}
                     className="flex-1 min-h-[180px] overflow-y-auto rounded-xl bg-neutral-secondary border border-border-default p-2.5 font-mono text-[11px] space-y-1 shadow-inner custom-scrollbar"
                   >
-                    {currentProgress.logs.map((log, index) => {
+                    {visibleLogs.map((log, index) => {
                       const isExpanded = Boolean(expandedLogs[index]);
                       const isLineCopied = copiedLogIndex === index;
                       return (
@@ -787,7 +888,7 @@ export function AiGenerationProgress({
                               />
                             </button>
 
-                            <span className={`break-words flex-1 text-[11px] ${getLogMessageColor(log.message)}`}>
+                            <span className={`break-words [overflow-wrap:anywhere] flex-1 text-[11px] ${getLogMessageColor(log.message)}`}>
                               {formatCollapsedLogMessage(log.message)}
                             </span>
                           </div>
@@ -827,7 +928,7 @@ export function AiGenerationProgress({
                                 </div>
 
                                 {/* Thông điệp hoàn chỉnh */}
-                                <p className="font-mono text-[11px] text-heading whitespace-pre-wrap break-words leading-relaxed select-text bg-neutral-primary-soft p-2 rounded-md border border-border-default-subtle">
+                                <p className="font-mono text-[11px] text-heading whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed select-text bg-neutral-primary-soft p-2 rounded-md border border-border-default-subtle">
                                   {formatHumanLogMessage(log.message)}
                                 </p>
 
@@ -899,6 +1000,22 @@ export function AiGenerationProgress({
           )}
         </button>
       )}
+
+      <ConfirmDialog
+        open={showCancelConfirm}
+        title={t('Hủy tiến trình AI?', 'Cancel AI progress?')}
+        description={t(
+          'Tác vụ AI đang thực hiện sẽ bị hủy bỏ. Các batch đã lưu trước đó vẫn được giữ lại an toàn.',
+          'The in-flight AI task will be cancelled. Any previously saved batches will be kept safely.'
+        )}
+        confirmLabel={t('Xác nhận hủy', 'Confirm cancel')}
+        cancelLabel={t('Tiếp tục chạy', 'Keep running')}
+        onConfirm={() => {
+          setShowCancelConfirm(false);
+          onCancel?.();
+        }}
+        onCancel={() => setShowCancelConfirm(false)}
+      />
     </>
   );
 }

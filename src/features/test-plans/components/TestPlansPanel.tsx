@@ -245,7 +245,9 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
               active={generateMutation.isPending || generationRunning || generationProgress.showProgress}
               label={t('Tiến trình AI của dự án', 'Project AI progress')}
               progress={generationProgress.projectProgress ?? generationProgress.data}
+              onPause={generationProgress.pause}
               onResume={() => handleGenerate(true)}
+              onCancel={generationProgress.cancel}
             />
           </div>
           <button
