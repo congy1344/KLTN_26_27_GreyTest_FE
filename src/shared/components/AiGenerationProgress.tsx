@@ -682,7 +682,7 @@ export function AiGenerationProgress({
               {metrics && (
                 <section aria-label={t('Số liệu lượt chạy', 'Run metrics')} className="shrink-0 rounded-xl border border-border-default-subtle bg-neutral-secondary p-3 text-xs">
                   <p className="font-semibold text-heading">
-                    {t('Lượt chạy hiện tại', 'Current run')}: {currentProgress?.stage.replace(/_/g, ' ')}
+                    {t('Tổng các lần chạy', 'All runs')}: {currentProgress?.stage.replace(/_/g, ' ')}
                   </p>
                   <dl className="mt-2 grid grid-cols-2 gap-2">
                     <div><dt className="text-body-subtle">{t('Tổng thời gian xử lý', 'Total processing time')}</dt><dd className="font-mono font-semibold">{executionTimeText}</dd></div>
@@ -691,7 +691,7 @@ export function AiGenerationProgress({
                     <div><dt className="text-body-subtle">{t('Phản hồi AI đã ghi nhận', 'Recorded AI responses')}</dt><dd className="font-mono">{metrics.recordedCalls}</dd></div>
                   </dl>
                   <p className="mt-2 text-[10px] text-body-subtle">
-                    {t('Thời gian thực từ lúc bắt đầu ở 0% đến khi hoàn tất 100%, gồm cả chờ xử lý; không cộng thời gian từng batch.', 'Wall-clock time from starting at 0% to completion at 100%, including queue time; batch durations are not added together.')}
+                    {t('Cộng dồn mọi lần chạy và Tiếp tục sinh của bước này cho đến khi hoàn tất; gồm cả chờ xử lý, không tính lúc dừng giữa hai lần và không cộng thời gian từng batch.', 'Adds up every run and resume of this stage until it completes, including queue time; time stopped between runs is excluded and batch durations are not added together.')}
                     {' '}{metrics.estimatedCalls > 0
                       ? t(`Có ${metrics.estimatedCalls} phản hồi dùng token ước tính.`, `${metrics.estimatedCalls} responses use estimated tokens.`)
                       : metrics.recordedCalls > 0 ? t('Token do provider trả về.', 'Tokens reported by the provider.') : t('Chưa có dữ liệu token.', 'No token usage available yet.')}
