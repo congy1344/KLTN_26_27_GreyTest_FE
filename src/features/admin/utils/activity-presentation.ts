@@ -14,14 +14,19 @@ const labels: Record<ActivityAction, string> = {
   USER_UPGRADE_TIER: 'Người dùng nâng cấp gói PRO',
   USER_CANCEL_TIER: 'Người dùng hủy gói về Free',
   ADMIN_TIER_CHANGE: 'Đổi gói tài khoản (Tier)',
+  USER_LOGIN: 'Đăng nhập hệ thống',
 };
 
 export function activityLabel(action: ActivityAction): string {
-  return labels[action];
+  return labels[action] || action;
 }
 
 export function formatActivityMetadata(metadata: Record<string, unknown> = {}): string {
   const parts: string[] = [];
+  if (metadata.ip) parts.push(`IP: ${metadata.ip}`);
+  if (metadata.userAgent) parts.push(`Thiết bị: ${String(metadata.userAgent).slice(0, 45)}`);
+  if (metadata.portal) parts.push(`Cổng: ${metadata.portal === 'ADMIN_PORTAL' ? 'Admin' : 'Web'}`);
+  if (metadata.status) parts.push(`Trạng thái: ${metadata.status === 'SUCCESS' ? 'Thành công' : 'Thất bại'}`);
   if (metadata.targetUserId != null) parts.push(`Tài khoản #${metadata.targetUserId}`);
   if (typeof metadata.previousEnabled === 'boolean' && typeof metadata.newEnabled === 'boolean') {
     parts.push(`Trạng thái ${metadata.previousEnabled ? 'Hoạt động' : 'Đã khóa'} → ${metadata.newEnabled ? 'Hoạt động' : 'Đã khóa'}`);

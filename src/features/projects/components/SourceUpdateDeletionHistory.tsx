@@ -36,7 +36,7 @@ export function SourceUpdateDeletionHistory({ update, impact, targetType, curren
         <h3 className="text-sm font-semibold text-rose-600 dark:text-rose-400">
           {t(`${label} đã xóa`, `Deleted ${label}s`)} ({removed.length})
         </h3>
-        {scope.projectWide && <span className="text-xs text-body-subtle">{t('Phạm vi: toàn project', 'Scope: entire project')}</span>}
+        {scope.projectWide && <span className="text-xs text-body-subtle">{t('Phạm vi: toàn dự án', 'Scope: entire project')}</span>}
       </div>
       <p className="text-xs text-body-subtle">{t('Lịch sử của bản cập nhật source đã áp dụng.', 'History from the applied source update.')}</p>
       {removed.map((item) => (

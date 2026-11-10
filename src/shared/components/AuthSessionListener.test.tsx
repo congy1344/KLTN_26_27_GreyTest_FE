@@ -10,7 +10,7 @@ import { AuthSessionListener } from './AuthSessionListener';
 afterEach(cleanup);
 
 describe('AuthSessionListener', () => {
-  it.each([['/projects/1', '/login'], ['/admin/users', '/admin/login']])
+  it.each([['/projects/1', '/'], ['/admin/users', '/admin/login']])
     ('clears cached user data and redirects %s to %s', async (from, to) => {
       const client = new QueryClient();
       client.setQueryData(['projects'], [{ id: 1, name: 'Private project' }]);

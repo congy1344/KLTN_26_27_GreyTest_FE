@@ -68,10 +68,11 @@ const REVIEW_STATUS_STYLES: Record<string, string> = {
 
 const DEFAULT_STYLE = 'border-border-default bg-neutral-secondary-medium text-body-subtle';
 
-export function formatSemanticLabel(value: string | null | undefined, language: Language) {
-  if (!value) return '';
-  const labels = Object.prototype.hasOwnProperty.call(LABELS, value) ? LABELS[value] : undefined;
-  return labels ? labels[language === 'vi' ? 0 : 1] : value.replace(/_/g, ' ');
+export function formatSemanticLabel(value: unknown, language: Language) {
+  if (value === null || value === undefined || value === '') return '';
+  const str = typeof value === 'string' ? value : String(value);
+  const labels = Object.prototype.hasOwnProperty.call(LABELS, str) ? LABELS[str] : undefined;
+  return labels ? labels[language === 'vi' ? 0 : 1] : str.replace(/_/g, ' ');
 }
 
 interface SemanticBadgeProps {

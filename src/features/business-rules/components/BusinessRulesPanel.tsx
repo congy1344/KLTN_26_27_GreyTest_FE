@@ -10,7 +10,7 @@ import {
   Pencil,
   Play,
   Save,
-  Sparkles,
+  CheckCheck,
   Trash2,
   X,
 } from 'lucide-react';
@@ -454,7 +454,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
                     disabled={pending}
                     onClick={() => handleUseSuggestion(rule)}
                   >
-                    <Sparkles size={13} />
+                    <CheckCheck size={13} />
                     {t('Dùng gợi ý AI', 'Use AI suggestion')}
                   </button>
                 </div>
@@ -519,7 +519,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
             />
           </div>
           <button className="btn btn-secondary" disabled={pending || dirtyRuleCount === 0} onClick={handleReview}>
-            {reviewMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {reviewMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />}
             {t('AI review thay đổi', 'AI review changes')}{dirtyRuleCount > 0 ? ` (${dirtyRuleCount})` : ''}
           </button>
           <button
@@ -608,7 +608,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
           <LoadingState label={t('Đang tải Business Rules...', 'Loading Business Rules...')} minHeight="min-h-[140px]" />
         ) : serviceGroups.length === 0 && rules.length === 0 ? (
           <EmptyState
-            icon={Sparkles}
+            icon={FileCode2}
             title={t('Chưa có Business Rule', 'No Business Rules yet')}
             hint={t('Dùng AI sinh từ static analysis hoặc nhập rule thủ công để AI review.', 'Generate them from static analysis or add rules manually for AI review.')}
             minHeight="min-h-[180px]"

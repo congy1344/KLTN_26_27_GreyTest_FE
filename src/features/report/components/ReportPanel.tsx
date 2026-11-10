@@ -371,9 +371,9 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
         <div className="rounded-base border border-border-default bg-neutral-primary-soft shadow-sm">
           <div className="flex flex-col gap-3 border-b border-border-default p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-heading">Report preview</p>
+              <p className="text-sm font-semibold text-heading">{t('Xem trước báo cáo', 'Report preview')}</p>
               <p className="mt-1 text-xs text-body-subtle">
-                {t('Nội dung được sinh từ dữ liệu thật của project trên backend.', 'Content is generated from the real project data on the backend.')}
+                {t('Nội dung được sinh từ dữ liệu thật của dự án trên backend.', 'Content is generated from the real project data on the backend.')}
               </p>
             </div>
             <button className="btn btn-brand shrink-0" disabled={!preview.data} onClick={handleDownload}>
@@ -382,7 +382,7 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
             </button>
           </div>
           {preview.isLoading ? (
-            <LoadingState label={t('Đang tạo report...', 'Generating report...')} minHeight="min-h-[430px]" />
+            <LoadingState label={t('Đang tạo báo cáo...', 'Generating report...')} minHeight="min-h-[430px]" />
           ) : preview.isError ? (
             <div className="p-4">
               <InlineAlert tone="danger">{getErrorMessage(preview.error)}</InlineAlert>

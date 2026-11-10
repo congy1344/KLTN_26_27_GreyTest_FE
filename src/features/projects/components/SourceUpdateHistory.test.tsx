@@ -100,7 +100,7 @@ describe('SourceUpdateHistory', () => {
       render(<SourceUpdateHistory updates={[update({ impactSummary })]} loading={false} error={null} servicePath="backend/patient-service" />);
       openHistory();
       expect(screen.getByRole('button', { name: /Bản cập nhật #216/ })).toBeVisible();
-      expect(screen.getByText('Phạm vi: toàn project')).toBeVisible();
+      expect(screen.getByText('Phạm vi: toàn dự án')).toBeVisible();
     },
   );
 

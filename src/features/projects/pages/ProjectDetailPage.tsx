@@ -112,7 +112,7 @@ export function ProjectDetailPage() {
   if (projectError || !project) {
     return (
       <AppShell maxWidth="wide">
-        <ErrorState error={projectError ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
+        <ErrorState error={projectError ?? undefined} title={t('Không tìm thấy dự án', 'Project not found')} backTo="/projects" />
       </AppShell>
     );
   }
@@ -125,7 +125,7 @@ export function ProjectDetailPage() {
           className="inline-flex items-center gap-1.5 text-sm font-medium text-body transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-heading"
         >
           <ArrowLeft size={14} strokeWidth={1.8} />
-          {t('Danh sách project', 'Projects')}
+          {t('Danh sách dự án', 'Projects')}
         </Link>
       </div>
 
@@ -201,7 +201,7 @@ export function ProjectDetailPage() {
           {!project.sourceAvailable && (
             <div className="mt-4 rounded-default border border-border-warning-subtle bg-warning-soft p-3 animate-fade-in">
               <p className="text-sm font-medium text-fg-warning">
-                {t('Source của project này không còn trong storage. Bạn vẫn xem được kết quả đã lưu nhưng cần upload ZIP hoặc clone GitHub lại nếu muốn phân tích lại.', 'This project source is no longer available in storage. Saved results remain visible, but you must upload the ZIP or clone the GitHub repository again to reanalyze it.')}
+                {t('Source của dự án này không còn trong storage. Bạn vẫn xem được kết quả đã lưu nhưng cần upload ZIP hoặc clone GitHub lại nếu muốn phân tích lại.', 'This project source is no longer available in storage. Saved results remain visible, but you must upload the ZIP or clone the GitHub repository again to reanalyze it.')}
               </p>
             </div>
           )}
@@ -250,7 +250,7 @@ export function ProjectDetailPage() {
             <Loader2 size={18} strokeWidth={1.8} className="animate-spin text-fg-brand" />
             <div>
               <p className="text-sm font-semibold text-heading">{t('Đang phân tích source code', 'Analyzing source code')}</p>
-              <p className="mt-0.5 text-xs text-body-subtle">{t('JavaParser đang quét các file .java trong project.', 'JavaParser is scanning the project Java files.')}</p>
+              <p className="mt-0.5 text-xs text-body-subtle">{t('JavaParser đang quét các file .java trong dự án.', 'JavaParser is scanning the project Java files.')}</p>
             </div>
           </div>
         </div>
@@ -271,7 +271,7 @@ export function ProjectDetailPage() {
       {!analyzeMutation.isSuccess && hasAnalysis && analysisError && (
         <div className="rounded-base border border-border-danger-subtle bg-danger-soft p-4 animate-fade-in">
           <p className="text-sm font-semibold text-fg-danger-strong">
-            {t('Không thể tải kết quả analysis', 'Unable to load analysis results')}
+            {t('Không thể tải kết quả phân tích', 'Unable to load analysis results')}
           </p>
           <p className="mt-1 text-xs text-fg-danger-strong">
             {getErrorMessage(analysisError)}
@@ -308,7 +308,7 @@ export function ProjectDetailPage() {
       />
       <ConfirmDialog
         open={showReanalyzeConfirm}
-        title={t('Phân tích lại project?', 'Reanalyze project?')}
+        title={t('Phân tích lại dự án?', 'Reanalyze project?')}
         description={t(
           `Hệ thống sẽ xóa artifact của mọi service (service đang chọn: ${pipelineCounts}) và toàn bộ lịch sử coverage trước khi phân tích lại. Thao tác này không thể hoàn tác.`,
           `The system will delete artifacts from every service (selected service: ${pipelineCounts}) and the complete coverage history before reanalysis. This action cannot be undone.`,

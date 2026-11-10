@@ -55,6 +55,8 @@ describe('SemanticBadge', () => {
     expect(formatSemanticLabel('toString', 'vi')).toBe('toString');
     expect(formatSemanticLabel(undefined, 'vi')).toBe('');
     expect(formatSemanticLabel(null, 'en')).toBe('');
+    expect(formatSemanticLabel(128, 'vi')).toBe('128');
+    expect(formatSemanticLabel(0, 'en')).toBe('0');
   });
 
   it('formats target type labels as standard testing terminology (Business Rule, Test Plan, Test Case, Unit Test, Method)', () => {

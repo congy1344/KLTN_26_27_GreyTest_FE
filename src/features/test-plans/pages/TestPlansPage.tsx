@@ -32,7 +32,7 @@ export function TestPlansPage() {
   if (error || serviceScope.error || !project) {
     return (
       <AppShell maxWidth="wide">
-        <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
+        <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy dự án', 'Project not found')} backTo="/projects" />
       </AppShell>
     );
   }

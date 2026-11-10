@@ -6,6 +6,9 @@ export interface AuthUser {
   fullName: string;
   role: 'USER' | 'ADMIN';
   tier?: UserTier;
+  phoneNumber?: string | null;
+  gender?: string | null;
+  dateOfBirth?: string | null;
 }
 
 export interface LoginResponse {
@@ -20,6 +23,39 @@ export interface LoginRequest {
 
 export interface RegisterRequest extends LoginRequest {
   fullName: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+  mailSent: boolean;
+  resetUrl?: string | null;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface PasswordActionResponse {
+  message: string;
+}
+
+export interface UpdateProfileRequest {
+  fullName: string;
+  phoneNumber?: string | null;
+  gender?: string | null;
+  dateOfBirth?: string | null;
 }
 
 export interface UserQuota {

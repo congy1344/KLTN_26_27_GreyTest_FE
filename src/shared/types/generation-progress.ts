@@ -23,6 +23,7 @@ export interface GenerationProgress {
   totalSteps: number;
   steps: GenerationProgressStep[];
   logs: GenerationProgressLog[];
+  busy?: boolean;
 }
 
 export interface GenerationJobAccepted {

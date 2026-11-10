@@ -46,7 +46,7 @@ describe('SourceUpdateDeletionHistory', () => {
       impact={impact('hospital-main/backend/patient-service')} targetType="TEST_PLAN" currentIds={[]}
       servicePath="backend/patient-service" />);
     expect(screen.getByText('Test Plan #1907')).toBeVisible();
-    expect(screen.queryByText('Phạm vi: toàn project')).not.toBeInTheDocument();
+    expect(screen.queryByText('Phạm vi: toàn dự án')).not.toBeInTheDocument();
   });
 
   it.each([
@@ -56,7 +56,7 @@ describe('SourceUpdateDeletionHistory', () => {
   ])('labels history as project-wide when item ownership cannot be resolved: %j', (...paths) => {
     render(<SourceUpdateDeletionHistory update={update()} impact={impact(...paths)} targetType="TEST_PLAN"
       currentIds={[]} servicePath="backend/patient-service" />);
-    expect(screen.getByText('Phạm vi: toàn project')).toBeVisible();
+    expect(screen.getByText('Phạm vi: toàn dự án')).toBeVisible();
   });
 
   it('shows a removal with modified review status and without old payload', () => {
@@ -78,7 +78,7 @@ describe('SourceUpdateDeletionHistory', () => {
       render(<SourceUpdateDeletionHistory update={update()} impact={impact(previous)} targetType="TEST_PLAN"
         currentIds={[]} servicePath={selected} />);
       expect(screen.getByText('Test Plan #1907')).toBeVisible();
-      expect(screen.getByText('Phạm vi: toàn project')).toBeVisible();
+      expect(screen.getByText('Phạm vi: toàn dự án')).toBeVisible();
     },
   );
 });

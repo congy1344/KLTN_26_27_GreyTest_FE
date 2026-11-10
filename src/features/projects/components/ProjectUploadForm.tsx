@@ -6,7 +6,11 @@ import { GlassCard } from '../../../shared/components/GlassCard';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { useLanguage } from '../../../shared/i18n/language';
 
-export function ProjectUploadForm() {
+interface ProjectUploadFormProps {
+  onSuccess?: () => void;
+}
+
+export function ProjectUploadForm({ onSuccess }: ProjectUploadFormProps = {}) {
   const [file, setFile] = useState<File | null>(null);
   const [githubUrl, setGithubUrl] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -31,6 +35,7 @@ export function ProjectUploadForm() {
         onSuccess: () => {
           setFile(null);
           setSuccessMessage(t('Upload thành công. Bấm Phân tích trong danh sách để bắt đầu.', 'Upload successful. Select Analyze in the list to begin.'));
+          onSuccess?.();
         },
       });
     }
@@ -43,6 +48,7 @@ export function ProjectUploadForm() {
         onSuccess: () => {
           setGithubUrl('');
           setSuccessMessage(t('Clone thành công. Bấm Phân tích trong danh sách để bắt đầu.', 'Clone successful. Select Analyze in the list to begin.'));
+          onSuccess?.();
         },
       });
     }
@@ -171,7 +177,7 @@ export function ProjectUploadForm() {
                 disabled={clone.isPending}
               />
               <p className="mt-2 text-[11px] leading-relaxed text-body-subtle">
-                {t('Hỗ trợ repository public. Sau khi clone, bấm Phân tích trong danh sách project.', 'Public repositories are supported. After cloning, select Analyze in the project list.')}
+                {t('Hỗ trợ repository public. Sau khi clone, bấm Phân tích trong danh sách dự án.', 'Public repositories are supported. After cloning, select Analyze in the project list.')}
               </p>
             </div>
 

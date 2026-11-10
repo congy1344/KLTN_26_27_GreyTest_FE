@@ -490,7 +490,7 @@ export function SourceUpdateHistory({ updates, loading, error, servicePath }: So
                     </span>)}
                   </span>
                 </button>
-                {scope.projectWide && <p className="mt-2 text-xs text-body-subtle">{t('Phạm vi: toàn project', 'Scope: entire project')}</p>}
+                {scope.projectWide && <p className="mt-2 text-xs text-body-subtle">{t('Phạm vi: toàn dự án', 'Scope: entire project')}</p>}
                 {expanded && <div className="mt-3.5 space-y-3 min-w-0">
                   {actions.map((action) => {
                     const group = items.filter((item) => item.action === action.value);

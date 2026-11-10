@@ -89,4 +89,76 @@ describe('PaymentHistory', () => {
     expect(await screen.findByText('Thành công')).toBeInTheDocument();
     expect(screen.queryByText('Chờ xác nhận')).not.toBeInTheDocument();
   });
+
+  it('opens electronic invoice modal when clicking Xem hóa đơn on successful transaction', async () => {
+    vi.mocked(fetchPaymentHistory).mockResolvedValue([transaction]);
+    showHistory();
+    const invoiceBtn = await screen.findByRole('button', { name: 'Xem hóa đơn' });
+    expect(invoiceBtn).toBeInTheDocument();
+
+    fireEvent.click(invoiceBtn);
+    expect(screen.getByText('HÓA ĐƠN DỊCH VỤ ĐIỆN TỬ')).toBeInTheDocument();
+    expect(screen.getByText('INV-GT_PAID')).toBeInTheDocument();
+    expect(screen.getByText('ĐÃ THANH TOÁN')).toBeInTheDocument();
+
+    // Close invoice modal
+    const closeBtn = screen.getByTitle('Đóng');
+    fireEvent.click(closeBtn);
+    expect(screen.queryByText('HÓA ĐƠN DỊCH VỤ ĐIỆN TỬ')).not.toBeInTheDocument();
+  });
+
+  it('renders cancel subscription button when canCancel is true and invokes callback', async () => {
+    vi.mocked(fetchPaymentHistory).mockResolvedValue([transaction]);
+    const cancelMock = vi.fn();
+
+    const { rerender } = render(
+      <QueryClientProvider client={client}>
+        <LanguageProvider>
+          <PaymentHistory
+            userId={42}
+            canCancel={true}
+            isCancelling={false}
+            onCancelSubscription={cancelMock}
+          />
+        </LanguageProvider>
+      </QueryClientProvider>
+    );
+
+    const cancelBtn = await screen.findByRole('button', { name: 'Hủy gói' });
+    expect(cancelBtn).toBeInTheDocument();
+    expect(cancelBtn).not.toBeDisabled();
+
+    fireEvent.click(cancelBtn);
+    expect(cancelMock).toHaveBeenCalledTimes(1);
+
+    // When isCancelling is true, button should be disabled
+    rerender(
+      <QueryClientProvider client={client}>
+        <LanguageProvider>
+          <PaymentHistory
+            userId={42}
+            canCancel={true}
+            isCancelling={true}
+            onCancelSubscription={cancelMock}
+          />
+        </LanguageProvider>
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByRole('button', { name: 'Hủy gói' })).toBeDisabled();
+  });
+
+  it('does not render cancel subscription button when canCancel is false', async () => {
+    vi.mocked(fetchPaymentHistory).mockResolvedValue([]);
+
+    render(
+      <QueryClientProvider client={client}>
+        <LanguageProvider>
+          <PaymentHistory userId={42} canCancel={false} />
+        </LanguageProvider>
+      </QueryClientProvider>
+    );
+
+    expect(screen.queryByRole('button', { name: 'Hủy gói' })).not.toBeInTheDocument();
+  });
 });

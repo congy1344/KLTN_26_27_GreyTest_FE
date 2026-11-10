@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, HelpCircle } from 'lucide-react';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -8,6 +8,7 @@ interface ConfirmDialogProps {
   confirmLabel: string;
   cancelLabel: string;
   pending?: boolean;
+  variant?: 'danger' | 'brand';
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -20,6 +21,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   pending = false,
+  variant = 'danger',
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -38,14 +40,21 @@ export function ConfirmDialog({
       if (typeof dialog.close === 'function') dialog.close();
       else dialog.removeAttribute('open');
     }
+    return () => {
+      if (dialog && dialog.open && typeof dialog.close === 'function') {
+        dialog.close();
+      }
+    };
   }, [open]);
+
+  const isBrand = variant === 'brand';
 
   return (
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
-      className="m-auto w-[min(92vw,460px)] rounded-base border border-border-default bg-neutral-primary-soft p-0 text-body shadow-xl backdrop:bg-neutral-primary/80 backdrop:backdrop-blur-sm"
+      className="m-auto w-[min(92vw,460px)] rounded-xl border border-border-default bg-neutral-primary-soft p-0 text-body shadow-xl backdrop:bg-neutral-primary/80 backdrop:backdrop-blur-sm"
       onCancel={(event) => {
         event.preventDefault();
         if (!pending) onCancel();
@@ -56,8 +65,12 @@ export function ConfirmDialog({
     >
       <div className="p-5 md:p-6">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-default bg-danger-soft text-fg-danger-strong">
-            <AlertTriangle size={18} strokeWidth={1.8} />
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+              isBrand ? 'bg-brand-softer text-fg-brand' : 'bg-danger-soft text-fg-danger-strong'
+            }`}
+          >
+            {isBrand ? <HelpCircle size={18} strokeWidth={1.8} /> : <AlertTriangle size={18} strokeWidth={1.8} />}
           </span>
           <div className="min-w-0">
             <h2 id={titleId} className="text-base font-semibold text-heading">{title}</h2>
@@ -68,7 +81,16 @@ export function ConfirmDialog({
           <button type="button" className="btn btn-secondary" disabled={pending} onClick={onCancel}>
             {cancelLabel}
           </button>
-          <button type="button" className="btn-ghost-danger border border-border-danger-subtle px-4 py-2" disabled={pending} onClick={onConfirm}>
+          <button
+            type="button"
+            className={
+              isBrand
+                ? 'btn btn-brand px-4 py-2'
+                : 'btn-ghost-danger border border-border-danger-subtle px-4 py-2'
+            }
+            disabled={pending}
+            onClick={onConfirm}
+          >
             {confirmLabel}
           </button>
         </div>

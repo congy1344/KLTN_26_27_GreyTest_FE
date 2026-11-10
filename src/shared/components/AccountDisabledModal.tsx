@@ -35,7 +35,7 @@ export function AccountDisabledModal() {
   const handleLogout = () => {
     setIsOpen(false);
     localStorage.removeItem('greytest.token');
-    window.location.href = '/login?disabled=true';
+    window.location.href = '/?disabled=true';
   };
 
   if (!isOpen) return null;

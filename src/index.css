@@ -205,11 +205,13 @@
     color: var(--body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
     transition: background-color 0.3s cubic-bezier(0.32,0.72,0,1), color 0.3s cubic-bezier(0.32,0.72,0,1);
   }
 
   body {
-    font-family: Aptos, 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     background:
       radial-gradient(circle at top left, rgb(37 99 235 / 0.08), transparent 34rem),
       linear-gradient(180deg, var(--neutral-primary-soft), var(--neutral-primary) 24rem);
@@ -281,9 +283,20 @@
     background-color: var(--input-bg);
     box-shadow: var(--shadow-xs);
     font-size: 14px;
+    font-family: inherit;
+    line-height: 1.5;
+    box-sizing: border-box;
     color: var(--heading);
-    padding: 10px 12px;
+    padding: 9px 12px;
     transition: border-color 220ms cubic-bezier(0.32,0.72,0,1), box-shadow 220ms cubic-bezier(0.32,0.72,0,1), background-color 220ms cubic-bezier(0.32,0.72,0,1);
+  }
+
+  select.form-input,
+  select {
+    font-family: inherit;
+    line-height: 1.5;
+    box-sizing: border-box;
+    vertical-align: middle;
   }
 
   .form-input:hover {

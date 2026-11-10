@@ -58,6 +58,12 @@ describe('UpgradeToProModal', () => {
     expect(screen.getByText('Sinh tối đa 3 batch đồng thời')).toBeInTheDocument();
     expect(screen.getByText('Sinh tối đa 4 batch đồng thời')).toBeInTheDocument();
 
+    // Verify unnecessary helper texts and Sandbox text are removed
+    expect(screen.queryByText(/Mỗi batch xử lý một nhóm dữ liệu/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sandbox/i)).not.toBeInTheDocument();
+    expect(screen.getByText('(Cổng thanh toán VNPay)')).toBeInTheDocument();
+    expect(screen.getByText('20.000 VNĐ')).toHaveClass('whitespace-nowrap');
+
     // Select PRO tier (default is PRO)
     const payButton = screen.getByRole('button', { name: 'Thanh toán qua VNPay (20.000 VNĐ)' });
     expect(payButton).toBeInTheDocument();
@@ -127,5 +133,53 @@ describe('UpgradeToProModal', () => {
     expect(screen.getByText('Gói Tiêu Chuẩn (PLUS)')).toBeInTheDocument();
     expect(screen.getByText('Đang sử dụng')).toBeInTheDocument();
     expect(screen.getByText(/Gói hiện tại • Gia hạn thêm 1 tuần/i)).toBeInTheDocument();
+  });
+
+  it('hides PLUS card and auto-selects PRO when PLUS is paused by admin', () => {
+    queryClient.setQueryData(['public-tier-packages'], [
+      { code: 'PRO', name: 'Gói Chuyên Nghiệp (PRO)', price: 20000, cycle: 'MONTHLY', quotaLimit: 300, batchConcurrency: 4, features: [], description: '', active: true },
+    ]);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UpgradeToProModal open={true} defaultTier="PLUS" />
+      </QueryClientProvider>
+    );
+
+    // PLUS must be hidden
+    expect(screen.queryByText('Gói PLUS')).not.toBeInTheDocument();
+    // PRO must be present and selected
+    expect(screen.getByText('Gói PRO')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Thanh toán qua VNPay/i })).not.toBeDisabled();
+  });
+
+  it('shows maintenance alert and disables payment button when all packages are paused', () => {
+    queryClient.setQueryData(['public-tier-packages'], []);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UpgradeToProModal open={true} />
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByText('Các gói nâng cấp đang tạm dừng')).toBeInTheDocument();
+    expect(screen.queryByText('Gói PLUS')).not.toBeInTheDocument();
+    expect(screen.queryByText('Gói PRO')).not.toBeInTheDocument();
+
+    const payBtn = screen.getByRole('button', { name: /Dịch vụ đang tạm dừng/i });
+    expect(payBtn).toBeDisabled();
+  });
+
+  it('closes on Escape key press when not redirecting', () => {
+    const handleClose = vi.fn();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UpgradeToProModal open={true} onClose={handleClose} />
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(handleClose).toHaveBeenCalledTimes(1);
   });
 });

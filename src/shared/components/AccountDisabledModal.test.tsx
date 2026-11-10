@@ -52,7 +52,7 @@ describe('AccountDisabledModal', () => {
     fireEvent.click(logoutButton);
 
     expect(localStorage.getItem('greytest.token')).toBeNull();
-    expect(window.location.href).toContain('/login?disabled=true');
+    expect(window.location.href).toContain('disabled=true');
 
     (window as any).location = originalLocation;
   });

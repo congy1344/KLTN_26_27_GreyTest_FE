@@ -41,7 +41,7 @@ export function TraceabilityPage() {
   if (error || serviceScope.error || !project) {
     return (
       <AppShell maxWidth="wide">
-        <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
+        <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy dự án', 'Project not found')} backTo="/projects" />
       </AppShell>
     );
   }
@@ -72,7 +72,7 @@ export function TraceabilityPage() {
             <div>
               <p className="text-sm font-semibold text-heading">{t('Bước cuối: Report', 'Final step: Report')}</p>
               <p className="mt-1 text-xs leading-relaxed text-body-subtle">
-                {t('Xem tổng hợp kết quả và tải report của project.', 'Review the results and download the project report.')}
+                {t('Xem tổng hợp kết quả và tải báo cáo của dự án.', 'Review the results and download the project report.')}
               </p>
             </div>
           </div>

@@ -11,7 +11,7 @@ import {
   Loader2,
   Pause,
   Play,
-  Sparkles,
+  Zap,
   Terminal,
   X,
 } from 'lucide-react';
@@ -377,6 +377,7 @@ export function AiGenerationProgress({
   const isFailed = currentProgress?.status === 'FAILED';
   const isQueued = currentProgress?.status === 'QUEUED';
   const isPaused = currentProgress?.status === 'PAUSED';
+  const isDraining = isPaused && Boolean(currentProgress?.busy);
   const isRunning = !isCompleted && !isPartial && !isFailed && !isPaused
     && (active || isQueued || currentProgress?.status === 'RUNNING');
 
@@ -530,7 +531,9 @@ export function AiGenerationProgress({
     || (isPartial
       ? t('Hoàn tất một phần. Một số Test Case chưa có Unit Test.', 'Partially completed. Some test cases have no unit test.')
       : isPaused
-      ? t('Tác vụ đã tạm dừng. Các batch đã sinh được lưu an toàn.', 'Task paused. Generated batches are safely saved.')
+      ? (isDraining
+        ? t('Đang tạm dừng tác vụ: chờ lưu nốt các batch đang xử lý...', 'Pausing task: finishing in-flight batches...')
+        : t('Tác vụ đã tạm dừng. Các batch đã sinh được lưu an toàn.', 'Task paused. Generated batches are safely saved.'))
       : isQueued
         ? t('Tác vụ đã vào hàng đợi và sẽ tự chạy nền.', 'Task is queued and running in background.')
         : isCompleted
@@ -630,7 +633,7 @@ export function AiGenerationProgress({
               )}
               {isPaused && (
                 <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-500 border border-amber-500/20">
-                  {t('Đã tạm dừng', 'Paused')}
+                  {isDraining ? t('Đang dừng...', 'Pausing...') : t('Đã tạm dừng', 'Paused')}
                 </span>
               )}
               <span className="rounded-md bg-brand-soft px-2 py-0.5 font-mono text-xs font-bold text-fg-brand-strong border border-border-brand-subtle">
@@ -712,24 +715,37 @@ export function AiGenerationProgress({
                         <button
                           type="button"
                           onClick={onResume}
-                          className="btn btn-brand !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          disabled={isDraining}
+                          className="btn btn-brand !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          <Play size={13} className="fill-current text-white" />
-                          <span className="text-white font-semibold">{t('Tiếp tục sinh', 'Resume generation')}</span>
+                          {isDraining ? (
+                            <>
+                              <Loader2 size={13} className="animate-spin text-white" />
+                              <span className="text-white font-semibold">{t('Đang lưu batch...', 'Saving in-flight batch...')}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play size={13} className="fill-current text-white" />
+                              <span className="text-white font-semibold">{t('Tiếp tục sinh', 'Resume generation')}</span>
+                            </>
+                          )}
                         </button>
                       )}
                       {onCancel && (
                         <button
                           type="button"
                           onClick={() => setShowCancelConfirm(true)}
-                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer text-fg-danger-strong hover:bg-danger-soft"
+                          disabled={isDraining}
+                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer text-fg-danger-strong hover:bg-danger-soft disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                           <X size={13} />
                           <span>{t('Hủy sinh', 'Cancel generation')}</span>
                         </button>
                       )}
                       <span className="text-[11px] text-body-subtle">
-                        {t('(Tiếp tục từ batch còn dang dở)', '(Resumes from pending batches)')}
+                        {isDraining
+                          ? t('(Chờ lưu nốt các batch đang dở dang)', '(Finishing in-flight batches)')
+                          : t('(Tiếp tục từ batch còn dang dở)', '(Resumes from pending batches)')}
                       </span>
                     </div>
                   )}
@@ -744,7 +760,7 @@ export function AiGenerationProgress({
                         }}
                         className="btn !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer font-bold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700"
                       >
-                        <Sparkles size={13} className="text-amber-300" />
+                        <Zap size={13} className="text-amber-300" />
                         <span>{t('Nâng cấp lên gói PRO', 'Upgrade to PRO')}</span>
                       </button>
                     </div>

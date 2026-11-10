@@ -12,7 +12,7 @@ export function AuthSessionListener() {
     const handleExpired = () => {
       void queryClient.cancelQueries();
       queryClient.clear();
-      navigate(pathname.startsWith('/admin') ? '/admin/login' : '/login', { replace: true });
+      navigate(pathname.startsWith('/admin') ? '/admin/login' : '/', { replace: true });
     };
     window.addEventListener('auth-expired', handleExpired);
     return () => window.removeEventListener('auth-expired', handleExpired);

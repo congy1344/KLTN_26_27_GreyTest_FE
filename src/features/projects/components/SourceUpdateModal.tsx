@@ -8,7 +8,7 @@ import {
   ArrowRight,
   Loader2,
   RefreshCw,
-  Sparkles,
+  Cpu,
   ChevronDown,
   ChevronUp,
   X,
@@ -572,8 +572,8 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       setStageNotice({
         type: 'success',
         message: refreshed.generationSummary?.readyForApply
-          ? `✓ Đã chấp nhận tất cả ${pendingItems.length} đề xuất. Chưa áp dụng vào project; bấm Áp Dụng Cập Nhật để ghi nhận cả Unit Test.`
-          : `Đã chấp nhận ${pendingItems.length} đề xuất. Chưa áp dụng vào project; cần hoàn tất hoặc xác thực các bước còn thiếu trước khi Apply.`,
+          ? `✓ Đã chấp nhận tất cả ${pendingItems.length} đề xuất. Chưa áp dụng vào dự án; bấm Áp Dụng Cập Nhật để ghi nhận cả Unit Test.`
+          : `Đã chấp nhận ${pendingItems.length} đề xuất. Chưa áp dụng vào dự án; cần hoàn tất hoặc xác thực các bước còn thiếu trước khi Apply.`,
         timestamp: new Date().toLocaleTimeString(),
       });
     } catch (err) {
@@ -590,15 +590,15 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     const operationId = beginOperation();
     setLoading(true);
     setError(null);
-    updateProgress(5, 'Đang chuẩn bị áp dụng cập nhật vào project...');
+    updateProgress(5, 'Đang chuẩn bị áp dụng cập nhật vào dự án...');
     try {
-      updateProgress(60, 'Đang ghi nhận thay đổi vào project...');
+      updateProgress(60, 'Đang ghi nhận thay đổi vào dự án...');
       await runRequest(
         (signal) => applySourceUpdate(project.id, updateDraft.id, { signal }),
         'Áp dụng cập nhật quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return;
-      updateProgress(100, 'Đã áp dụng thành công cập nhật vào project.');
+      updateProgress(100, 'Đã áp dụng thành công cập nhật vào dự án.');
       onApplied();
       onClose();
     } catch (err) {
@@ -792,7 +792,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                   />
                   <Upload size={32} className="mb-2 text-brand" />
                   <p className="text-sm font-semibold text-heading">
-                    {file ? file.name : 'Nhấp để chọn file ZIP project mới'}
+                    {file ? file.name : t('Nhấp để chọn file ZIP dự án mới', 'Click to select new project ZIP file')}
                   </p>
                   <p className="mt-1 text-xs text-body-subtle">Hỗ trợ file ZIP toàn bộ mã nguồn Java Spring Boot</p>
                 </div>
@@ -990,7 +990,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand/20 bg-brand/5 p-4">
                 <div>
                   <h4 className="text-sm font-bold text-heading flex items-center gap-1.5">
-                    <Sparkles size={16} className="text-brand" />
+                    <Cpu size={16} className="text-brand" />
                     Sinh Tăng Dần Bằng AI (Selective Generation)
                   </h4>
                   <p className="text-xs text-body-subtle">
@@ -1056,7 +1056,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                     onClick={handleGenerateAll}
                     className="flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-brand/90"
                   >
-                    {loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    {loading ? <Loader2 size={12} className="animate-spin" /> : <Cpu size={12} />}
                     Sinh Tất Cả
                   </button>
                 </div>
@@ -1248,7 +1248,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
                 className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
               >
                 <CheckCircle2 size={16} />
-                Áp Dụng Cập Nhật Vào Project (Apply)
+                {t('Áp Dụng Cập Nhật Vào Dự Án (Apply)', 'Apply Update to Project')}
               </button>
             </div>
           )}
