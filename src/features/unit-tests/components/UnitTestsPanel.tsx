@@ -520,7 +520,7 @@ export function UnitTestsPanel({
         <div className="flex min-w-0 flex-col rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
           {!active ? (
             <div className="flex min-h-[360px] flex-1 items-center justify-center text-sm text-body-subtle">{t('Chọn method để xem file test.', 'Select a method to view its test file.')}</div>
-          ) : files.isLoading ? (
+          ) : files.isLoading || (files.isFetching && !activeFile) ? (
             <LoadingState label={t('Đang gộp file test...', 'Merging test files...')} minHeight="min-h-[360px]" />
           ) : activeFile ? (
             <div className="flex flex-1 min-h-0 flex-col space-y-3">

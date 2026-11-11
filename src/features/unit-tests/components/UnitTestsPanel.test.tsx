@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   cases: [{ id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'valid', status: 'APPROVED' }],
   tests: [] as Array<Record<string, unknown>>,
   files: [] as Array<Record<string, unknown>>,
+  filesFetching: false,
   generating: false,
   progress: undefined as unknown,
   sourceUpdate: undefined as Record<string, unknown> | undefined,
@@ -40,7 +41,7 @@ vi.mock('../../projects/hooks/useProjects', () => ({
 }));
 vi.mock('../hooks/useUnitTests', () => ({
   useUnitTests: () => ({ data: mocks.tests, isLoading: false, error: null }),
-  useUnitTestFiles: () => ({ data: mocks.files, isLoading: false, error: null }),
+  useUnitTestFiles: () => ({ data: mocks.files, isLoading: false, isFetching: mocks.filesFetching, error: null }),
   useGenerateUnitTests: () => ({ mutate: mocks.generate, isPending: mocks.generating, error: null }),
 }));
 vi.mock('../api/unit-test-api', () => ({ downloadUnitTestsZip: vi.fn() }));
@@ -64,6 +65,7 @@ describe('UnitTestsPanel', () => {
     mocks.cases = [{ id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'valid', status: 'APPROVED' }];
     mocks.tests = [];
     mocks.files = [];
+    mocks.filesFetching = false;
     mocks.generating = false;
     mocks.progress = undefined;
     mocks.sourceUpdate = undefined;
@@ -327,6 +329,18 @@ describe('UnitTestsPanel', () => {
 
     expect(screen.getByText('Không tìm thấy file test.')).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Generated test code' })).not.toBeInTheDocument();
+  });
+
+  it('shows merging instead of not found while the file list reloads from an old result', () => {
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'ServiceTest', filePath: 'ServiceTest.java' },
+    ];
+    mocks.filesFetching = true;
+
+    renderPanel();
+
+    expect(screen.getByText('Đang gộp file test...')).toBeVisible();
+    expect(screen.queryByText('Không tìm thấy file test.')).not.toBeInTheDocument();
   });
 
   it('reports missing and duplicate tests at the same time', () => {
