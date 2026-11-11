@@ -41,6 +41,7 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
   const upload = useUploadCoverage(projectId, servicePath);
   const refinement = useStartCoverageRefinement(projectId, servicePath);
   const report = reportQuery.data ?? null;
+  const serviceCoverage = report?.serviceCoverage ?? null;
   const fileName = selectedFile?.name ?? '';
   const canRefine = projectStatus === 'COVERAGE_ANALYZED' || projectStatus === 'COMPLETED';
   const visibleGaps = report?.gaps.filter((gap) => gap.refinable) ?? [];
@@ -89,12 +90,33 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
         </button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         <MetricCard icon={BarChart3} label="JaCoCo Line Coverage" value={report ? `${report.lineCoverage}%` : '-'} tone="brand" hint={deltaHint(report?.lineCoverage, report?.previousLineCoverage, t)} />
         <MetricCard icon={GitBranch} label="JaCoCo Branch Coverage" value={report ? `${report.branchCoverage}%` : '-'} hint={deltaHint(report?.branchCoverage, report?.previousBranchCoverage, t)} />
         <MetricCard icon={ShieldCheck} label="Requirement Coverage" value={report ? `${report.requirementCoverage}%` : '-'} hint={deltaHint(report?.requirementCoverage, report?.previousRequirementCoverage, t)} />
+        <MetricCard
+          icon={BarChart3}
+          label="Service Line Coverage"
+          value={serviceCoverage ? `${serviceCoverage.lineCoverage}%` : '-'}
+          tone="brand"
+          hint={serviceCoverage ? t(`${serviceCoverage.coveredLines}/${serviceCoverage.totalLines} dòng`, `${serviceCoverage.coveredLines}/${serviceCoverage.totalLines} lines`) : undefined}
+        />
+        <MetricCard
+          icon={GitBranch}
+          label="Service Branch Coverage"
+          value={!serviceCoverage ? '-' : serviceCoverage.branchCoverage == null ? 'N/A' : `${serviceCoverage.branchCoverage}%`}
+          hint={!serviceCoverage ? undefined : serviceCoverage.branchCoverage == null
+            ? t('Không có nhánh', 'No branches')
+            : t(`${serviceCoverage.coveredBranches}/${serviceCoverage.totalBranches} nhánh`, `${serviceCoverage.coveredBranches}/${serviceCoverage.totalBranches} branches`)}
+        />
         <MetricCard icon={AlertTriangle} label="Refinable Service Gaps" value={refinableGapCount} />
       </div>
+      <p className="mt-2 text-xs text-body-subtle">
+        {t(
+          'JaCoCo Line/Branch tính trên toàn bộ class trong report. Service chỉ tính các class Service, là phạm vi GreyTest sinh Unit Test.',
+          'JaCoCo Line/Branch count every class in the report. Service counts only Service classes, the scope GreyTest generates Unit Tests for.',
+        )}
+      </p>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(280px,0.72fr)_minmax(0,1.28fr)]">
         <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">

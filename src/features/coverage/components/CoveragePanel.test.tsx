@@ -40,6 +40,7 @@ const report: CoverageReport = {
   totalBranches: 20,
   coveredBranches: 15,
   uploadedAt: '2026-07-26T10:00:00',
+  serviceCoverage: null,
   gaps: [
     {
       methodId: 5,
@@ -93,6 +94,51 @@ describe('CoveragePanel', () => {
     // Hiển thị vòng upload và tiến bộ so với vòng trước
     expect(screen.getByText('Vòng 2')).toBeInTheDocument();
     expect(screen.getByText('+10% so với vòng trước')).toBeInTheDocument();
+  });
+
+  it('shows Service coverage beside the module-wide numbers', () => {
+    mockUseCoverageReport.mockReturnValue({
+      data: {
+        ...report,
+        serviceCoverage: { totalLines: 15, coveredLines: 12, totalBranches: 6, coveredBranches: 4, lineCoverage: 88.5, branchCoverage: 66.67 },
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
+
+    expect(screen.getByText('88.5%')).toBeInTheDocument();
+    expect(screen.getByText('12/15 dòng')).toBeInTheDocument();
+    expect(screen.getByText('66.67%')).toBeInTheDocument();
+    expect(screen.getByText('4/6 nhánh')).toBeInTheDocument();
+    // Số toàn module vẫn giữ nguyên
+    expect(screen.getByText('80%')).toBeInTheDocument();
+  });
+
+  it('says a Service has no branches instead of reporting 100%', () => {
+    mockUseCoverageReport.mockReturnValue({
+      data: {
+        ...report,
+        serviceCoverage: { totalLines: 12, coveredLines: 12, totalBranches: 0, coveredBranches: 0, lineCoverage: 100, branchCoverage: null },
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
+
+    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(screen.getByText('Không có nhánh')).toBeInTheDocument();
+  });
+
+  it('leaves Service metrics empty when the report has no Service coverage', () => {
+    mockUseCoverageReport.mockReturnValue({ data: report, isLoading: false, isError: false });
+
+    render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
+
+    expect(screen.getByText('Service Line Coverage').nextElementSibling).toHaveTextContent('-');
+    expect(screen.getByText('Service Branch Coverage').nextElementSibling).toHaveTextContent('-');
   });
 
   it('keeps the upload form and coverage result in the original two-column layout', () => {
