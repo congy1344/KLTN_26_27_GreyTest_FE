@@ -33,6 +33,17 @@ describe('ProjectWorkflowTabs', () => {
     expect(screen.getAllByText('Hoàn thành')).toHaveLength(7);
   });
 
+  it('keeps later steps with data open while an edited rule waits for approval', () => {
+    render(
+      <MemoryRouter>
+        <ProjectWorkflowTabs projectId={7} active="analysis" status="BR_PENDING_REVIEW" reachedStatus="TEST_GENERATED" />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: /^04.*Unit Test/ })).toHaveAttribute('href', '/projects/7/unit-tests');
+    expect(screen.queryByRole('link', { name: /^07.*Report/ })).not.toBeInTheDocument();
+  });
+
   it('marks only the completed steps before the current step', () => {
     render(
       <MemoryRouter>

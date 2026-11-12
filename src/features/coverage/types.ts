@@ -12,6 +12,15 @@ export interface CoverageGap {
   refinable: boolean;
 }
 
+export interface ServiceCoverage {
+  totalLines: number;
+  coveredLines: number;
+  totalBranches: number;
+  coveredBranches: number;
+  lineCoverage: number;
+  branchCoverage: number | null;
+}
+
 export interface CoverageReport {
   id: number;
   projectId: number;
@@ -28,6 +37,7 @@ export interface CoverageReport {
   coveredBranches: number;
   uploadedAt: string;
   gaps: CoverageGap[];
+  serviceCoverage: ServiceCoverage | null;
 }
 
 export interface CoverageRefinement {

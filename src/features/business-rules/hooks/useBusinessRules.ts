@@ -51,11 +51,14 @@ export function useCreateBusinessRules(projectId: number, servicePath?: string) 
 export function useUpdateBusinessRule(projectId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ rule, description }: { rule: BusinessRule; description: string }) => updateBusinessRule(rule, description),
-    onSuccess: () => {
+    mutationFn: ({ rule, description }: { rule: BusinessRule; description: string }) => updateBusinessRule(rule, description),    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['business-rules', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
+      // Sửa BR có thể đã xóa Plan phủ nó cùng Case và Unit Test liên quan.
+      for (const stage of ['test-plans', 'test-cases', 'unit-tests', 'unit-test-files']) {
+        queryClient.invalidateQueries({ queryKey: [stage, projectId] });
+      }
     },
   });
 }
@@ -68,6 +71,10 @@ export function useAcceptBusinessRuleSuggestion(projectId: number) {
       queryClient.invalidateQueries({ queryKey: ['business-rules', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
+      // Sửa BR có thể đã xóa Plan phủ nó cùng Case và Unit Test liên quan.
+      for (const stage of ['test-plans', 'test-cases', 'unit-tests', 'unit-test-files']) {
+        queryClient.invalidateQueries({ queryKey: [stage, projectId] });
+      }
     },
   });
 }

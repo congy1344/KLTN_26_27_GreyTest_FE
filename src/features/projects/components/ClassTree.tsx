@@ -13,7 +13,7 @@ interface ClassTreeProps {
   methodDiffMap?: Record<string, 'ADDED' | 'MODIFIED' | 'DELETED'>;
 }
 
-interface TreeEntry {
+export interface TreeEntry {
   id: string;
   label: string;
   kind: TreeEntryKind;
@@ -27,11 +27,11 @@ type TreeEntryKind = 'folder' | 'java-file' | 'test-file' | 'controller' | 'serv
 const EMPTY_TESTS: ExistingTestInfo[] = [];
 const CODE_BLOCK_CLASS = 'max-h-[calc(100vh-220px)] overflow-auto rounded-default border border-border-default bg-neutral-primary-medium p-3 font-mono text-xs leading-relaxed text-heading';
 
-function pathParts(path: string) {
+export function pathParts(path: string) {
   return path.replace(/\\/g, '/').split('/').filter(Boolean);
 }
 
-function addPath(root: TreeEntry[], parts: string[], leaf: TreeEntry, fileKind: 'java-file' | 'test-file') {
+export function addPath(root: TreeEntry[], parts: string[], leaf: TreeEntry, fileKind: 'java-file' | 'test-file') {
   let current = root;
   let prefix = '';
   parts.forEach((part, index) => {
@@ -65,7 +65,7 @@ function classKind(classType: string): TreeEntryKind {
   }
 }
 
-function entryIcon(kind: TreeEntryKind) {
+export function entryIcon(kind: TreeEntryKind) {
   const props = { size: 14, strokeWidth: 1.8, 'aria-hidden': true } as const;
   switch (kind) {
     case 'folder': return <Folder {...props} className="text-body-subtle" />;

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   cases: [{ id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'valid', status: 'APPROVED' }],
   tests: [] as Array<Record<string, unknown>>,
   files: [] as Array<Record<string, unknown>>,
+  filesFetching: false,
   generating: false,
   progress: undefined as unknown,
   sourceUpdate: undefined as Record<string, unknown> | undefined,
@@ -40,7 +41,7 @@ vi.mock('../../projects/hooks/useProjects', () => ({
 }));
 vi.mock('../hooks/useUnitTests', () => ({
   useUnitTests: () => ({ data: mocks.tests, isLoading: false, error: null }),
-  useUnitTestFiles: () => ({ data: mocks.files, isLoading: false, error: null }),
+  useUnitTestFiles: () => ({ data: mocks.files, isLoading: false, isFetching: mocks.filesFetching, error: null }),
   useGenerateUnitTests: () => ({ mutate: mocks.generate, isPending: mocks.generating, error: null }),
 }));
 vi.mock('../api/unit-test-api', () => ({ downloadUnitTestsZip: vi.fn() }));
@@ -64,6 +65,7 @@ describe('UnitTestsPanel', () => {
     mocks.cases = [{ id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'valid', status: 'APPROVED' }];
     mocks.tests = [];
     mocks.files = [];
+    mocks.filesFetching = false;
     mocks.generating = false;
     mocks.progress = undefined;
     mocks.sourceUpdate = undefined;
@@ -102,7 +104,7 @@ describe('UnitTestsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'AI sinh Unit Test' }));
     expect(mocks.generate).toHaveBeenCalledOnce();
     expect(screen.getByText(/lưu về backend/)).toBeInTheDocument();
-    expect(screen.getByText('Test Case đã approve')).toBeVisible();
+    expect(screen.getByText('Test Case đã duyệt')).toBeVisible();
   });
 
   it('requires approved cases before generating unit tests', () => {
@@ -110,7 +112,7 @@ describe('UnitTestsPanel', () => {
     renderPanel();
 
     expect(screen.getByRole('button', { name: 'AI sinh Unit Test' })).toBeDisabled();
-    expect(screen.getByText('Hãy approve Test Case trước khi sinh Unit Test.')).toBeVisible();
+    expect(screen.getByText('Hãy duyệt Test Case trước khi sinh Unit Test.')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'AI sinh Unit Test' }));
     expect(mocks.generate).not.toHaveBeenCalled();
   });
@@ -220,7 +222,7 @@ describe('UnitTestsPanel', () => {
 
     renderPanel();
     scrollIntoView.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: /secondMethod/ }));
+    fireEvent.click(within(screen.getByRole('tree')).getByText('secondMethod'));
 
     expect(screen.getAllByText(/BR-007 \[IF-1-TRUE\].*TP-005.*TC-001/)).not.toHaveLength(0);
     expect(screen.getByText('UserService.createUser')).toBeVisible();
@@ -240,9 +242,9 @@ describe('UnitTestsPanel', () => {
     expect(screen.getByText(/Đã kiểm chứng đủ/)).toBeVisible();
     const search = screen.getByRole('textbox', { name: 'Tìm Unit Test' });
     fireEvent.change(search, { target: { value: 'missing' } });
-    expect(screen.queryByRole('button', { name: /createUserValid/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('treeitem', { name: /createUserValid/ })).not.toBeInTheDocument();
     fireEvent.change(search, { target: { value: 'createUser' } });
-    expect(screen.getByRole('button', { name: /createUserValid/ })).toBeVisible();
+    expect(screen.getByRole('treeitem', { name: /createUserValid/ })).toBeVisible();
   });
 
   it('opens the matching renamed fixture file when records keep their original path', () => {
@@ -270,7 +272,8 @@ describe('UnitTestsPanel', () => {
     expect(screen.queryByText('Không tìm thấy file test.')).not.toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'Generated test code' }))
       .getByText(/class ServiceTest_GreyTest_1/)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: /TC-002 secondMethod/ }));
+    fireEvent.click(within(screen.getByRole('tree')).getByText('ServiceTest_GreyTest_2.java'));
+    fireEvent.click(within(screen.getByRole('tree')).getByText('secondMethod'));
     const code = screen.getByRole('region', { name: 'Generated test code' });
     expect(within(code).getByText(/class ServiceTest_GreyTest_2/)).toBeVisible();
     expect(within(code).getByText(/void secondMethod/).closest('li')).toHaveAttribute('aria-current', 'true');
@@ -328,6 +331,18 @@ describe('UnitTestsPanel', () => {
     expect(screen.queryByRole('region', { name: 'Generated test code' })).not.toBeInTheDocument();
   });
 
+  it('shows merging instead of not found while the file list reloads from an old result', () => {
+    mocks.tests = [
+      { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'ServiceTest', filePath: 'ServiceTest.java' },
+    ];
+    mocks.filesFetching = true;
+
+    renderPanel();
+
+    expect(screen.getByText('Đang gộp file test...')).toBeVisible();
+    expect(screen.queryByText('Không tìm thấy file test.')).not.toBeInTheDocument();
+  });
+
   it('reports missing and duplicate tests at the same time', () => {
     mocks.cases = [
       { id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'first', status: 'APPROVED' },
@@ -368,41 +383,62 @@ describe('UnitTestsPanel', () => {
 
     renderPanel();
     scrollIntoView.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: /TC-002 sameMethod/ }));
+    fireEvent.click(within(screen.getByRole('tree')).getByText('SecondTest.java'));
+    fireEvent.click(within(within(screen.getByRole('tree')).getByRole('treeitem', { name: /TC-002 sameMethod/ })).getByText('sameMethod'));
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
     expect(within(screen.getByRole('region', { name: 'Generated test code' }))
       .getByText(/class SecondTest/)).toBeVisible();
   });
 
-  it('paginates method list when there are more than 8 methods and allows navigation', () => {
-    mocks.cases = Array.from({ length: 10 }, (_, i) => ({
-      id: i + 1, testPlanId: 5, caseCode: `TC-00${i + 1}`, description: `desc ${i + 1}`, status: 'APPROVED',
-    }));
-    mocks.tests = Array.from({ length: 10 }, (_, i) => ({
-      id: 100 + i, testCaseId: i + 1, testMethodName: `testMethod_${i + 1}`, testClassName: 'UserServiceTest', packageName: 'demo', filePath: 'UserServiceTest.java',
-    }));
-    mocks.files = [{
-      testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java', sourceCode: 'class UserServiceTest {}',
-      testCount: 10, caseCodes: mocks.cases.map((c) => c.caseCode),
-    }];
+  const twoFilesInFolders = () => {
+    mocks.cases = [
+      { id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'first', status: 'APPROVED' },
+      { id: 2, testPlanId: 5, caseCode: 'TC-002', description: 'second', status: 'APPROVED' },
+      { id: 3, testPlanId: 5, caseCode: 'TC-003', description: 'third', status: 'APPROVED' },
+    ];
+    const base = { generationType: 'NEW_TEST', packageName: 'demo', sourceCode: '' };
+    mocks.tests = [
+      { ...base, id: 11, testCaseId: 1, testMethodName: 'priceOne', testClassName: 'PricingServiceTest', filePath: 'src/test/java/demo/services/PricingServiceTest.java' },
+      { ...base, id: 12, testCaseId: 2, testMethodName: 'priceTwo', testClassName: 'PricingServiceTest', filePath: 'src/test/java/demo/services/PricingServiceTest.java' },
+      { ...base, id: 13, testCaseId: 3, testMethodName: 'userOne', testClassName: 'UserServiceTest', filePath: 'src/test/java/demo/services/UserServiceTest.java' },
+    ];
+    mocks.files = [
+      { testClassName: 'PricingServiceTest', filePath: 'src/test/java/demo/services/PricingServiceTest.java', sourceCode: 'class PricingServiceTest {}', testCount: 2, caseCodes: ['TC-001', 'TC-002'] },
+      { testClassName: 'UserServiceTest', filePath: 'src/test/java/demo/services/UserServiceTest.java', sourceCode: 'class UserServiceTest {}', testCount: 1, caseCodes: ['TC-003'] },
+    ];
+  };
 
+  it('groups methods by folder and test file and opens only the file being viewed', () => {
+    twoFilesInFolders();
     renderPanel();
+    const tree = within(screen.getByRole('tree'));
 
-    expect(screen.getByText('Trang 1/2')).toBeVisible();
-    expect(screen.getByRole('button', { name: /testMethod_1/ })).toBeVisible();
-    expect(screen.getByRole('button', { name: /testMethod_8/ })).toBeVisible();
-    expect(screen.queryByRole('button', { name: /testMethod_9/ })).not.toBeInTheDocument();
+    expect(tree.getByText('src/test/java/demo/services')).toBeVisible();
+    expect(tree.getByText('PricingServiceTest.java')).toBeVisible();
+    expect(tree.getByText('priceOne')).toBeVisible();
+    expect(tree.getByText('priceTwo')).toBeVisible();
+    expect(tree.queryByText('userOne')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Trang 1\//)).not.toBeInTheDocument();
 
-    // Chuyển sang trang 2
-    fireEvent.click(screen.getByRole('button', { name: 'Trang sau' }));
-    expect(screen.getByText('Trang 2/2')).toBeVisible();
-    expect(screen.getByRole('button', { name: /testMethod_9/ })).toBeVisible();
-    expect(screen.getByRole('button', { name: /testMethod_10/ })).toBeVisible();
-    expect(screen.queryByRole('button', { name: /testMethod_1\b/ })).not.toBeInTheDocument();
+    fireEvent.click(tree.getByText('UserServiceTest.java'));
+    fireEvent.click(tree.getByText('userOne'));
+    expect(screen.getByRole('treeitem', { name: /TC-003 userOne/ })).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('jumps to the corresponding page when clicking a case code chip in the file view', () => {
+  it('opens every file while filtering so matches are not hidden', () => {
+    twoFilesInFolders();
+    renderPanel();
+
+    fireEvent.change(screen.getByPlaceholderText(/Tìm TC-001/), { target: { value: 'One' } });
+
+    const tree = within(screen.getByRole('tree'));
+    expect(tree.getByText('priceOne')).toBeVisible();
+    expect(tree.getByText('userOne')).toBeVisible();
+    expect(tree.queryByText('priceTwo')).not.toBeInTheDocument();
+  });
+
+  it('selects the matching method when clicking a case code chip in the file view', () => {
     mocks.cases = Array.from({ length: 10 }, (_, i) => ({
       id: i + 1, testPlanId: 5, caseCode: `TC-00${i + 1}`, description: `desc ${i + 1}`, status: 'APPROVED',
     }));
@@ -416,13 +452,17 @@ describe('UnitTestsPanel', () => {
 
     renderPanel();
 
-    expect(screen.getByText('Trang 1/2')).toBeVisible();
-    // Bấm chip TC-009 ở phần file view bên phải
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+
+    // Thu gọn file đang xem rồi bấm chip TC-009 ở phần file view bên phải
+    fireEvent.click(within(screen.getByRole('tree')).getByText('UserServiceTest.java'));
+    expect(screen.getByRole('treeitem', { name: 'UserServiceTest.java' })).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(screen.getByRole('button', { name: 'TC-009' }));
 
-    // Tự động chuyển sang Trang 2 và hiển thị testMethod_9
-    expect(screen.getByText('Trang 2/2')).toBeVisible();
-    expect(screen.getByRole('button', { name: /testMethod_9/ })).toBeVisible();
+    expect(screen.getByRole('treeitem', { name: 'UserServiceTest.java' })).toHaveAttribute('aria-expanded', 'true');
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+    expect(screen.getByRole('treeitem', { name: /TC-009 testMethod_9/ })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('hides diff badges and generationType indicator when navigated to coverage or project is at COVERAGE_ANALYZED', () => {

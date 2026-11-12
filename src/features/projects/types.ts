@@ -29,6 +29,7 @@ export interface ProjectServiceScope {
   servicePath: string;
   name: string;
   status: ProjectStatus;
+  reachedStatus?: ProjectStatus;
 }
 
 // ─── Analysis Types ────────────────────────────────────────

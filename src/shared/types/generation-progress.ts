@@ -24,6 +24,19 @@ export interface GenerationProgress {
   steps: GenerationProgressStep[];
   logs: GenerationProgressLog[];
   busy?: boolean;
+  runMetrics?: GenerationRunMetrics | null;
+}
+
+export interface GenerationRunMetrics {
+  runId: string;
+  startedAt: string;
+  finishedAt: string | null;
+  elapsedMillis: number;
+  recordedCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCalls: number;
 }
 
 export interface GenerationJobAccepted {
