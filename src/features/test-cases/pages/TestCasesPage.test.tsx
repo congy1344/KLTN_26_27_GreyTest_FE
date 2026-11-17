@@ -10,6 +10,7 @@ import { useProject, useProjectServices } from '../../projects/hooks/useProjects
 import { TestCasesPage } from './TestCasesPage';
 
 vi.mock('../../projects/hooks/useProjects', () => ({
+  useAnalysis: () => ({ data: undefined }),
   useProject: vi.fn(),
   useProjectServices: vi.fn(),
 }));
@@ -74,3 +75,11 @@ function project(status: Project['status']): Project {
     sourceAvailable: true,
   };
 }
+
+vi.mock('../../business-rules/hooks/useBusinessRules', () => ({ useBusinessRules: () => ({}) }));
+vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({}) }));
+vi.mock('../../test-cases/hooks/useTestCases', () => ({ useTestCases: () => ({}) }));
+vi.mock('../../unit-tests/hooks/useUnitTests', () => ({ useUnitTests: () => ({}) }));
+vi.mock('../../coverage/hooks/useCoverage', () => ({ useCoverageReport: () => ({}), useSandboxRun: () => ({}) }));
+
+vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({}) }));

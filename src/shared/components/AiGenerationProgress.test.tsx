@@ -325,17 +325,17 @@ describe('AiGenerationProgress', () => {
     expect(getLogMessageColor(runningMsg)).toBe('text-fg-brand-strong font-medium');
 
     const warningNoticeMsg = "[Lưu ý kiểm thử] findUserFeedWithCursor (ArticleQueryService): Method sửa trực tiếp collection articles.";
-    expect(getLogMessageColor(warningNoticeMsg)).toBe('text-amber-600 dark:text-amber-400 font-medium');
+    expect(getLogMessageColor(warningNoticeMsg)).toBe('text-fg-warning font-medium');
 
     const warningBlockedMsg = "[Cảnh báo kiểm thử] Tạm bỏ qua ca kiểm thử TC-40: Chưa đủ điều kiện sinh test.";
-    expect(getLogMessageColor(warningBlockedMsg)).toBe('text-amber-600 dark:text-amber-400 font-medium');
+    expect(getLogMessageColor(warningBlockedMsg)).toBe('text-fg-warning font-medium');
 
     const rawTestabilityMsg = "Testability method 16759: UNKNOWN — COLLECTION_MUTATION @ Service.java:1 execute — detail";
-    expect(getLogMessageColor(rawTestabilityMsg)).toBe('text-amber-600 dark:text-amber-400 font-medium');
+    expect(getLogMessageColor(rawTestabilityMsg)).toBe('text-fg-warning font-medium');
 
-    expect(getLogMessageColor('Hoàn tất một phần. Một số Test Case chưa có Unit Test.')).toBe('text-amber-600 dark:text-amber-400 font-medium');
-    expect(getLogMessageColor('Partially completed. Some test cases have no unit test.')).toBe('text-amber-600 dark:text-amber-400 font-medium');
-    expect(getLogMessageColor('Hoàn tất một phần: đã lưu 2 Unit Test, còn 1 Test Case bị chặn')).toBe('text-amber-600 dark:text-amber-400 font-medium');
+    expect(getLogMessageColor('Hoàn tất một phần. Một số Test Case chưa có Unit Test.')).toBe('text-fg-warning font-medium');
+    expect(getLogMessageColor('Partially completed. Some test cases have no unit test.')).toBe('text-fg-warning font-medium');
+    expect(getLogMessageColor('Hoàn tất một phần: đã lưu 2 Unit Test, còn 1 Test Case bị chặn')).toBe('text-fg-warning font-medium');
   });
 
   it('formats raw testability log messages into human-readable concise Vietnamese descriptions', () => {
@@ -397,17 +397,26 @@ describe('AiGenerationProgress', () => {
     expect(within(floatingDock).queryByText('[Lưu ý] findPetTypeById: Có lời gọi helper nội bộ cần kiểm tra.')).not.toBeInTheDocument();
   });
 
-  it('toggles ai-progress-dock-open class on body when dock opens and closes', () => {
-    const { unmount } = render(<AiGenerationProgress active label="Sinh Unit Test" progress={runningProgress} />);
-    expect(document.body.classList.contains('ai-progress-dock-open')).toBe(true);
+  it('anchors the dock to the viewport and minimizes without shrinking the page', () => {
+    const { container, unmount } = render(<div className="animate-fade-in"><AiGenerationProgress active label="Sinh Unit Test" progress={runningProgress} /></div>);
+    const dock = screen.getByRole('complementary');
+    expect(dock.parentElement).toBe(document.body);
+    expect(container).not.toContainElement(dock);
+    expect(dock).toHaveClass('fixed', 'bottom-4', 'right-4', 'w-[420px]', 'max-w-[calc(100vw-2rem)]', 'max-h-[calc(100dvh-2rem)]');
+    expect(document.body).not.toHaveClass('ai-progress-dock-open');
+    expect(within(dock).getByText('Tiến trình AI')).not.toHaveClass('truncate');
 
     // Thu nhỏ dock
     fireEvent.click(screen.getByRole('button', { name: /Thu nhỏ/i }));
-    expect(document.body.classList.contains('ai-progress-dock-open')).toBe(false);
+    expect(dock).toHaveClass('h-auto', 'w-80');
+    expect(within(dock).queryByText('Nhật ký xử lý')).not.toBeInTheDocument();
+    expect(document.body).not.toHaveClass('ai-progress-dock-open');
 
     // Mở rộng lại
     fireEvent.click(screen.getByRole('button', { name: /Mở rộng/i }));
-    expect(document.body.classList.contains('ai-progress-dock-open')).toBe(true);
+    expect(dock).toHaveClass('w-[420px]');
+    expect(within(dock).getByText('Nhật ký xử lý')).toBeVisible();
+    expect(document.body).not.toHaveClass('ai-progress-dock-open');
 
     // Unmount
     unmount();

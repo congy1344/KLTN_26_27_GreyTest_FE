@@ -3,8 +3,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '../../../shared/components/AppShell';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { ErrorState } from '../../../shared/components/ErrorState';
-import { ProjectWorkflowTabs } from '../../projects/components/ProjectWorkflowTabs';
-import { ProjectPageHeader } from '../../projects/components/ProjectPageHeader';
+import { ProjectWorkspace } from '../../projects/components/ProjectWorkspace';
 import { ProjectServiceSelector } from '../../projects/components/ProjectServiceSelector';
 import { useCompleteProject, useProject } from '../../projects/hooks/useProjects';
 import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceScope';
@@ -39,7 +38,7 @@ export function ReportPage() {
   if (error || serviceScope.error || !project) {
     return (
       <AppShell maxWidth="wide">
-        <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
+        <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy dự án', 'Project not found')} backTo="/projects" />
       </AppShell>
     );
   }
@@ -49,19 +48,22 @@ export function ReportPage() {
   }
 
   return (
-    <AppShell maxWidth="wide">
-      <ProjectPageHeader
+    <AppShell maxWidth="bleed">
+      <ProjectWorkspace
         project={project}
         servicePath={serviceScope.servicePath}
-        titlePrefix="Report"
+        titlePrefix={t('Báo cáo', 'Report')}
         subtitle={t('Xuất Report dạng JSON hoặc Markdown cho kết quả GreyTest.', 'Export GreyTest results as JSON or Markdown.')}
         backTo={projectWorkflowPath(projectId, 'traceability', serviceScope.servicePath)}
         backLabel="Traceability"
-      />
+        active="report"
+        status={status ?? project.status}
+        reachedStatus={serviceScope.selected?.reachedStatus}
+        selector={<ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
+      >
 
-      <ProjectWorkflowTabs projectId={projectId} active="report" reachedStatus={serviceScope.selected?.reachedStatus} status={status ?? project.status} servicePath={serviceScope.servicePath} />
-      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       <ReportPanel projectId={projectId} servicePath={serviceScope.servicePath} />
+      </ProjectWorkspace>
     </AppShell>
   );
 }

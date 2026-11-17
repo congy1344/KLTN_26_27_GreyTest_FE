@@ -118,5 +118,5 @@ export function getCurrentWorkflowStep(status: ProjectStatus) {
 
 export function getProjectResumePath(projectId: number, status: ProjectStatus) {
   const step = CURRENT_STEP_BY_STATUS[status];
-  return step === 'analysis' ? `/projects/${projectId}` : `/projects/${projectId}/${step}`;
+  return `/projects/${projectId}/${step === 'analysis' ? 'business-rules' : step}`;
 }

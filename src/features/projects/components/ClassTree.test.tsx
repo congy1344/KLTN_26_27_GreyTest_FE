@@ -81,9 +81,9 @@ describe('ClassTree', () => {
 
     fireEvent.click(screen.getByText('CreateUserRequest'));
 
-    expect(screen.getByText(/public record CreateUserRequest/)).toBeInTheDocument();
-    expect(screen.getByText(/public record CreateUserRequest/).closest('pre'))
-      .toHaveClass('max-h-[calc(100vh-220px)]');
+    const code = screen.getByRole('region', { name: 'Mã nguồn' });
+    expect(code).toHaveTextContent('public record CreateUserRequest');
+    expect(code).toHaveClass('max-h-[calc(100vh-260px)]');
   });
 
   it('uses distinct icons for file, class type, and method nodes', () => {

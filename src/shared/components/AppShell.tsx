@@ -1,13 +1,11 @@
-import { Beaker, ShieldCheck, User } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useCurrentUser, useLogout } from '../../features/auth/hooks/useAuth';
-import { useLanguage } from '../i18n/language';
-import { LanguageToggle } from './LanguageToggle';
-import { ThemeToggle } from './ThemeToggle';
+import { QuotaMeter } from './QuotaMeter';
+import { BrandMark } from './BrandMark';
+import { Link } from 'react-router-dom';
+import { UserDropdownMenu } from './UserDropdownMenu';
 
 interface AppShellProps {
   children: React.ReactNode;
-  maxWidth?: 'default' | 'wide' | 'full';
+  maxWidth?: 'default' | 'wide' | 'full' | 'bleed';
   homeTo?: string;
   logoutTo?: string;
   showAdminShortcut?: boolean;
@@ -16,9 +14,7 @@ interface AppShellProps {
 export function AppShell({
   children,
   maxWidth = 'default',
-  homeTo = '/projects',
-  logoutTo = '/login',
-  showAdminShortcut = true,
+  logoutTo = '/',
 }: AppShellProps) {
   const widthClass =
     maxWidth === 'full'
@@ -26,72 +22,28 @@ export function AppShell({
       : maxWidth === 'wide'
         ? 'w-full max-w-[96%]'
         : 'max-w-5xl';
-  const navigate = useNavigate();
-  const { data: user } = useCurrentUser();
-  const logout = useLogout();
-  const { t } = useLanguage();
-
-  const handleLogout = () => {
-    logout();
-    navigate(logoutTo, { replace: true });
-  };
 
   return (
     <div className="min-h-[100dvh] text-body">
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-1/2 top-0 h-px w-[94vw] -translate-x-1/2 bg-gradient-to-r from-transparent via-border-brand-subtle to-transparent" />
-        <div className="absolute right-[8%] top-[-18rem] h-[34rem] w-[34rem] rounded-full bg-brand/[0.08] blur-[110px]" />
-      </div>
-
-      <nav className="sticky top-0 z-40 border-b border-border-default-subtle bg-neutral-primary-soft/88 backdrop-blur-xl">
-        <div className={`mx-auto flex h-16 ${widthClass} items-center justify-between px-4 sm:px-6`}>
-          <Link to={homeTo} className="group flex items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-default border border-border-brand-subtle bg-brand-softer text-fg-brand-strong shadow-xs transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-y-0.5">
-              <Beaker size={16} strokeWidth={1.8} />
-            </span>
-            <span className="text-sm font-semibold tracking-tight text-heading">
-              GreyTest
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-2">
-            {showAdminShortcut && user?.role === 'ADMIN' && <Link to="/admin" className="btn btn-secondary px-3 py-1.5 text-[12px]"><ShieldCheck size={14} /> Admin</Link>}
-            <ThemeToggle />
-            <LanguageToggle />
-            <Link
-              to="/profile"
-              className="group hidden items-center gap-2 rounded-full border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-[12px] font-medium text-heading shadow-xs transition-all duration-200 hover:border-brand-primary hover:bg-neutral-secondary-soft hover:shadow-sm sm:inline-flex"
-              title={t('Xem hồ sơ cá nhân và quản lý gói', 'View profile and subscription')}
-            >
-              <User size={13} strokeWidth={1.8} className="text-body-subtle transition-colors group-hover:text-heading" />
-              <span className="max-w-[160px] truncate">{user?.fullName ?? 'Người dùng'}</span>
-              {user?.tier === 'PRO' ? (
-                <span className="rounded-full bg-gradient-to-r from-purple-500/20 to-indigo-500/20 px-1.5 py-0.2 text-[10px] font-bold text-purple-600 dark:text-purple-400">
-                  PRO
-                </span>
-              ) : (
-                <span className="rounded-full bg-neutral-secondary px-1.5 py-0.2 text-[10px] font-semibold text-body-subtle">
-                  FREE
-                </span>
-              )}
+      <nav className="sticky top-0 z-40 border-b border-border-default-subtle bg-neutral-primary-soft">
+        <div className="mx-auto flex min-h-16 w-full max-w-[96%] flex-wrap items-center gap-x-5 gap-y-2 py-2 lg:flex-nowrap sm:py-0 px-4 sm:px-6">
+          <div className="flex items-center gap-5 sm:gap-6">
+            <Link to="/projects" className="flex items-center rounded-control">
+              <BrandMark size={28} withWordmark />
             </Link>
-            <button type="button" onClick={handleLogout} className="btn btn-secondary px-3 py-1.5 text-[12px]">
-              {t('Đăng xuất', 'Log out')}
-            </button>
+          </div>
+
+          <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-2.5 lg:flex-nowrap">
+            <QuotaMeter />
+            <UserDropdownMenu logoutTo={logoutTo} />
           </div>
         </div>
       </nav>
 
-      <main className={`relative mx-auto ${widthClass} px-4 py-8 sm:px-6 sm:py-10`}>
+      <main className={`relative ${maxWidth === 'bleed' ? 'w-full' : `mx-auto ${widthClass} px-4 py-8 sm:px-6 sm:py-10`} min-h-[calc(100dvh-12rem)]`}>
         {children}
       </main>
 
-      <footer className="mt-16 border-t border-border-default-subtle bg-neutral-primary-soft/80">
-        <div className={`mx-auto flex ${widthClass} flex-col gap-2 px-4 py-6 text-[12px] text-body-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6`}>
-          <span>{t('GreyTest · Đồ án tốt nghiệp KTPM', 'GreyTest · Software Engineering capstone')}</span>
-          <span className="font-mono">Grey-box AI QA System</span>
-        </div>
-      </footer>
     </div>
   );
 }

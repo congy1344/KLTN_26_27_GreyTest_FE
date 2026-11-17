@@ -1,4 +1,7 @@
+import { IconButton } from './IconButton';
+import { Tag } from './Tag';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertCircle,
   Check,
@@ -11,7 +14,7 @@ import {
   Loader2,
   Pause,
   Play,
-  Sparkles,
+  Zap,
   Terminal,
   X,
 } from 'lucide-react';
@@ -28,13 +31,6 @@ interface AiGenerationProgressProps {
   onResume?: () => void;
   onCancel?: () => void;
 }
-
-const STEP_STYLES: Record<GenerationProgressStepStatus, string> = {
-  WAITING: 'bg-neutral-secondary text-body-subtle border border-border-default-subtle',
-  RUNNING: 'bg-brand-soft text-fg-brand-strong font-semibold border border-border-brand-subtle shadow-2xs',
-  COMPLETED: 'bg-success-soft text-fg-success-strong font-semibold border border-border-success-subtle',
-  FAILED: 'bg-danger-soft text-fg-danger-strong font-semibold border border-border-danger-subtle',
-};
 
 /** Parse và format thời gian timestamp dạng HH:mm:ss. */
 function formatLogTime(timestamp?: string): string {
@@ -262,7 +258,7 @@ export function getLogMessageColor(message: string): string {
     lower.includes('blocked') ||
     lower.includes('chưa cover đủ')
   ) {
-    return 'text-amber-600 dark:text-amber-400 font-medium';
+    return 'text-fg-warning font-medium';
   }
   // 3. Các thông điệp hoàn thành/thành công có màu xanh lá nổi bật ở tất cả các giao diện AI sinh
   if (
@@ -377,6 +373,7 @@ export function AiGenerationProgress({
   const isFailed = currentProgress?.status === 'FAILED';
   const isQueued = currentProgress?.status === 'QUEUED';
   const isPaused = currentProgress?.status === 'PAUSED';
+  const isDraining = isPaused && Boolean(currentProgress?.busy);
   const isRunning = !isCompleted && !isPartial && !isFailed && !isPaused
     && (active || isQueued || currentProgress?.status === 'RUNNING');
 
@@ -479,19 +476,6 @@ export function AiGenerationProgress({
     active || (currentProgress && currentProgress.status && currentProgress.status !== 'IDLE')
   );
 
-  // Khi mở rộng log widget, tự động thêm class để layout trang né sang trái nhường chỗ cho log
-  useEffect(() => {
-    const isDockOpen = hasProgress && !floatingDismissed && !isMinimized;
-    if (typeof document !== 'undefined') {
-      document.body.classList.toggle('ai-progress-dock-open', isDockOpen);
-    }
-    return () => {
-      if (typeof document !== 'undefined') {
-        document.body.classList.remove('ai-progress-dock-open');
-      }
-    };
-  }, [hasProgress, floatingDismissed, isMinimized]);
-
   const latestLog = visibleLogs.length > 0
     ? visibleLogs[visibleLogs.length - 1]
     : null;
@@ -533,7 +517,9 @@ export function AiGenerationProgress({
     || (isPartial
       ? t('Hoàn tất một phần. Một số Test Case chưa có Unit Test.', 'Partially completed. Some test cases have no unit test.')
       : isPaused
-      ? t('Tác vụ đã tạm dừng. Các batch đã sinh được lưu an toàn.', 'Task paused. Generated batches are safely saved.')
+      ? (isDraining
+        ? t('Đang tạm dừng tác vụ: chờ lưu nốt các batch đang xử lý...', 'Pausing task: finishing in-flight batches...')
+        : t('Tác vụ đã tạm dừng. Các batch đã sinh được lưu an toàn.', 'Task paused. Generated batches are safely saved.'))
       : isQueued
         ? t('Tác vụ đã vào hàng đợi và sẽ tự chạy nền.', 'Task is queued and running in background.')
         : isCompleted
@@ -573,31 +559,32 @@ export function AiGenerationProgress({
     </span>
   );
 
-  return (
+  // Portal giữ vị trí theo viewport kể cả khi panel cha có animation dùng transform.
+  return createPortal(
     <>
       {announcement}
 
-      {/* Floating dock hiển thị ở góc dưới bên phải; NỀN ĐẶC HOÀN TOÀN 100%, không trong suốt */}
+      {/* Ghim góc dưới phải, cuộn nội dung trong khung khi nhật ký dài. */}
       {hasProgress && !floatingDismissed && (
         <aside
           role="complementary"
           aria-label={t('Tiến trình AI đang chạy', 'Running AI progress')}
-          className={`fixed bottom-5 right-5 z-[60] w-[390px] sm:w-[450px] max-w-[calc(100vw-2.5rem)] flex flex-col rounded-2xl border border-border-default bg-neutral-primary-soft text-body shadow-2xl transition-all duration-300 animate-slide-in-up overflow-hidden ${
-            isMinimized ? 'h-auto' : 'h-[min(720px,calc(100dvh-5.5rem))]'
+          className={`fixed bottom-4 right-4 z-[60] max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] flex flex-col rounded-base border border-border-default bg-neutral-primary-soft text-body shadow-2xl transition-colors duration-300 overflow-hidden ${
+            isMinimized ? 'h-auto w-80' : 'w-[420px] h-[min(640px,calc(100dvh-2rem))]'
           }`}
         >
           {/* Header thanh lịch - nền đặc */}
-          <div className="flex items-center justify-between gap-3 border-b border-border-default-subtle bg-neutral-secondary-soft px-4 py-3 shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-default-subtle bg-neutral-secondary-soft px-3 py-2 shrink-0">
             <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-primary shadow-xs border border-border-default shrink-0">
+              <span className="flex h-7 w-7 items-center justify-center rounded-control bg-neutral-primary border border-border-default shrink-0 font-mono">
                 {isCompleted ? (
                   <CheckCircle2 size={16} className="text-fg-success-strong" />
                 ) : isPartial ? (
-                  <AlertCircle size={16} className="text-amber-500" />
+                  <AlertCircle size={16} className="text-fg-warning" />
                 ) : isFailed ? (
                   <AlertCircle size={16} className="text-fg-danger-strong" />
                 ) : isPaused ? (
-                  <Pause size={16} className="text-amber-500" />
+                  <Pause size={16} className="text-fg-warning" />
                 ) : isQueued ? (
                   <Clock3 size={16} className="text-fg-brand" />
                 ) : (
@@ -605,72 +592,64 @@ export function AiGenerationProgress({
                 )}
               </span>
               <div className="flex flex-col min-w-0">
-                <span className="truncate text-xs font-semibold text-heading tracking-tight" title={label}>
-                  {label}
+                <span className="text-xs font-semibold text-heading" title={label}>
+                  {t('Tiến trình AI', 'AI progress')}
                 </span>
-                <span className="text-[10px] text-body-subtle font-mono flex items-center gap-1.5">
-                  {isRunning && <span className="inline-block h-1.5 w-1.5 rounded-full bg-fg-brand animate-pulse" />}
-                  GreyTest AI Agent
-                </span>
+                {!isMinimized && <span className="text-xs text-body-subtle font-mono flex items-center gap-1.5">
+
+                  {t('Nhật ký xử lý', 'Processing log')}
+                </span>}
               </div>
             </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
-              {isCompleted && (
-                <span className="rounded-full bg-success-soft px-2.5 py-0.5 text-[10px] font-semibold text-fg-success-strong border border-border-success-subtle">
+              {!isMinimized && isCompleted && (
+                <Tag variant="status" tone={'success'} icon={Check}>
                   {t('Hoàn thành', 'Completed')}
-                </span>
+                </Tag>
               )}
-              {isPartial && (
-                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-500 border border-amber-500/20">
+              {!isMinimized && isPartial && (
+                <Tag variant="status" tone={'warning'} icon={AlertCircle}>
                   {t('Hoàn tất một phần', 'Partially completed')}
-                </span>
+                </Tag>
               )}
-              {isFailed && (
-                <span className="rounded-full bg-danger-soft px-2.5 py-0.5 text-[10px] font-semibold text-fg-danger-strong border border-border-danger-subtle">
+              {!isMinimized && isFailed && (
+                <Tag variant="status" tone={'danger'} icon={AlertCircle}>
                   {t('Thất bại', 'Failed')}
-                </span>
+                </Tag>
               )}
-              {isPaused && (
-                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-500 border border-amber-500/20">
-                  {t('Đã tạm dừng', 'Paused')}
-                </span>
+              {!isMinimized && isPaused && (
+                <Tag variant="status" tone={'warning'} icon={isDraining ? Loader2 : Pause}>
+                  {isDraining ? t('Đang dừng...', 'Pausing...') : t('Đã tạm dừng', 'Paused')}
+                </Tag>
               )}
-              <span className="rounded-md bg-brand-soft px-2 py-0.5 font-mono text-xs font-bold text-fg-brand-strong border border-border-brand-subtle">
+              <Tag className="font-mono tabular-nums">
                 {percent}%
-              </span>
+              </Tag>
               <button
                 type="button"
-                className="rounded-lg p-1.5 text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading transition-colors"
+                className="rounded-control p-1.5 text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading transition-colors"
                 title={isMinimized ? t('Mở rộng (Xem chi tiết log)', 'Expand (View log details)') : t('Thu nhỏ (Đưa xuống góc)', 'Minimize (Dock to corner)')}
                 aria-label={isMinimized ? t('Mở rộng', 'Expand') : t('Thu nhỏ', 'Minimize')}
                 onClick={handleToggleMinimize}
               >
                 {isMinimized ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
-              <button
-                type="button"
-                className="rounded-lg p-1.5 text-body-subtle hover:bg-danger-soft hover:text-fg-danger-strong transition-colors"
-                title={t('Đóng (Ẩn log)', 'Close (Hide log)')}
-                aria-label={t('Đóng', 'Close')}
-                onClick={handleDismiss}
-              >
-                <X size={14} />
-              </button>
+              <IconButton icon={X} label={t('Đóng', 'Close')} title={t('Đóng (Ẩn log)', 'Close (Hide log)')} onClick={handleDismiss} />
             </div>
           </div>
 
-          {/* Sleek Gradient Progress bar */}
+          {/* Processing progress */}
           <div className="h-1 w-full bg-neutral-secondary overflow-hidden shrink-0">
             <span
-              className={`block h-full transition-[width] duration-300 ease-out ${
+              className={`block h-full transition-colors duration-300 ease-out ${
                 isCompleted
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                  ? 'bg-success'
                   : isFailed
-                    ? 'bg-gradient-to-r from-rose-500 to-red-500'
+                    ? 'bg-neutral-secondary-medium  '
                     : isPaused || isPartial
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-400'
-                      : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400 animate-pulse'
+                      ? 'bg-neutral-secondary-medium  '
+                      : 'bg-brand'
               }`}
               style={{ width: `${percent}%` }}
             />
@@ -680,7 +659,7 @@ export function AiGenerationProgress({
           {!isMinimized && (
             <div className="p-3.5 space-y-3 bg-neutral-primary-soft flex-1 flex flex-col min-h-0 overflow-y-auto">
               {metrics && (
-                <section aria-label={t('Số liệu lượt chạy', 'Run metrics')} className="shrink-0 rounded-xl border border-border-default-subtle bg-neutral-secondary p-3 text-xs">
+                <section aria-label={t('Số liệu lượt chạy', 'Run metrics')} className="shrink-0 rounded-base border border-border-default-subtle bg-neutral-secondary p-3 text-xs">
                   <p className="font-semibold text-heading">
                     {t('Tổng các lần chạy', 'All runs')}: {currentProgress?.stage.replace(/_/g, ' ')}
                   </p>
@@ -690,18 +669,18 @@ export function AiGenerationProgress({
                     <div><dt className="text-body-subtle">{t('Token đầu vào / đầu ra', 'Input / output tokens')}</dt><dd className="font-mono">{metrics.inputTokens.toLocaleString()} / {metrics.outputTokens.toLocaleString()}</dd></div>
                     <div><dt className="text-body-subtle">{t('Phản hồi AI đã ghi nhận', 'Recorded AI responses')}</dt><dd className="font-mono">{metrics.recordedCalls}</dd></div>
                   </dl>
-                  <p className="mt-2 text-[10px] text-body-subtle">
+                  <p className="mt-2 text-xs text-body-subtle">
                     {t('Cộng dồn mọi lần chạy và Tiếp tục sinh của bước này cho đến khi hoàn tất; gồm cả chờ xử lý, không tính lúc dừng giữa hai lần và không cộng thời gian từng batch.', 'Adds up every run and resume of this stage until it completes, including queue time; time stopped between runs is excluded and batch durations are not added together.')}
                     {' '}{metrics.estimatedCalls > 0
                       ? t(`Có ${metrics.estimatedCalls} phản hồi dùng token ước tính.`, `${metrics.estimatedCalls} responses use estimated tokens.`)
                       : metrics.recordedCalls > 0 ? t('Token do provider trả về.', 'Tokens reported by the provider.') : t('Chưa có dữ liệu token.', 'No token usage available yet.')}
                     {' '}{t('Request lỗi không có usage chưa được tính token.', 'Failed requests without usage are excluded from token totals.')}
                   </p>
-                  <p className="mt-1 break-all font-mono text-[10px] text-body-subtle" title={metrics.runId}>ID: {metrics.runId}</p>
+                  <p className="mt-1 break-all text-xs text-body-subtle" title={metrics.runId}>ID: <span className="font-mono">{metrics.runId}</span></p>
                 </section>
               )}
               {/* Thông báo trạng thái mới nhất - nền đặc */}
-              <div className="shrink-0 flex items-start justify-between gap-2.5 rounded-xl bg-neutral-secondary p-3 border border-border-default-subtle overflow-hidden">
+              <div className="shrink-0 flex items-start justify-between gap-2.5 rounded-base bg-neutral-secondary p-3 border border-border-default-subtle overflow-hidden">
                 <div className="flex-1 min-w-0 max-h-44 overflow-y-auto custom-scrollbar pr-1">
                   <p className={`text-xs font-medium leading-relaxed break-words [overflow-wrap:anywhere] ${getLogMessageColor(currentMessage)}`}>
                     {currentMessage}
@@ -712,7 +691,7 @@ export function AiGenerationProgress({
                         <button
                           type="button"
                           onClick={onPause}
-                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 cursor-pointer"
                         >
                           <Pause size={13} />
                           <span>{t('Tạm dừng', 'Pause')}</span>
@@ -722,7 +701,7 @@ export function AiGenerationProgress({
                         <button
                           type="button"
                           onClick={() => setShowCancelConfirm(true)}
-                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer text-fg-danger-strong hover:bg-danger-soft"
+                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 cursor-pointer text-fg-danger-strong hover:bg-danger-soft"
                         >
                           <X size={13} />
                           <span>{t('Hủy sinh', 'Cancel generation')}</span>
@@ -736,24 +715,37 @@ export function AiGenerationProgress({
                         <button
                           type="button"
                           onClick={onResume}
-                          className="btn btn-brand !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          disabled={isDraining}
+                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
                         >
-                          <Play size={13} className="fill-current text-white" />
-                          <span className="text-white font-semibold">{t('Tiếp tục sinh', 'Resume generation')}</span>
+                          {isDraining ? (
+                            <>
+                              <Loader2 size={13} className="animate-spin" />
+                              <span className="font-semibold">{t('Đang lưu batch...', 'Saving in-flight batch...')}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play size={13} className="fill-current" />
+                              <span className="font-semibold">{t('Tiếp tục sinh', 'Resume generation')}</span>
+                            </>
+                          )}
                         </button>
                       )}
                       {onCancel && (
                         <button
                           type="button"
                           onClick={() => setShowCancelConfirm(true)}
-                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer text-fg-danger-strong hover:bg-danger-soft"
+                          disabled={isDraining}
+                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 cursor-pointer text-fg-danger-strong hover:bg-danger-soft disabled:cursor-not-allowed"
                         >
                           <X size={13} />
                           <span>{t('Hủy sinh', 'Cancel generation')}</span>
                         </button>
                       )}
-                      <span className="text-[11px] text-body-subtle">
-                        {t('(Tiếp tục từ batch còn dang dở)', '(Resumes from pending batches)')}
+                      <span className="text-xs text-body-subtle">
+                        {isDraining
+                          ? t('(Chờ lưu nốt các batch đang dở dang)', '(Finishing in-flight batches)')
+                          : t('(Tiếp tục từ batch còn dang dở)', '(Resumes from pending batches)')}
                       </span>
                     </div>
                   )}
@@ -766,36 +758,33 @@ export function AiGenerationProgress({
                             window.dispatchEvent(new CustomEvent('quota-exceeded'));
                           }
                         }}
-                        className="btn !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 shadow-sm cursor-pointer font-bold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700"
+                        className="btn !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 cursor-pointer font-semibold text-heading bg-neutral-secondary-medium"
                       >
-                        <Sparkles size={13} className="text-amber-300" />
+                        <Zap size={13} className="text-fg-warning" />
                         <span>{t('Nâng cấp lên gói PRO', 'Upgrade to PRO')}</span>
                       </button>
                     </div>
                   )}
                 </div>
                 {executionTimeText && (
-                  <span
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md bg-neutral-primary-soft px-2 py-0.5 font-mono text-[10px] font-semibold text-body-subtle border border-border-default shadow-2xs"
-                    title={
+                  <Tag title={
                       isCompleted
                         ? t(`Thời gian từ 0% đến 100%: ${executionTimeText}`, `Time from 0% to 100%: ${executionTimeText}`)
                         : t(`Thời gian đã trôi qua: ${executionTimeText}`, `Elapsed time: ${executionTimeText}`)
-                    }
-                  >
-                    <Clock3 size={11} className="text-fg-brand opacity-80" />
+                    } className="shrink-0 font-mono tabular-nums">
+                    <Clock3 size={12} aria-hidden="true"  />
                     <span>{executionTimeText}</span>
-                  </span>
+                  </Tag>
                 )}
               </div>
 
               {/* Danh sách các bước - nền đặc */}
               {currentProgress?.steps && currentProgress.steps.length > 0 && (
-                <div className="shrink-0 rounded-xl border border-border-default-subtle bg-neutral-secondary p-1.5 max-h-36 space-y-1 overflow-y-auto custom-scrollbar">
+                <div className="shrink-0 rounded-base border border-border-default-subtle bg-neutral-secondary p-1.5 max-h-36 space-y-1 overflow-y-auto custom-scrollbar">
                   {currentProgress.steps.map((step) => (
                     <div
                       key={step.order}
-                      className="flex items-start justify-between gap-2.5 text-[11px] rounded-lg px-2.5 py-1.5 bg-neutral-primary-soft border border-border-default-subtle shadow-2xs transition-colors"
+                      className="flex items-start justify-between gap-2.5 text-xs px-2.5 py-1.5 border-t border-t-border-default-subtle transition-colors"
                       title={step.label}
                     >
                       <div className="flex min-w-0 items-start gap-2">
@@ -812,19 +801,15 @@ export function AiGenerationProgress({
                             {step.label}
                           </span>
                           {step.status === 'FAILED' && step.errorMessage && (
-                            <span className="mt-0.5 block whitespace-normal break-words [overflow-wrap:anywhere] text-[10px] font-normal leading-relaxed text-fg-danger-strong">
+                            <span className="mt-0.5 block whitespace-normal break-words [overflow-wrap:anywhere] text-xs font-normal leading-relaxed text-fg-danger-strong">
                               {step.errorMessage}
                             </span>
                           )}
                         </div>
                       </div>
-                      <span
-                        className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium ${
-                          STEP_STYLES[step.status]
-                        }`}
-                      >
+                      <Tag variant="status" tone={step.status === 'COMPLETED' ? 'success' : step.status === 'FAILED' ? 'danger' : step.status === 'RUNNING' ? 'brand' : 'neutral'} icon={step.status === 'RUNNING' ? Loader2 : step.status === 'COMPLETED' ? Check : step.status === 'FAILED' ? AlertCircle : Clock3}>
                         {stepStatusLabel(step.status, t)}
-                      </span>
+                      </Tag>
                     </div>
                   ))}
                 </div>
@@ -836,17 +821,17 @@ export function AiGenerationProgress({
                   <div className="shrink-0 flex items-center justify-between px-1">
                     <div className="flex items-center gap-1.5 text-body-subtle">
                       <Terminal size={13} className="text-fg-brand" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-body-subtle">
+                      <span className="text-xs font-semibold text-body-subtle">
                         {t('Nhật ký xử lý', 'Execution Logs')}
                       </span>
-                      <span className="text-[10px] rounded-full bg-neutral-secondary-medium px-1.5 py-0.2 font-mono font-semibold text-body">
+                      <Tag className="font-mono tabular-nums">
                         {visibleLogs.length}
-                      </span>
+                      </Tag>
                     </div>
 
                     <button
                       type="button"
-                      className="flex items-center gap-1 text-[11px] font-medium text-body-subtle hover:text-heading transition-colors px-1.5 py-0.5 rounded hover:bg-neutral-secondary-medium"
+                      className="flex items-center gap-1 text-xs font-medium text-body-subtle hover:text-heading transition-colors px-1.5 py-0.5 rounded-control hover:bg-neutral-secondary-medium"
                       title={t('Sao chép toàn bộ log', 'Copy all logs')}
                       onClick={handleCopyLogs}
                     >
@@ -868,7 +853,7 @@ export function AiGenerationProgress({
 
                   <div
                     ref={logContainerRef}
-                    className="flex-1 min-h-[180px] overflow-y-auto rounded-xl bg-neutral-secondary border border-border-default p-2.5 font-mono text-[11px] space-y-1 shadow-inner custom-scrollbar"
+                    className="flex-1 min-h-[180px] overflow-y-auto rounded-sm bg-neutral-secondary border border-border-default p-2.5 font-mono text-xs space-y-1 custom-scrollbar"
                   >
                     {visibleLogs.map((log, index) => {
                       const isExpanded = Boolean(expandedLogs[index]);
@@ -876,7 +861,7 @@ export function AiGenerationProgress({
                       return (
                         <div
                           key={`${log.timestamp}-${index}`}
-                          className="group rounded-md border border-transparent transition-colors hover:border-border-default-subtle hover:bg-neutral-primary-soft overflow-hidden"
+                          className="group border-t border-t-transparent transition-colors hover:border-t-border-default-subtle overflow-hidden"
                         >
                           <div
                             role="button"
@@ -891,14 +876,14 @@ export function AiGenerationProgress({
                             }}
                             className="flex cursor-pointer items-start gap-1.5 px-1.5 py-1 text-heading transition-colors leading-relaxed select-none"
                           >
-                            <span className="shrink-0 font-mono text-[10px] text-body-subtle whitespace-nowrap pt-0.5 tracking-tight">
+                            <span className="shrink-0 font-mono text-xs text-body-subtle whitespace-nowrap pt-0.5">
                               {formatLogTime(log.timestamp)}
                             </span>
 
                             <button
                               type="button"
                               aria-label={isExpanded ? t('Thu gọn', 'Collapse') : t('Mở rộng', 'Expand')}
-                              className="shrink-0 text-body-subtle hover:text-heading transition-transform duration-200 pt-0.5"
+                              className="rounded-control shrink-0 text-body-subtle hover:text-heading transition-transform duration-200 pt-0.5"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 toggleLogExpand(index);
@@ -912,7 +897,7 @@ export function AiGenerationProgress({
                               />
                             </button>
 
-                            <span className={`break-words [overflow-wrap:anywhere] flex-1 text-[11px] ${getLogMessageColor(log.message)}`}>
+                            <span className={`break-words [overflow-wrap:anywhere] flex-1 text-xs ${getLogMessageColor(log.message)}`}>
                               {formatCollapsedLogMessage(log.message)}
                             </span>
                           </div>
@@ -921,14 +906,14 @@ export function AiGenerationProgress({
                           {isExpanded && (() => {
                             const details = extractLogItems(log.message);
                             return (
-                              <div className="mx-1.5 mb-1.5 mt-0.5 rounded border border-border-default-subtle bg-neutral-secondary-soft p-2.5 text-[10px] space-y-2 animate-fade-in font-sans">
+                              <div className="mx-1.5 mb-1.5 mt-0.5 rounded-base border border-border-default-subtle bg-neutral-secondary-soft p-2.5 text-xs space-y-2 animate-fade-in font-sans">
                                 <div className="flex items-center justify-between text-body-subtle">
-                                  <span className="font-mono text-[10px]">
+                                  <span className="font-mono text-xs">
                                     {formatFullLogTime(log.timestamp)}
                                   </span>
                                   <button
                                     type="button"
-                                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading transition-colors"
+                                    className="flex items-center gap-1 rounded-control px-1.5 py-0.5 text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading transition-colors"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleCopySingleLog(formatHumanLogMessage(log.message), index);
@@ -952,7 +937,7 @@ export function AiGenerationProgress({
                                 </div>
 
                                 {/* Thông điệp hoàn chỉnh */}
-                                <p className="font-mono text-[11px] text-heading whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed select-text bg-neutral-primary-soft p-2 rounded-md border border-border-default-subtle">
+                                <p className="font-mono text-xs text-heading whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed select-text bg-neutral-primary-soft p-2 rounded-sm border border-border-default-subtle">
                                   {formatHumanLogMessage(log.message)}
                                 </p>
 
@@ -960,18 +945,15 @@ export function AiGenerationProgress({
                                 {details && details.items.length > 0 && (
                                   <div className="space-y-1.5 pt-0.5">
                                     <div className="flex items-center justify-between">
-                                      <span className="font-semibold text-[11px] text-heading">
+                                      <span className="font-semibold text-xs text-heading">
                                         {details.label} ({details.items.length}):
                                       </span>
                                     </div>
                                     <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto custom-scrollbar p-0.5">
                                       {details.items.map((item, idx) => (
-                                        <span
-                                          key={idx}
-                                          className="inline-flex items-center rounded-md bg-neutral-primary px-2 py-0.5 font-mono text-[11px] font-semibold text-fg-brand-strong border border-border-default shadow-2xs select-text hover:border-border-brand-subtle transition-colors"
-                                        >
+                                        <Tag key={idx} className="select-text">
                                           {item}
-                                        </span>
+                                        </Tag>
                                       ))}
                                     </div>
                                   </div>
@@ -997,30 +979,30 @@ export function AiGenerationProgress({
           onClick={handleRestore}
           aria-label={t('Mở lại log AI', 'Reopen AI log')}
           title={t('Mở lại nhật ký AI', 'Reopen AI log')}
-          className="fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-full border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs font-medium text-heading shadow-md hover:bg-neutral-secondary hover:shadow-lg transition-all animate-fade-in hover:scale-105 active:scale-95 cursor-pointer"
+          className="fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-control border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs font-medium text-heading hover:bg-neutral-secondary hover:shadow-lg transition-colors animate-fade-in hover:scale-105 active:scale-95 cursor-pointer"
         >
-          <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-brand-soft text-fg-brand-strong">
+          <span className="flex h-5 w-5 items-center justify-center rounded-control bg-brand-soft text-heading font-mono">
             {isRunning ? (
               <Loader2 size={12} className="animate-spin text-fg-brand" />
             ) : isCompleted ? (
               <CheckCircle2 size={12} className="text-fg-success-strong" />
             ) : isPartial ? (
-              <AlertCircle size={12} className="text-amber-500" />
+              <AlertCircle size={12} className="text-fg-warning" />
             ) : isFailed ? (
               <AlertCircle size={12} className="text-fg-danger-strong" />
             ) : isPaused ? (
-              <Pause size={12} className="text-amber-500" />
+              <Pause size={12} className="text-fg-warning" />
             ) : (
               <Terminal size={12} />
             )}
           </span>
-          <span className="font-semibold text-[11px] text-heading">
+          <span className="font-semibold text-xs text-heading">
             {t('Log AI', 'AI Log')}
           </span>
           {percent > 0 && (
-            <span className="rounded-md bg-neutral-secondary px-1.5 py-0.2 font-mono text-[10px] font-bold text-fg-brand-strong">
+            <Tag className="font-mono tabular-nums">
               {percent}%
-            </span>
+            </Tag>
           )}
         </button>
       )}
@@ -1040,7 +1022,7 @@ export function AiGenerationProgress({
         }}
         onCancel={() => setShowCancelConfirm(false)}
       />
-    </>
+    </>, document.body
   );
 }
 

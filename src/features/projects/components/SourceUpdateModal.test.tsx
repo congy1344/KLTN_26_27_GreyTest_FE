@@ -93,7 +93,7 @@ describe('SourceUpdateModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Chấp nhận tất cả đề xuất' }));
     await act(async () => undefined);
     expect(screen.queryByText(/Toàn bộ đã sẵn sàng để áp dụng/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Chưa áp dụng vào project/)).toBeVisible();
+    expect(screen.getByText(/Chưa áp dụng vào (project|dự án)/)).toBeVisible();
     expect(mocks.apply).not.toHaveBeenCalled();
   });
 
@@ -422,7 +422,7 @@ describe('SourceUpdateModal', () => {
     });
 
     expect(onClose).toHaveBeenCalledOnce();
-    expect(screen.getByText('Nhấp để chọn file ZIP project mới')).toBeVisible();
+    expect(screen.getByText('Nhấp để chọn file ZIP dự án mới')).toBeVisible();
   });
   it('renders the backend impact summary field names after AST analysis', async () => {
     mocks.createZip.mockResolvedValue({ id: 11, items: [], impactSummary: null });
@@ -483,7 +483,7 @@ describe('SourceUpdateModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /1\. Sinh BR/i }));
 
     expect(screen.getByRole('button', { name: /Ph/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Project/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /(Dự Án|Project)/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Hủy bản nháp' })).toBeDisabled();
   });
 

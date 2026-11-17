@@ -1,3 +1,4 @@
+import { Tag } from '../../../shared/components/Tag';
 import { useMemo, useState } from 'react';
 import { Search, TableProperties } from 'lucide-react';
 import { EmptyState } from '../../../shared/components/EmptyState';
@@ -46,9 +47,9 @@ export function TraceabilityMatrix({ projectId, servicePath }: { projectId: numb
     <section className="mt-8 animate-fade-in">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-heading">Traceability Matrix</h3>
+          <h2 className="text-base font-semibold text-heading font-display">Traceability Matrix</h2>
           <p className="mt-1 text-xs text-body-subtle">
-            {t('Ma trận truy vết Business Rule → Test Plan → Test Case → Unit Test.', 'Requirement traceability from Business Rule → Test Plan → Test Case → Unit Test.')}
+            {t('Đối chiếu Business Rule, Test Plan, Test Case và Unit Test.', 'Compare Business Rules, Test Plans, Test Cases and Unit Tests.')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -57,7 +58,7 @@ export function TraceabilityMatrix({ projectId, servicePath }: { projectId: numb
         </div>
       </div>
 
-      <div className="rounded-base border border-border-default bg-neutral-primary-soft shadow-sm">
+      <div className="rounded-base border border-border-default bg-neutral-primary-soft">
         <div className="border-b border-border-default p-4">
           <label className="relative block">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-body-subtle" />
@@ -75,7 +76,7 @@ export function TraceabilityMatrix({ projectId, servicePath }: { projectId: numb
           <EmptyState
             icon={TableProperties}
             title={t('Chưa có dữ liệu traceability', 'No traceability data yet')}
-            hint={t('Matrix hình thành sau khi có Business Rule, Test Plan, Test Case và Unit Test.', 'The matrix forms once Business Rules, Test Plans, Test Cases, and Unit Tests exist.')}
+            hint={t('Sinh Unit Test từ Test Case đã duyệt để xem các liên kết truy vết.', 'Generate Unit Tests from approved Test Cases to view traceability links.')}
             minHeight="min-h-[300px]"
           />
         ) : groups.size === 0 ? (
@@ -92,11 +93,11 @@ export function TraceabilityMatrix({ projectId, servicePath }: { projectId: numb
                 {t('Ma trận truy vết từ Business Rule đến Unit Test', 'Traceability matrix from Business Rule to Unit Test')}
               </caption>
               <thead className="sticky top-0 z-10">
-                <tr className="border-b border-border-default bg-neutral-secondary-soft text-left text-xs text-body-subtle shadow-sm">
-                  <th className="w-[24%] px-4 py-3 font-semibold"><span className="mr-2 font-mono text-[10px]">01</span>Business Rule</th>
-                  <th className="w-[24%] px-4 py-3 font-semibold"><span className="mr-2 font-mono text-[10px]">02</span>Test Plan</th>
-                  <th className="w-[28%] px-4 py-3 font-semibold"><span className="mr-2 font-mono text-[10px]">03</span>Test Case</th>
-                  <th className="w-[24%] px-4 py-3 font-semibold"><span className="mr-2 font-mono text-[10px]">04</span>Unit Test</th>
+                <tr className="border-b border-border-default bg-neutral-secondary-soft text-left text-xs text-body-subtle">
+                  <th className="w-[24%] px-4 py-3 font-semibold"><span className="mr-2 font-mono text-xs">01</span>Business Rule</th>
+                  <th className="w-[24%] px-4 py-3 font-semibold"><span className="mr-2 font-mono text-xs">02</span>Test Plan</th>
+                  <th className="w-[28%] px-4 py-3 font-semibold"><span className="mr-2 font-mono text-xs">03</span>Test Case</th>
+                  <th className="w-[24%] px-4 py-3 font-semibold"><span className="mr-2 font-mono text-xs">04</span>Unit Test</th>
                 </tr>
               </thead>
               <tbody>
@@ -104,26 +105,26 @@ export function TraceabilityMatrix({ projectId, servicePath }: { projectId: numb
                   return ruleRows.map((row, index) => (
                     <tr
                       key={`${ruleCode}-${row.planId ?? 'no-plan'}-${row.caseId ?? index}-${row.unitTestId ?? 'no-test'}`}
-                      className="border-b border-border-default/70 transition-colors last:border-b-0 hover:bg-neutral-secondary-soft/40"
+                      className="border-b border-border-default transition-colors last:border-b-0 hover:bg-neutral-secondary-soft"
                     >
                       {index === 0 && (
-                        <td rowSpan={ruleRows.length} className="border-r border-border-default/70 bg-neutral-secondary-soft/35 px-4 py-4 align-top">
+                        <td rowSpan={ruleRows.length} className="border-r border-border-default bg-neutral-secondary-soft px-4 py-4 align-top">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-xs font-bold text-heading">{ruleCode}</span>
+                            <span className="font-mono text-xs font-semibold text-heading">{ruleCode}</span>
                           </div>
                           <p className="mt-2 text-xs leading-relaxed text-body-subtle">{row.ruleDescription}</p>
                         </td>
                       )}
-                      <td className="border-r border-border-default/70 px-4 py-4 align-top">
+                      <td className="border-r border-border-default px-4 py-4 align-top">
                         <span className="font-mono text-xs font-semibold text-heading">{row.planCode ?? '—'}</span>
                         {row.testType && (
-                          <SemanticBadge kind="test-type" value={row.testType} className="ml-2 text-[10px]" />
+                          <SemanticBadge kind="test-type" value={row.testType} className="ml-2 text-xs" />
                         )}
                         <p className="mt-1.5 text-xs leading-relaxed text-body-subtle">
                           {row.planTitle ?? t('Chưa có Test Plan', 'No Test Plan')}
                         </p>
                       </td>
-                      <td className="border-r border-border-default/70 px-4 py-4 align-top">
+                      <td className="border-r border-border-default px-4 py-4 align-top">
                         <span className="font-mono text-xs font-semibold text-heading">{row.caseCode ?? '—'}</span>
                         <p className="mt-1.5 text-xs leading-relaxed text-body-subtle">
                           {row.caseDescription ?? t('Chưa có Test Case', 'No Test Case')}
@@ -131,7 +132,7 @@ export function TraceabilityMatrix({ projectId, servicePath }: { projectId: numb
                       </td>
                       <td className="px-4 py-4 align-top">
                         {row.unitTestName ? (
-                          <code className="break-words rounded-default bg-neutral-secondary-medium px-2 py-1 text-xs text-heading">{row.unitTestName}</code>
+                          <code className="break-words rounded-base bg-neutral-secondary-medium px-2 py-1 text-xs text-heading">{row.unitTestName}</code>
                         ) : (
                           <span className="text-xs italic text-body-subtle">{t('Chưa sinh Unit Test', 'No Unit Test generated')}</span>
                         )}
@@ -148,11 +149,6 @@ export function TraceabilityMatrix({ projectId, servicePath }: { projectId: numb
   );
 }
 
-function SummaryChip({ label, tone }: { label: string; tone?: 'success' | 'danger' }) {
-  const toneClass = tone === 'success'
-    ? 'bg-success-soft text-fg-success-strong'
-    : tone === 'danger'
-      ? 'bg-danger-soft text-fg-danger-strong'
-      : 'bg-neutral-secondary-medium text-body';
-  return <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClass}`}>{label}</span>;
+function SummaryChip({ label }: { label: string; tone?: 'success' | 'danger' }) {
+  return <Tag className="font-mono tabular-nums">{label}</Tag>;
 }

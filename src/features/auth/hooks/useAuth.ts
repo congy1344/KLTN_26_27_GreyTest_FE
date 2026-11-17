@@ -1,5 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminLogin, cancelSubscription, fetchCurrentUser, fetchUserQuota, login, register } from '../api/auth-api';
+import {
+  adminLogin,
+  cancelSubscription,
+  changePassword,
+  fetchCurrentUser,
+  fetchUserQuota,
+  forgotPassword,
+  login,
+  register,
+  resetPassword,
+  updateProfile,
+} from '../api/auth-api';
 import type { AuthUser } from '../types';
 
 const AUTH_KEY = ['auth', 'me'];
@@ -19,6 +30,8 @@ export function useUserQuota() {
   return useQuery({
     queryKey: USER_QUOTA_KEY,
     queryFn: fetchUserQuota,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
     enabled: Boolean(localStorage.getItem('greytest.token')),
     retry: false,
   });
@@ -77,6 +90,35 @@ export function useRegister() {
       queryClient.clear();
       localStorage.setItem('greytest.token', data.token);
       queryClient.setQueryData(AUTH_KEY, data.user);
+    },
+  });
+}
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: forgotPassword,
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: resetPassword,
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: changePassword,
+  });
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateProfile,
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData(AUTH_KEY, updatedUser);
+      void queryClient.invalidateQueries({ queryKey: AUTH_KEY });
     },
   });
 }

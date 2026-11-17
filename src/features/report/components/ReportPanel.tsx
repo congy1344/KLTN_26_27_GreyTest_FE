@@ -1,3 +1,4 @@
+import { Tag } from '../../../shared/components/Tag';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -21,10 +22,11 @@ import remarkGfm from 'remark-gfm';
 import { useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
+import { EmptyState } from '../../../shared/components/EmptyState';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { MetricCard } from '../../../shared/components/MetricCard';
 import { useLanguage } from '../../../shared/i18n/language';
-import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
+import { formatSemanticLabel, SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { cleanAiText } from '../../business-rules/utils/business-rule-text';
 import { parseReportSummary, useReportExport } from '../hooks/useReport';
 import type { ReportFormat } from '../types';
@@ -104,7 +106,7 @@ const REHYPE_PLUGINS = [rehypeHighlight];
 const MARKDOWN_COMPONENTS = {
   img: () => null,
   table: ({ children, ...props }: any) => (
-    <div className="my-3 overflow-x-auto rounded-default border border-border-default bg-neutral-primary-soft shadow-xs">
+    <div className="my-3 overflow-x-auto rounded-base border border-border-default bg-neutral-primary-soft">
       <table className="m-0 w-full border-collapse border-0 text-left text-xs" {...props}>
         {children}
       </table>
@@ -134,21 +136,11 @@ const MARKDOWN_COMPONENTS = {
         {...props}
       >
         {isCode ? (
-          <span className="inline-block rounded bg-brand-softer px-1.5 py-0.5 font-mono text-xs font-semibold text-fg-brand-strong">
+          <Tag>
             {children}
-          </span>
+          </Tag>
         ) : isStatus ? (
-          <span
-            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-              raw.toUpperCase() === 'APPROVED'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : raw.toUpperCase() === 'REJECTED'
-                  ? 'border-rose-200 bg-rose-50 text-rose-700'
-                  : 'border-amber-200 bg-amber-50 text-amber-700'
-            }`}
-          >
-            {formatSemanticLabel(raw.toUpperCase(), language)}
-          </span>
+          <SemanticBadge kind="review-status" value={raw.toUpperCase()} />
         ) : (
           isPriority ? formatSemanticLabel(raw.toUpperCase(), language) : children
         )}
@@ -185,7 +177,7 @@ const SectionCard = memo(function SectionCard({
   const Icon = getSectionIcon(section.title);
 
   return (
-    <div className="overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft shadow-xs transition-shadow hover:shadow-sm">
+    <div className="overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft transition-colors">
       <div
         role="button"
         tabIndex={0}
@@ -197,17 +189,17 @@ const SectionCard = memo(function SectionCard({
             onToggle(section.id);
           }
         }}
-        className="flex w-full cursor-pointer select-none items-center justify-between gap-3 bg-neutral-secondary-soft/60 px-4 py-3 text-left transition-colors hover:bg-neutral-secondary-soft focus:outline-none"
+        className="flex w-full cursor-pointer select-none items-center justify-between gap-3 bg-neutral-secondary-soft px-4 py-3 text-left transition-colors hover:bg-neutral-secondary-soft"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-default bg-brand-softer text-fg-brand-strong">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong">
             <Icon size={16} />
           </div>
-          <h2 className="text-sm font-bold text-heading">{section.title}</h2>
+          <h2 className="font-semibold text-heading text-lg font-display">{section.title}</h2>
           {section.badge && (
-            <span className="rounded-full border border-border-default bg-neutral-primary-soft px-2 py-0.5 text-[11px] font-medium text-body-subtle">
+            <Tag>
               {section.badge.replace('items', t('mục', 'items'))}
-            </span>
+            </Tag>
           )}
         </div>
         <div className="flex items-center gap-2 text-body-subtle">
@@ -313,7 +305,7 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
     <section className="mt-8 animate-fade-in">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-heading">Report</h3>
+          <h2 className="text-base font-semibold text-heading font-display">Report</h2>
           <p className="mt-1 text-xs text-body-subtle">
             {t('Xuất Report cuối pipeline theo JSON hoặc Markdown.', 'Export the final pipeline Report as JSON or Markdown.')}
           </p>
@@ -337,7 +329,7 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4">
           <p className="text-sm font-semibold text-heading">{t('Định dạng export', 'Export format')}</p>
           <div role="group" aria-label="Report format" className="mt-4 grid gap-2">
             {(['markdown', 'json'] as const).map((item) => (
@@ -345,7 +337,7 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
                 key={item}
                 type="button"
                 aria-pressed={format === item}
-                className={`flex min-h-[44px] items-center justify-between gap-3 rounded-default border px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                className={`flex min-h-[44px] items-center justify-between gap-3 rounded-base border px-3 py-2 text-left text-xs font-semibold transition-colors ${
                   format === item
                     ? 'border-border-brand-subtle bg-brand-softer text-fg-brand-strong'
                     : 'border-border-default bg-neutral-secondary-soft text-body hover:border-border-default-strong'
@@ -363,17 +355,15 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
 
           <div className="mt-4 grid gap-2 text-sm">
             <ContextRow label="Sections" value="Summary, Traceability, Coverage" />
-            <ContextRow label="Endpoint" value="/export?format=" />
-            <ContextRow label="PDF/Excel" value="Out of scope" />
           </div>
         </div>
 
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft shadow-sm">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft">
           <div className="flex flex-col gap-3 border-b border-border-default p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-heading">Report preview</p>
+              <p className="text-sm font-semibold text-heading">{t('Xem trước báo cáo', 'Report preview')}</p>
               <p className="mt-1 text-xs text-body-subtle">
-                {t('Nội dung được sinh từ dữ liệu thật của project trên backend.', 'Content is generated from the real project data on the backend.')}
+                {t('Chọn định dạng rồi tải báo cáo về máy.', 'Choose a format, then download the report.')}
               </p>
             </div>
             <button className="btn btn-brand shrink-0" disabled={!preview.data} onClick={handleDownload}>
@@ -382,7 +372,7 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
             </button>
           </div>
           {preview.isLoading ? (
-            <LoadingState label={t('Đang tạo report...', 'Generating report...')} minHeight="min-h-[430px]" />
+            <LoadingState label={t('Đang tạo báo cáo...', 'Generating report...')} minHeight="min-h-[430px]" />
           ) : preview.isError ? (
             <div className="p-4">
               <InlineAlert tone="danger">{getErrorMessage(preview.error)}</InlineAlert>
@@ -390,6 +380,8 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
                 {t('Thử lại', 'Retry')}
               </button>
             </div>
+          ) : !preview.data ? (
+            <EmptyState icon={FileText} title={t('Chưa có nội dung báo cáo', 'No report content yet')} hint={t('Hoàn tất phân tích coverage rồi mở lại báo cáo.', 'Complete coverage analysis, then reopen the report.')} minHeight="min-h-[430px]" />
           ) : format === 'markdown' ? (
             <article aria-label="Report preview" className="min-h-[430px] max-h-[75vh] overflow-auto p-6">
               {parsedDoc.header && (
@@ -407,13 +399,13 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
               {parsedDoc.sections.length > 0 ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-3 px-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-body-subtle">
+                    <span className="text-xs font-semibold text-body-subtle">
                       {t(`${parsedDoc.sections.length} mục lớn`, `${parsedDoc.sections.length} major sections`)}
                     </span>
                     <button
                       type="button"
                       onClick={toggleAll}
-                      className="inline-flex items-center gap-1.5 rounded-default border border-border-default bg-neutral-secondary-soft px-3 py-1.5 text-xs font-semibold text-heading transition-colors hover:bg-neutral-secondary-soft/80"
+                      className="inline-flex items-center gap-1.5 rounded-control border border-border-default bg-neutral-secondary-soft px-3 py-1.5 text-xs font-semibold text-heading transition-colors hover:bg-neutral-secondary-soft"
                     >
                       {allOpen ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
                       {allOpen ? t('Thu gọn tất cả', 'Collapse all') : t('Mở tất cả', 'Expand all')}
@@ -458,7 +450,7 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
 
 function ContextRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-2 rounded-default bg-neutral-secondary-soft px-3 py-2">
+    <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-2 rounded-base bg-neutral-secondary-soft px-3 py-2">
       <dt className="text-body-subtle">{label}</dt>
       <dd className="truncate font-medium text-heading">{value}</dd>
     </div>

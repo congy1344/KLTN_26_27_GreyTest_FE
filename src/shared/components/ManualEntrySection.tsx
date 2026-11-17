@@ -6,10 +6,10 @@ export function ManualEntrySection({ title, children }: { title: string; childre
   const [open, setOpen] = useState(false);
   const Icon = open ? ChevronDown : ChevronRight;
   return (
-    <div className="mb-4 rounded-default border border-border-default bg-neutral-secondary-soft">
+    <div className="mb-4 border-b border-border-default">
       <button
         type="button"
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-heading"
+        className="rounded-base flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-heading"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >

@@ -12,7 +12,8 @@ const TERMINAL_DISPLAY_MS = 5_000;
 const NO_PROGRESS_GRACE_MS = 1_500;
 const ALL_STAGES: GenerationProgressStage[] = ['BUSINESS_RULE', 'TEST_PLAN', 'TEST_CASE', 'UNIT_TEST'];
 
-const isActiveStatus = (status?: string) => status === 'QUEUED' || status === 'RUNNING';
+const isActiveStatus = (status?: string, busy?: boolean) =>
+  status === 'QUEUED' || status === 'RUNNING' || (status === 'PAUSED' && Boolean(busy));
 
 /** Polling tiến độ và giữ kết quả cuối đủ lâu để người dùng đọc phần trăm cùng nhật ký. */
 export function useGenerationProgress(
@@ -61,9 +62,11 @@ export function useGenerationProgress(
       queryKey: ['generation-progress', projectId, candidate] as const,
       queryFn: () => fetchGenerationProgress(projectId, candidate),
       enabled: projectId > 0,
-      refetchInterval: (currentQuery: { state: { data?: { status?: string } } }) => (
-        active || tracking || isActiveStatus(currentQuery.state.data?.status) ? 1_500 : false
-      ),
+      refetchInterval: (currentQuery: { state: { data?: { status?: string; busy?: boolean } } }) => {
+        const status = currentQuery.state.data?.status;
+        const isBusy = Boolean(currentQuery.state.data?.busy);
+        return active || tracking || isActiveStatus(status) || (status === 'PAUSED' && isBusy) ? 1_500 : false;
+      },
       refetchOnMount: 'always' as const,
       retry: 1,
     })),
@@ -79,15 +82,16 @@ export function useGenerationProgress(
     enabled: projectId > 0,
     refetchInterval: (currentQuery) => {
       const status = currentQuery.state.data?.status;
+      const isBusy = Boolean(currentQuery.state.data?.busy);
       if (currentQuery.state.status === 'error') return active ? 1_500 : false;
-      return status === 'QUEUED' || status === 'RUNNING' || active || tracking || isAnySiblingActive ? 1_500 : false;
+      return status === 'QUEUED' || status === 'RUNNING' || (status === 'PAUSED' && isBusy) || active || tracking || isAnySiblingActive ? 1_500 : false;
     },
     refetchOnMount: 'always',
     retry: 1,
   });
 
   const allProgress = [query.data, ...siblingProgress].filter(Boolean) as GenerationProgress[];
-  const currentlyActive = isActiveStatus(query.data?.status) ? query.data : activeSibling;
+  const currentlyActive = isActiveStatus(query.data?.status, query.data?.busy) ? query.data : activeSibling;
   if (currentlyActive) trackedProjectStage.current = currentlyActive.stage;
 
   // Khi không có stage nào RUNNING, tìm stage hoàn thành gần nhất theo thứ tự pipeline
@@ -105,7 +109,7 @@ export function useGenerationProgress(
     ?? trackedProgress
     ?? (active ? latestFinishedByPipeline : undefined)
     ?? query.data;
-  const projectRunning = isActiveStatus(projectProgress?.status);
+  const projectRunning = isActiveStatus(projectProgress?.status, projectProgress?.busy);
 
   useEffect(() => {
     const status = projectProgress?.status ?? query.data?.status;
@@ -165,13 +169,15 @@ export function useGenerationProgress(
   };
 
   const isPaused = query.data?.status === 'PAUSED';
+  const isDraining = isPaused && Boolean(query.data?.busy);
 
   return {
     ...query,
     showProgress: active || tracking || isPaused,
     projectProgress,
-    projectRunning,
+    projectRunning: projectRunning || isDraining,
     isPaused,
+    isDraining,
     pause,
     cancel,
   };

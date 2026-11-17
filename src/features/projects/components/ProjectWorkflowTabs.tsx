@@ -1,5 +1,6 @@
+import { Tag } from '../../../shared/components/Tag';
 import { Link } from 'react-router-dom';
-import { AlertCircle, BarChart3, CheckCircle2, ClipboardCheck, ClipboardList, Code2, FileText, ScanLine, TableProperties } from 'lucide-react';
+import { Clock, AlertCircle, BarChart3, CheckCircle2, ClipboardCheck, ClipboardList, Code2, FileText, ScanLine, TableProperties } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n/language';
 import type { ProjectStatus } from '../types';
 import {
@@ -29,7 +30,7 @@ const tabs = [
   { id: 'test-cases', label: 'Test Case', description: ['Soạn data, precondition và expected result', 'Define data, preconditions, and expected results'], icon: ClipboardCheck },
   { id: 'unit-tests', label: 'Unit Test', description: ['Chuẩn bị test class, method và assertion chính', 'Prepare test classes, methods, and key assertions'], icon: Code2 },
   { id: 'coverage', label: 'Coverage', description: ['Upload JaCoCo XML và xem coverage gap', 'Upload JaCoCo XML and inspect coverage gaps'], icon: BarChart3 },
-  { id: 'traceability', label: 'Traceability', description: ['Ma trận BR → Plan → Case → Unit Test', 'BR → Plan → Case → Unit Test matrix'], icon: TableProperties },
+  { id: 'traceability', label: 'Traceability', description: ['Truy vết BR, Plan, Case và Unit Test', 'Trace BR, Plan, Case and Unit Test'], icon: TableProperties },
   { id: 'report', label: 'Report', description: ['Xuất JSON hoặc Markdown', 'Export JSON or Markdown'], icon: FileText },
 ] as const;
 
@@ -76,14 +77,14 @@ export function ProjectWorkflowTabs({ projectId, active, status, reachedStatus, 
             : isCompleted
               ? 'completed'
               : 'available';
-        const className = `min-h-[108px] rounded-base border px-2.5 py-3 sm:p-3 shadow-sm transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+        const className = `min-h-[96px] rounded-base border px-2.5 py-3 sm:p-3  transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${
           isDisabled
-            ? 'cursor-not-allowed border-border-default bg-neutral-secondary-soft text-body-subtle opacity-70'
-            : `hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+            ? 'cursor-not-allowed border-border-default bg-neutral-secondary-soft text-body-subtle '
+            : `     ${
               isCurrent
-                ? 'border-border-brand bg-brand-softer text-fg-brand-strong shadow-md ring-2 ring-brand/20'
+                ? 'border-border-brand bg-brand-softer text-fg-brand-strong  ring-2 ring-brand/20'
                 : isCompleted
-                  ? 'border-border-success-subtle bg-success-soft/50 text-fg-success-strong'
+                  ? 'border-border-success-subtle bg-success-soft text-fg-success-strong'
                   : 'border-border-default bg-neutral-primary-soft text-body hover:border-border-default-strong'
             }`
         }`;
@@ -93,43 +94,37 @@ export function ProjectWorkflowTabs({ projectId, active, status, reachedStatus, 
         const content = (
           <div className="flex h-full flex-col">
             <div className="flex items-center justify-between gap-1.5">
-              <span className={`flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-default transition-colors ${
+              <span className={`flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-control transition-colors ${
                 isCurrent
-                  ? 'bg-brand text-neutral-primary-soft shadow-sm'
+                  ? 'bg-brand text-on-brand '
                   : isCompleted
                     ? 'bg-success-soft text-fg-success-strong'
                     : 'bg-neutral-secondary-medium text-body-subtle'
               }`}>
                 <Icon size={14} className="sm:h-[15px] sm:w-[15px]" strokeWidth={1.8} />
               </span>
-              <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[10px] font-semibold text-body-subtle">
+              <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-xs font-semibold text-body-subtle">
                 <span>{String(index + 1).padStart(2, '0')}</span>
                 {isWorkflowCurrent && (
-                  <span
-                    className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border-brand-subtle bg-brand-softer px-1.5 py-0.5 font-sans text-[9px] font-bold text-fg-brand-strong"
-                    title={t('Giai đoạn hiện tại của quy trình', 'Current workflow stage')}
-                  >
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true" />
+                  <Tag variant="status" tone={'brand'} icon={Clock} title={t('Giai đoạn hiện tại của quy trình', 'Current workflow stage')} className="shrink-0 whitespace-nowrap">
+
                     <span className="whitespace-nowrap">{t('Đang thực hiện', 'In progress')}</span>
-                  </span>
+                  </Tag>
                 )}
                 {isFailedStep && (
-                  <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-danger-soft px-1.5 py-0.5 font-sans text-[9px] font-bold text-fg-danger-strong">
-                    <AlertCircle size={11} strokeWidth={2} aria-hidden="true" />
+                  <Tag variant="status" tone={'danger'} icon={AlertCircle} className="shrink-0 whitespace-nowrap">
+
                     <span className="whitespace-nowrap">{t('Lỗi', 'Failed')}</span>
-                  </span>
+                  </Tag>
                 )}
                 {isCompleted && (
-                  <span className="inline-flex shrink-0 items-center text-fg-success-strong">
-                    <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" />
-                    <span className="sr-only">{t('Hoàn thành', 'Completed')}</span>
-                  </span>
+                  <Tag variant="status" tone="success" icon={CheckCircle2} className="shrink-0">{t('Hoàn thành', 'Completed')}</Tag>
                 )}
               </span>
             </div>
             <span className="mt-3 min-w-0">
               <span className="block text-xs font-semibold text-heading">{tab.label}</span>
-              <span className="mt-1 block text-[11px] leading-relaxed text-body-subtle">{description}</span>
+              <span className="mt-1 block text-xs leading-relaxed text-body-subtle">{description}</span>
             </span>
           </div>
         );

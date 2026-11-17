@@ -16,7 +16,7 @@ describe('ProjectServiceSelector', () => {
       />,
     );
 
-    expect(screen.queryByRole('combobox', { name: 'Chọn service' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chọn service' })).not.toBeInTheDocument();
   });
 
   it('requires a module choice and reports the selected service path', () => {
@@ -31,12 +31,13 @@ describe('ProjectServiceSelector', () => {
       />,
     );
 
-    const selector = screen.getByRole('combobox', { name: 'Chọn service' });
-    expect(selector).toHaveValue('');
+    const selector = screen.getByRole('button', { name: 'Chọn service' });
+    expect(selector).toHaveTextContent('Chọn một service');
+    fireEvent.click(selector);
     expect(screen.getByRole('option', { name: 'account-service (account-service)' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'auth-service (auth-service)' })).toBeInTheDocument();
 
-    fireEvent.change(selector, { target: { value: 'auth-service' } });
+    fireEvent.click(screen.getByRole('option', { name: 'auth-service (auth-service)' }));
 
     expect(onChange).toHaveBeenCalledWith('auth-service');
   });

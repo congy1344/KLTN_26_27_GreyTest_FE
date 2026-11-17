@@ -1,0 +1,67 @@
+/* Hallmark · checked: 2026-11-12 · genre: modern-minimal · scope: app
+ * floor: 0 FAIL · fixed: focus, reduced motion, code tokens
+ * built: the project · redesign: layout · v2.0.0 */
+/* Outside layers so utilities cannot suppress the focus indicator. */
+:is(button, a, input, select, textarea, [tabindex], summary):focus-visible {
+  outline: 2px solid var(--brand) !important;
+  outline-offset: 2px !important;
+  transition: none !important;
+}
+button:has(> svg):not(:has(> span)):not(.btn):not(.icon-button),
+button.btn-ghost-danger:has(> svg:only-child),
+button.btn:has(> svg:only-child),
+a:has(> svg:only-child) { min-width: 44px; min-height: 44px; }
+.btn { min-height: 36px; white-space: nowrap; }
+.btn-outline { border-color: var(--border-default); background: var(--neutral-primary-soft); color: var(--heading); }
+.btn-outline:hover { background: var(--neutral-secondary-soft); }
+.text-on-brand { color: var(--neutral-primary-soft); }
+:root[data-theme='dark'] .text-on-brand { color: var(--neutral-primary); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* Precision Lab code surfaces. */
+:root { --code-bg: #17181c; --code-ink: #e4e4de; --code-dim: #8e929b; --code-highlight: #2b2b55; }
+:root[data-theme="dark"] { --code-bg: #0a0b0d; --code-highlight: #26264a; }
+.code-surface { background: var(--code-bg); color: var(--code-ink); }
+.code-dim { color: var(--code-dim); }
+.code-highlight { background: var(--code-highlight); }
+
+.btn:active:not(:disabled) { transform: translateY(1px); }
+/* Nút bị khoá: màu riêng đủ tương phản, không làm mờ bằng opacity.
+ * Selector có [data-theme] để thắng rule chữ tối của .btn-brand ở chế độ tối. */
+:root :is(button, .btn, .btn-ghost-danger):disabled,
+:root[data-theme='dark'] :is(button, .btn, .btn-ghost-danger):disabled {
+  background: var(--disabled);
+  border-color: var(--border-default-medium);
+  color: var(--fg-disabled);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+:root .btn-brand { color: var(--on-accent); }
+.projects-band { position: relative; overflow: hidden; background: var(--band); color: var(--on-band); border-bottom: 1px solid var(--border-default); }
+.projects-band h1 { color: var(--on-band); text-wrap: balance; }
+.projects-band-mark { position: absolute; right: -40px; top: -30px; width: 520px; height: 320px; pointer-events: none; }
+.projects-band .btn-band { color: var(--on-band); border-color: var(--band-line); background: var(--band); }
+.projects-band .btn-band:hover { background: var(--band-mark); }
+.quota-popover { position: absolute; top: calc(100% + 8px); right: 0; width: 340px; max-width: calc(100dvw - 24px); padding: 20px; border: 1px solid var(--border-default); border-radius: var(--radius-base); background: var(--neutral-primary-soft); box-shadow: var(--shadow-lg); }
+@media (max-width: 639px) {
+  .projects-band-mark { right: -220px; opacity: 0.25; }
+  .quota-popover { position: fixed; top: 124px; right: 12px; }
+}
+
+:root pre, :root .code-surface { border-radius: var(--radius-sm); }
+
+/* The requested hover background needs darker ink to meet 4.5:1. */
+:root .btn-brand:hover:not(:disabled) { color: var(--on-accent-hover); }
+
+:root textarea, :root textarea.form-input, :root [contenteditable='true'], :root [aria-multiline='true'] { border-radius: var(--radius-default); }
+
+/* Keep the visible square compact and its hit area at least 44px. */
+.icon-button { position: relative; padding: 0; flex-shrink: 0; border: 0; transition: background-color 150ms ease, color 150ms ease; }
+.icon-button::after { content: ''; position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.icon-button > svg { display: block; margin: 0; transform: none; pointer-events: none; }
+:root .icon-button:disabled, :root[data-theme='dark'] .icon-button:disabled { background: var(--disabled); color: var(--fg-disabled); cursor: not-allowed; }
+.icon-button:hover:not(:disabled) { background: var(--neutral-secondary-medium); color: var(--heading); }
+.icon-button:active:not(:disabled) { background: var(--neutral-tertiary); }

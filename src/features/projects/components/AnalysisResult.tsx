@@ -20,13 +20,13 @@ export function AnalysisResult({ data, existingTests = [], methodDiffMap }: Anal
       <section>
         <div className={`${isExpanded ? 'mb-4' : ''} flex items-center justify-between gap-4`}>
           <div>
-            <h3 className="text-sm font-semibold text-heading">{t('Tổng quan analysis', 'Analysis overview')}</h3>
+            <h2 className="text-base font-semibold text-heading font-display">{t('Tổng quan analysis', 'Analysis overview')}</h2>
             <p className="mt-1 text-xs text-body-subtle">
               {t('Các chỉ số được trích xuất từ production source.', 'Metrics extracted from production source.')}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            <span className="hidden text-xs font-mono text-body-subtle sm:inline">Project #{data.projectId}</span>
+            <span className="hidden text-xs text-body-subtle sm:inline">Project #<span className="font-mono">{data.projectId}</span></span>
             <button
               type="button"
               onClick={() => setIsExpanded((value) => !value)}
@@ -49,7 +49,7 @@ export function AnalysisResult({ data, existingTests = [], methodDiffMap }: Anal
             />
 
             {data.existingTestFiles > 0 && (
-          <div className="mt-4 flex items-start gap-3 rounded-base border border-border-brand-subtle bg-brand-softer p-4 shadow-xs">
+          <div className="mt-4 flex items-start gap-3 rounded-base border border-border-brand-subtle bg-brand-softer p-4">
             <ShieldCheck size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-fg-brand-strong" />
             <div>
               <p className="text-sm font-semibold text-fg-brand-strong">
@@ -63,7 +63,7 @@ export function AnalysisResult({ data, existingTests = [], methodDiffMap }: Anal
             )}
 
             {(data.failedParseFiles ?? 0) > 0 && (
-          <div className="mt-4 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4 shadow-xs">
+          <div className="mt-4 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4">
             <AlertTriangle size={16} strokeWidth={1.8} className="mt-0.5 shrink-0 text-warning-strong" />
             <div>
               <p className="text-sm font-semibold text-warning-strong">
@@ -90,8 +90,8 @@ export function AnalysisResult({ data, existingTests = [], methodDiffMap }: Anal
 
       {isExpanded && <section>
         <div className="mb-4">
-          <h3 className="text-sm font-semibold text-heading">{t('Cấu trúc source code', 'Source code structure')}</h3>
-          <p className="mt-1 text-xs text-body-subtle">{t('Mở từng class và method để xem endpoint, signature và source.', 'Open a class or method to inspect its endpoint, signature, and source.')}</p>
+          <h2 className="text-base font-semibold text-heading font-display">{t('Cấu trúc source code', 'Source code structure')}</h2>
+          <p className="mt-1 text-xs text-body-subtle font-mono">{t('Mở từng class và method để xem endpoint, signature và source.', 'Open a class or method to inspect its endpoint, signature, and source.')}</p>
         </div>
         <ClassTree classes={data.classes} existingTests={existingTests} methodDiffMap={methodDiffMap} />
       </section>}

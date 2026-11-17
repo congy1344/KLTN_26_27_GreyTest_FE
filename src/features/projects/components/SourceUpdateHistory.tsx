@@ -1,5 +1,6 @@
+import { Tag } from '../../../shared/components/Tag';
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, History, Eye, Clock } from 'lucide-react';
+import { ChevronDown, ChevronUp, History, Eye, Clock, Plus, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n/language';
 import { parseApiDate } from '../../../shared/utils/date-time';
 import type { ImpactSummaryDto, SourceUpdateDto, SourceUpdateItemDto } from '../types';
@@ -160,10 +161,10 @@ function renderFields(
   if (!parsed.isJson) {
     return (
       <pre
-        className={`max-h-60 max-w-full overflow-x-auto whitespace-pre-wrap break-words break-all [overflow-wrap:anywhere] rounded p-2.5 font-mono text-[11px] ${
+        className={`max-h-60 max-w-full overflow-x-auto whitespace-pre-wrap break-words break-all [overflow-wrap:anywhere] rounded-sm p-2.5 font-mono text-xs ${
           isRed
-            ? 'border border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-200'
-            : 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+            ? 'border border-border-danger-subtle bg-danger-soft text-fg-danger-strong dark:text-fg-danger-strong'
+            : 'border border-border-success-subtle bg-success-soft text-fg-success-strong dark:text-fg-success-strong'
         }`}
       >
         <code>{parsed.codeText}</code>
@@ -199,28 +200,28 @@ function renderFields(
         return (
           <div key={key} className="min-w-0 space-y-1">
             <span
-              className={`inline-block font-semibold text-[11px] ${
-                isRed ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'
+              className={`inline-block font-semibold text-xs ${
+                isRed ? 'text-fg-danger-strong dark:text-fg-danger-strong' : 'text-fg-success-strong dark:text-fg-success-strong'
               }`}
             >
               {label}:
             </span>
             {isCodeField ? (
               <pre
-                className={`max-h-60 max-w-full overflow-x-auto whitespace-pre-wrap break-words break-all [overflow-wrap:anywhere] rounded p-2 font-mono text-[11px] ${
+                className={`max-h-60 max-w-full overflow-x-auto whitespace-pre-wrap break-words break-all [overflow-wrap:anywhere] rounded-sm p-2 font-mono text-xs ${
                   isRed
-                    ? 'border border-rose-500/20 bg-rose-500/10 text-rose-800 dark:text-rose-200'
-                    : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                    ? 'border border-border-danger-subtle bg-danger-soft text-fg-danger-strong dark:text-fg-danger-strong'
+                    : 'border border-border-success-subtle bg-success-soft text-fg-success-strong dark:text-fg-success-strong'
                 }`}
               >
                 <code>{String(val)}</code>
               </pre>
             ) : Array.isArray(val) ? (
               <ol
-                className={`list-decimal pl-4 space-y-0.5 text-xs min-w-0 rounded p-2 ${
+                className={`list-decimal pl-4 space-y-0.5 text-xs min-w-0 rounded-base p-2 ${
                   isRed
-                    ? 'border border-rose-500/20 bg-rose-500/10 text-rose-800 dark:text-rose-200'
-                    : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                    ? 'border border-border-danger-subtle bg-danger-soft text-fg-danger-strong dark:text-fg-danger-strong'
+                    : 'border border-border-success-subtle bg-success-soft text-fg-success-strong dark:text-fg-success-strong'
                 }`}
               >
                 {val.map((item, idx) => (
@@ -231,20 +232,20 @@ function renderFields(
               </ol>
             ) : typeof val === 'object' && val !== null ? (
               <pre
-                className={`max-h-48 max-w-full overflow-x-auto whitespace-pre-wrap break-words break-all [overflow-wrap:anywhere] rounded p-2 font-mono text-[11px] ${
+                className={`max-h-48 max-w-full overflow-x-auto whitespace-pre-wrap break-words break-all [overflow-wrap:anywhere] rounded-sm p-2 font-mono text-xs ${
                   isRed
-                    ? 'border border-rose-500/20 bg-rose-500/10 text-rose-800 dark:text-rose-200'
-                    : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                    ? 'border border-border-danger-subtle bg-danger-soft text-fg-danger-strong dark:text-fg-danger-strong'
+                    : 'border border-border-success-subtle bg-success-soft text-fg-success-strong dark:text-fg-success-strong'
                 }`}
               >
                 <code>{JSON.stringify(val, null, 2)}</code>
               </pre>
             ) : (
               <div
-                className={`min-w-0 rounded p-2 text-xs leading-relaxed break-words break-all [overflow-wrap:anywhere] whitespace-pre-wrap ${
+                className={`min-w-0 rounded-base p-2 text-xs leading-relaxed break-words break-all [overflow-wrap:anywhere] whitespace-pre-wrap ${
                   isRed
-                    ? 'border border-rose-500/20 bg-rose-500/10 text-rose-800 dark:text-rose-200 line-through decoration-rose-400/50'
-                    : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 font-medium'
+                    ? 'border border-border-danger-subtle bg-danger-soft text-fg-danger-strong dark:text-fg-danger-strong line-through decoration-danger'
+                    : 'border border-border-success-subtle bg-success-soft text-fg-success-strong dark:text-fg-success-strong font-medium'
                 }`}
               >
                 {String(val)}
@@ -272,15 +273,14 @@ function renderItemDiff(item: SourceUpdateItemDto, t: (vi: string, en: string) =
         {item.targetKey && (
           <div className="flex items-center gap-1.5 text-xs text-body-subtle">
             <span className="font-semibold text-heading">{t('Mục tiêu', 'Target')}:</span>
-            <span className="rounded-md bg-neutral-secondary-soft px-1.5 py-0.5 font-mono font-medium text-heading break-all">
+            <Tag className="break-all">
               {formatTargetKey(item.targetKey, t)}
-            </span>
+            </Tag>
           </div>
         )}
         <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-          <div className="min-w-0 overflow-hidden rounded-xl border border-border-default-subtle/70 bg-neutral-secondary-soft/50 p-3">
+          <div className="min-w-0 overflow-hidden rounded-base border border-border-default-subtle bg-neutral-secondary-soft p-3">
             <div className="flex items-center gap-1.5 font-semibold text-xs text-body-subtle mb-2">
-              <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-neutral-600" />
               <span>{t('Trước cập nhật', 'Before')}</span>
             </div>
             <p className="italic text-xs text-body-subtle">
@@ -288,14 +288,13 @@ function renderItemDiff(item: SourceUpdateItemDto, t: (vi: string, en: string) =
             </p>
           </div>
 
-          <div className="min-w-0 overflow-hidden rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+          <div className="min-w-0 overflow-hidden rounded-base border border-border-success-subtle bg-success-soft p-3">
             <div className="flex items-center justify-between gap-1.5 mb-2">
-              <div className="flex items-center gap-1.5 font-semibold text-xs text-emerald-700 dark:text-emerald-400">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <div className="flex items-center gap-1.5 font-semibold text-xs text-fg-success-strong dark:text-fg-success-strong">
                 <span>{t('Sau cập nhật', 'After')}</span>
-                <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold">
+                <Tag variant="status" tone="success" icon={Plus}>
                   + {t('Đã thêm mới', 'Added')}
-                </span>
+                </Tag>
               </div>
             </div>
             {renderFields(afterParsed, 'GREEN', language)}
@@ -312,19 +311,18 @@ function renderItemDiff(item: SourceUpdateItemDto, t: (vi: string, en: string) =
         {item.targetKey && (
           <div className="flex items-center gap-1.5 text-xs text-body-subtle">
             <span className="font-semibold text-heading">{t('Mục tiêu', 'Target')}:</span>
-            <span className="rounded-md bg-neutral-secondary-soft px-1.5 py-0.5 font-mono font-medium text-heading break-all">
+            <Tag className="break-all">
               {formatTargetKey(item.targetKey, t)}
-            </span>
+            </Tag>
           </div>
         )}
-        <div className="min-w-0 overflow-hidden rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
+        <div className="min-w-0 overflow-hidden rounded-base border border-border-danger-subtle bg-danger-soft p-3">
           <div className="flex items-center justify-between gap-1.5 mb-2">
-            <div className="flex items-center gap-1.5 font-semibold text-xs text-rose-700 dark:text-rose-400">
-              <span className="h-2 w-2 rounded-full bg-rose-500" />
+            <div className="flex items-center gap-1.5 font-semibold text-xs text-fg-danger-strong dark:text-fg-danger-strong">
               <span>{t('Trước cập nhật', 'Before')}</span>
-              <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold">
+              <Tag variant="status" tone="danger" icon={Trash2}>
                 - {t('Đã xóa', 'Removed')}
-              </span>
+              </Tag>
             </div>
           </div>
           {renderFields(beforeParsed, 'RED', language)}
@@ -360,9 +358,9 @@ function renderItemDiff(item: SourceUpdateItemDto, t: (vi: string, en: string) =
       {item.targetKey && !unchangedIdentifier && (
         <div className="flex items-center gap-1.5 text-xs text-body-subtle">
           <span className="font-semibold text-heading">{t('Mục tiêu', 'Target')}:</span>
-          <span className="rounded-md bg-neutral-secondary-soft px-1.5 py-0.5 font-mono font-medium text-heading break-all">
+          <Tag className="break-all">
             {formatTargetKey(item.targetKey, t)}
-          </span>
+          </Tag>
         </div>
       )}
       {unchangedIdentifier && (
@@ -370,33 +368,31 @@ function renderItemDiff(item: SourceUpdateItemDto, t: (vi: string, en: string) =
           <span className="font-semibold text-heading">
             {FIELD_LABELS[unchangedIdentifier.key]?.[language === 'vi' ? 'vi' : 'en'] || unchangedIdentifier.key}:
           </span>
-          <span className="rounded-md bg-neutral-secondary-soft px-1.5 py-0.5 font-mono font-medium text-heading break-all">
+          <Tag className="break-all">
             {String(unchangedIdentifier.val)}
-          </span>
+          </Tag>
         </div>
       )}
       <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-        <div className="min-w-0 overflow-hidden rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
+        <div className="min-w-0 overflow-hidden rounded-base border border-border-danger-subtle bg-danger-soft p-3">
           <div className="flex items-center justify-between gap-1.5 mb-2">
-            <div className="flex items-center gap-1.5 font-semibold text-xs text-rose-700 dark:text-rose-400">
-              <span className="h-2 w-2 rounded-full bg-rose-500" />
+            <div className="flex items-center gap-1.5 font-semibold text-xs text-fg-danger-strong dark:text-fg-danger-strong">
               <span>{t('Trước cập nhật', 'Before')}</span>
-              <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold">
+              <Tag>
                 - {t('Giá trị cũ', 'Old value')}
-              </span>
+              </Tag>
             </div>
           </div>
           {renderFields(beforeParsed, 'RED', language, changedKeys)}
         </div>
 
-        <div className="min-w-0 overflow-hidden rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+        <div className="min-w-0 overflow-hidden rounded-base border border-border-success-subtle bg-success-soft p-3">
           <div className="flex items-center justify-between gap-1.5 mb-2">
-            <div className="flex items-center gap-1.5 font-semibold text-xs text-emerald-700 dark:text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <div className="flex items-center gap-1.5 font-semibold text-xs text-fg-success-strong dark:text-fg-success-strong">
               <span>{t('Sau cập nhật', 'After')}</span>
-              <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold">
+              <Tag>
                 + {t('Giá trị mới', 'New value')}
-              </span>
+              </Tag>
             </div>
           </div>
           {renderFields(afterParsed, 'GREEN', language, changedKeys)}
@@ -446,30 +442,30 @@ export function SourceUpdateHistory({ updates, loading, error, servicePath }: So
     .filter((record) => record.scope.visible)
     .sort((a, b) => updateTime(b.update) - updateTime(a.update) || b.update.id - a.update.id);
   const actions = [
-    { value: 'CREATE', label: t('Đã thêm', 'Added'), style: 'border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-700 dark:text-emerald-400' },
-    { value: 'UPDATE', label: t('Đã sửa', 'Modified'), style: 'border-amber-500/20 bg-amber-500/[0.03] text-amber-700 dark:text-amber-400' },
-    { value: 'REMOVE', label: t('Đã xóa', 'Deleted'), style: 'border-rose-500/20 bg-rose-500/[0.03] text-rose-700 dark:text-rose-400' },
+    { value: 'CREATE', label: t('Đã thêm', 'Added'), style: 'border-border-success-subtle bg-success/[0.03] text-fg-success-strong dark:text-fg-success-strong' },
+    { value: 'UPDATE', label: t('Đã sửa', 'Modified'), style: 'border-border-warning-subtle bg-warning/[0.03] text-fg-warning dark:text-fg-warning' },
+    { value: 'REMOVE', label: t('Đã xóa', 'Deleted'), style: 'border-border-danger-subtle bg-danger/[0.03] text-fg-danger-strong dark:text-fg-danger-strong' },
   ];
 
   return (
-    <section aria-label={t('Lịch sử cập nhật', 'Update history')} className="rounded-xl border border-border-default/80 bg-neutral-primary-soft p-4 shadow-2xs">
+    <section aria-label={t('Lịch sử cập nhật', 'Update history')} className="rounded-base border border-border-default bg-neutral-primary-soft p-4">
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
-        className="flex w-full items-center gap-2 text-left text-sm font-semibold text-heading cursor-pointer">
+        className="flex w-full items-center gap-2 rounded-base px-2 py-2 text-left text-sm font-semibold text-heading transition-colors hover:bg-neutral-secondary-medium active:bg-neutral-tertiary">
         <History size={17} className="text-fg-brand-strong" />
         <span className="flex-1">{t('Lịch sử cập nhật', 'Update history')} ({records.length})</span>
         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
       {loading && <p role="status" className="mt-2 text-xs text-body-subtle">{t('Đang tải lịch sử...', 'Loading history...')}</p>}
-      {error && <p role="alert" className="mt-2 text-xs text-rose-600">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-fg-danger-strong">{error}</p>}
       {open && !loading && !error && (
         <div className="mt-3 max-h-96 space-y-3 overflow-y-auto">
           {records.length === 0 && <p className="text-xs text-body-subtle">{t('Chưa có bản cập nhật đã áp dụng.', 'No applied updates yet.')}</p>}
           {records.map(({ update, scope, items }) => {
             const expanded = expandedUpdate === update.id;
             return (
-              <article key={update.id} className="min-w-0 overflow-hidden rounded-xl border border-border-default/70 bg-neutral-primary/40 p-3.5 transition-colors">
+              <article key={update.id} className="min-w-0 overflow-hidden border-t border-t-border-default p-3.5 transition-colors">
                 <button type="button" aria-expanded={expanded} onClick={() => { setExpandedUpdate(expanded ? null : update.id); setExpandedItem(null); }}
-                  className="flex w-full flex-wrap items-center justify-between gap-2 text-left cursor-pointer">
+                  className="flex w-full flex-wrap items-center justify-between gap-2 rounded-base px-2 py-2 text-left transition-colors hover:bg-neutral-secondary-medium active:bg-neutral-tertiary">
                   <span className="text-sm font-semibold text-heading">{t('Bản cập nhật', 'Update')} #{update.id}</span>
                   <time className="text-xs text-body-subtle" dateTime={update.updatedAt || update.createdAt}>
                     {updateTime(update) ? new Date(updateTime(update)).toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US') : '—'}
@@ -478,25 +474,25 @@ export function SourceUpdateHistory({ updates, loading, error, servicePath }: So
                     const durationSec = Math.max(0, Math.round((parseApiDate(update.updatedAt).getTime() - parseApiDate(update.createdAt).getTime()) / 1000));
                     if (!Number.isFinite(durationSec) || durationSec <= 0) return null;
                     return (
-                      <span className="inline-flex items-center gap-1 rounded bg-neutral-secondary-soft px-2 py-0.5 text-xs font-medium text-body-subtle" title={t('Tổng thời gian thực hiện', 'Total execution time')}>
-                        <Clock size={11} className="text-fg-brand opacity-80" />
+                      <Tag title={t('Tổng thời gian thực hiện', 'Total execution time')} className="font-mono tabular-nums">
+                        <Clock size={12} aria-hidden="true"  />
                         <span>{t('Tổng thời gian', 'Total time')}: {formatDuration(durationSec)}</span>
-                      </span>
+                      </Tag>
                     );
                   })()}
-                  <span className="flex flex-wrap gap-2 text-xs">
-                    {actions.map((action) => <span key={action.value} className={`rounded-md border px-2 py-0.5 font-medium ${action.style}`}>
+                  <span className="flex flex-wrap gap-2 text-xs font-mono">
+                    {actions.map((action) => <Tag key={action.value} className="font-mono tabular-nums">
                       {action.label}: {items.filter((item) => item.action === action.value).length}
-                    </span>)}
+                    </Tag>)}
                   </span>
                 </button>
-                {scope.projectWide && <p className="mt-2 text-xs text-body-subtle">{t('Phạm vi: toàn project', 'Scope: entire project')}</p>}
+                {scope.projectWide && <p className="mt-2 text-xs text-body-subtle">{t('Phạm vi: toàn dự án', 'Scope: entire project')}</p>}
                 {expanded && <div className="mt-3.5 space-y-3 min-w-0">
                   {actions.map((action) => {
                     const group = items.filter((item) => item.action === action.value);
-                    return <section key={action.value} className={`min-w-0 overflow-hidden rounded-xl border p-3.5 ${action.style}`}>
+                    return <section key={action.value} className={`min-w-0 overflow-hidden rounded-base border p-3.5 ${action.style}`}>
                       <h4 className="text-xs font-semibold mb-1">{action.label} ({group.length})</h4>
-                      {group.map((item) => <div key={item.id} className="mt-2 min-w-0 overflow-hidden rounded-xl border border-border-default-subtle/80 bg-neutral-primary-soft p-3.5 shadow-2xs transition-colors hover:border-border-default">
+                      {group.map((item) => <div key={item.id} className="mt-2 min-w-0 overflow-hidden border-t border-t-border-default-subtle p-3.5 transition-colors hover:border-t-border-default">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="break-words font-semibold text-heading text-sm">{itemLabel(item)}</p>
                         </div>
@@ -510,7 +506,7 @@ export function SourceUpdateHistory({ updates, loading, error, servicePath }: So
                             type="button"
                             aria-expanded={expandedItem === item.id}
                             onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)}
-                            className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-brand/20 bg-brand/5 px-2.5 py-1 text-xs font-semibold text-fg-brand-strong hover:bg-brand/10 transition-colors cursor-pointer"
+                            className="btn btn-secondary mt-2.5 px-3 py-1.5 text-xs"
                           >
                             <Eye size={13} />
                             <span>{t('Xem nội dung trước/sau', 'View before/after')}</span>

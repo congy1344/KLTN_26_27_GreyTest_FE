@@ -1,3 +1,4 @@
+import { Tag } from '../../../shared/components/Tag';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
@@ -81,14 +82,14 @@ export function UnitTestTree({ tests, activeId, filtering, scrollToActive, fileP
         aria-label={test ? labelOf(test) : entry.label}
         label={test ? renderMethod(test) : (
           <span className="flex items-center gap-2 text-sm" data-node-kind={entry.kind}>
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-neutral-secondary-soft">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-control bg-neutral-secondary-soft">
               {entryIcon(entry.kind)}
             </span>
             <span className="truncate" title={entry.label}>{entry.label}</span>
             {entry.kind === 'test-file' && (
-              <span className="ml-auto shrink-0 rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-heading">
+              <Tag className="ml-auto shrink-0 font-mono tabular-nums">
                 {entry.children.length}
-              </span>
+              </Tag>
             )}
           </span>
         )}

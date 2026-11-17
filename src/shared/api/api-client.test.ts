@@ -4,7 +4,7 @@ import { AxiosError, AxiosHeaders } from 'axios';
 import type { AxiosAdapter } from 'axios';
 import { QueryClient } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiClient, getErrorMessage } from './api-client';
+import { apiClient, getErrorMessage, getLiveRequestMetrics, subscribeRequestTelemetry } from './api-client';
 
 const originalAdapter = apiClient.defaults.adapter;
 
@@ -115,5 +115,121 @@ describe('JWT session rejection', () => {
     expect(localStorage.getItem('greytest.token')).toBe('new-jwt');
     expect(disabled).not.toHaveBeenCalled();
     window.removeEventListener('account-disabled', disabled);
+  });
+});
+
+describe('Quota exceeded handling', () => {
+  it('dispatches quota-exceeded when backend returns USAGE_QUOTA_EXCEEDED', async () => {
+    const quotaExceeded = vi.fn();
+    window.addEventListener('quota-exceeded', quotaExceeded);
+    apiClient.defaults.adapter = async (config) => {
+      throw new AxiosError('Quota exceeded', 'ERR_BAD_REQUEST', config, undefined, {
+        config,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new AxiosHeaders(),
+        data: { code: 'USAGE_QUOTA_EXCEEDED', message: 'Bạn đã sử dụng hết hạn mức AI tuần này.' },
+      });
+    };
+
+    await expect(apiClient.post('/projects/1/generate')).rejects.toBeInstanceOf(AxiosError);
+    expect(quotaExceeded).toHaveBeenCalledTimes(1);
+    window.removeEventListener('quota-exceeded', quotaExceeded);
+  });
+
+  it('does NOT dispatch quota-exceeded when receiving generic 429 rate limit or DDoS error', async () => {
+    const quotaExceeded = vi.fn();
+    window.addEventListener('quota-exceeded', quotaExceeded);
+    apiClient.defaults.adapter = async (config) => {
+      throw new AxiosError('Rate limited', 'ERR_BAD_REQUEST', config, undefined, {
+        config,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: new AxiosHeaders(),
+        data: { status: 429, error: 'TOO_MANY_REQUESTS', message: 'Vượt hạn mức tần suất request WAF (100 req/phút)', retryAfter: 2 },
+      });
+    };
+
+    await expect(apiClient.get('/projects')).rejects.toBeInstanceOf(AxiosError);
+    expect(quotaExceeded).not.toHaveBeenCalled();
+    window.removeEventListener('quota-exceeded', quotaExceeded);
+  });
+
+  it('does NOT dispatch quota-exceeded on HTTP 400 validation error containing limit words', async () => {
+    const quotaExceeded = vi.fn();
+    window.addEventListener('quota-exceeded', quotaExceeded);
+    apiClient.defaults.adapter = async (config) => {
+      throw new AxiosError('Validation error', 'ERR_BAD_REQUEST', config, undefined, {
+        config,
+        status: 400,
+        statusText: 'Bad Request',
+        headers: new AxiosHeaders(),
+        data: { status: 400, error: 'BAD_REQUEST', message: 'Dung lượng file tải lên vượt hạn mức 50MB' },
+      });
+    };
+
+    await expect(apiClient.post('/projects/upload')).rejects.toBeInstanceOf(AxiosError);
+    expect(quotaExceeded).not.toHaveBeenCalled();
+    window.removeEventListener('quota-exceeded', quotaExceeded);
+  });
+});
+
+describe('Request Telemetry', () => {
+  it('dispatches start and finish telemetry events on successful request', async () => {
+    const events: any[] = [];
+    const unsubscribe = subscribeRequestTelemetry((record) => {
+      events.push(record);
+    });
+
+    apiClient.defaults.adapter = async (config) => ({
+      config,
+      status: 200,
+      statusText: 'OK',
+      headers: new AxiosHeaders(),
+      data: { success: true },
+    });
+
+    await apiClient.get('/test-endpoint');
+
+    expect(events.length).toBe(2);
+    // Start event
+    expect(events[0].url).toBe('/test-endpoint');
+    expect(events[0].method).toBe('GET');
+    expect(events[0].durationMs).toBeUndefined();
+
+    // Finish event
+    expect(events[1].url).toBe('/test-endpoint');
+    expect(events[1].status).toBe(200);
+    expect(events[1].durationMs).toBeTypeOf('number');
+    expect(events[1].isError).toBe(false);
+
+    unsubscribe();
+  });
+
+  it('records network drop without crashing or misreporting 500 status', async () => {
+    const events: any[] = [];
+    const unsubscribe = subscribeRequestTelemetry((record) => {
+      events.push(record);
+    });
+
+    apiClient.defaults.adapter = async (config) => {
+      // Simulate client cancellation / network failure where response is undefined
+      throw new AxiosError('Network Error', 'ERR_NETWORK', config);
+    };
+
+    await expect(apiClient.get('/drop-endpoint')).rejects.toThrow();
+
+    expect(events.length).toBe(2);
+    expect(events[1].isError).toBe(true);
+    expect(events[1].status).toBeUndefined();
+
+    unsubscribe();
+  });
+
+  it('calculates live throughput metrics from sliding window', () => {
+    const metrics = getLiveRequestMetrics();
+    expect(metrics.totalRequests).toBeGreaterThanOrEqual(0);
+    expect(metrics.requestsPerMinute).toBeGreaterThanOrEqual(0);
+    expect(metrics.requestsPerSecond).toBeGreaterThanOrEqual(0);
   });
 });

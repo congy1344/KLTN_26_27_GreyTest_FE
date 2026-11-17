@@ -46,6 +46,7 @@ const fixtures = vi.hoisted(() => {
   };
 });
 
+vi.mock('../../traceability/hooks/useTraceability', () => ({ useTraceability: () => ({ data: undefined }) }));
 vi.mock('../../../shared/hooks/useGenerationProgress', () => ({ useGenerationProgress: () => ({}) }));
 vi.mock('../hooks/useProjects', () => ({ useAnalysis: () => ({ data: fixtures.analysis, isFetching: fixtures.analysisFetching }) }));
 vi.mock('../../business-rules/hooks/useBusinessRules', () => {
@@ -220,7 +221,7 @@ describe('applied source deletion history in downstream panels', () => {
 
       const history = screen.getByRole('region', { name: `${label} đã xóa` });
       expect(history).toHaveTextContent(`${label} #99`);
-      expect(history).toHaveTextContent('- ĐÃ XÓA');
+      expect(history).toHaveTextContent('- Đã xóa');
       expect(history).toHaveTextContent(`${label} thuộc method đã xóa`);
       expect(history).not.toHaveTextContent(`${label} #98`);
       expect(history).not.toHaveTextContent(`${label} #1`);

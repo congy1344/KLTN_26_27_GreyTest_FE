@@ -1,3 +1,4 @@
+import { Check, CircleCheck, Clock, PencilLine, Ruler, Shuffle, TriangleAlert, X, type LucideIcon } from 'lucide-react';
 import { useLanguage, type Language } from '../i18n/language';
 
 type SemanticBadgeKind = 'test-type' | 'review-status';
@@ -52,26 +53,50 @@ const LABELS: Record<string, [string, string]> = {
   OUT_OF_SERVICE: ['Tạm ngừng dịch vụ', 'Out of service'],
 };
 
-const TEST_TYPE_STYLES: Record<string, string> = {
-  HAPPY_PATH: 'border-border-success-subtle bg-success-soft text-fg-success-strong',
-  BOUNDARY: 'border-border-orange bg-warning-soft text-fg-warning',
-  EXCEPTION: 'border-border-danger-subtle bg-danger-soft text-fg-danger-strong',
-  EDGE: 'border-border-purple bg-purple-soft text-fg-purple',
-  EDGE_CASE: 'border-border-purple bg-purple-soft text-fg-purple',
+type Tone = 'success' | 'warning' | 'danger' | 'brand' | 'neutral';
+
+/** Loại test là phân loại: chip trung tính, chỉ icon nhỏ mang màu gợi ý. */
+const TEST_TYPES: Record<string, { tone: Tone; icon: LucideIcon }> = {
+  HAPPY_PATH: { tone: 'success', icon: CircleCheck },
+  BOUNDARY: { tone: 'warning', icon: Ruler },
+  EXCEPTION: { tone: 'danger', icon: TriangleAlert },
+  EDGE: { tone: 'brand', icon: Shuffle },
+  EDGE_CASE: { tone: 'brand', icon: Shuffle },
 };
 
-const REVIEW_STATUS_STYLES: Record<string, string> = {
-  APPROVED: 'border-border-success-subtle bg-success-soft text-fg-success-strong',
-  PENDING_REVIEW: 'border-border-warning-subtle bg-warning-soft text-fg-warning',
-  REJECTED: 'border-border-danger-subtle bg-danger-soft text-fg-danger-strong',
+/** Trạng thái review: viên thuốc tô nền nhạt theo màu trạng thái, kèm icon. */
+const REVIEW_STATUSES: Record<string, { tone: Tone; icon: LucideIcon }> = {
+  APPROVED: { tone: 'success', icon: Check },
+  ACCEPTED: { tone: 'success', icon: Check },
+  PENDING_REVIEW: { tone: 'warning', icon: Clock },
+  PENDING: { tone: 'warning', icon: Clock },
+  REJECTED: { tone: 'danger', icon: X },
+  DRAFT: { tone: 'neutral', icon: PencilLine },
+  MODIFIED: { tone: 'neutral', icon: PencilLine },
 };
 
-const DEFAULT_STYLE = 'border-border-default bg-neutral-secondary-medium text-body-subtle';
+/** Trạng thái review dùng cùng bảng màu viên thuốc với trạng thái dự án (StatusBadge). */
+const TONE_PILL: Record<Tone, string> = {
+  success: 'bg-success-soft text-fg-success-strong',
+  warning: 'bg-warning-soft text-fg-warning',
+  danger: 'bg-danger-soft text-fg-danger-strong',
+  brand: 'bg-brand-softer text-fg-brand-strong',
+  neutral: 'bg-neutral-secondary-medium text-body',
+};
 
-export function formatSemanticLabel(value: string | null | undefined, language: Language) {
-  if (!value) return '';
-  const labels = Object.prototype.hasOwnProperty.call(LABELS, value) ? LABELS[value] : undefined;
-  return labels ? labels[language === 'vi' ? 0 : 1] : value.replace(/_/g, ' ');
+const TONE_TEXT: Record<Tone, string> = {
+  success: 'text-fg-success-strong',
+  warning: 'text-fg-warning',
+  danger: 'text-fg-danger-strong',
+  brand: 'text-fg-brand-strong',
+  neutral: 'text-body-subtle',
+};
+
+export function formatSemanticLabel(value: unknown, language: Language) {
+  if (value === null || value === undefined || value === '') return '';
+  const str = typeof value === 'string' ? value : String(value);
+  const labels = Object.prototype.hasOwnProperty.call(LABELS, str) ? LABELS[str] : undefined;
+  return labels ? labels[language === 'vi' ? 0 : 1] : str.replace(/_/g, ' ');
 }
 
 interface SemanticBadgeProps {
@@ -81,14 +106,27 @@ interface SemanticBadgeProps {
   className?: string;
 }
 
-/** Hiển thị màu ngữ nghĩa nhất quán cho loại kiểm thử và trạng thái review. */
+/** Loại kiểm thử: viên thuốc trung tính có icon màu gợi ý. Trạng thái review: viên thuốc màu trạng thái. */
 export function SemanticBadge({ value, kind, label, className = '' }: SemanticBadgeProps) {
   const { language } = useLanguage();
-  const styles = kind === 'test-type' ? TEST_TYPE_STYLES : REVIEW_STATUS_STYLES;
-
+  const text = label ?? formatSemanticLabel(value, language);
+  if (kind === 'test-type') {
+    const type = TEST_TYPES[value];
+    const Icon = type?.icon;
+    return (
+      <span data-tone={type?.tone ?? 'neutral'} className={`inline-flex items-center gap-1 rounded-control bg-neutral-secondary-medium px-2.5 py-1 text-xs font-semibold text-heading ${className}`}>
+        {Icon && <Icon size={12} strokeWidth={2.2} aria-hidden="true" className={`shrink-0 ${TONE_TEXT[type.tone]}`} />}
+        {text}
+      </span>
+    );
+  }
+  const status = REVIEW_STATUSES[value];
+  const Icon = status?.icon ?? Clock;
+  const tone = status?.tone ?? 'neutral';
   return (
-    <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${styles[value] ?? DEFAULT_STYLE} ${className}`}>
-      {label ?? formatSemanticLabel(value, language)}
+    <span data-tone={tone} className={`inline-flex items-center gap-1 rounded-control px-2.5 py-1 text-xs font-semibold ${TONE_PILL[tone]} ${className}`}>
+      {Icon && <Icon size={13} strokeWidth={2.4} aria-hidden="true" className="shrink-0" />}
+      {text}
     </span>
   );
 }

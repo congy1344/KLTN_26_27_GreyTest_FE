@@ -1,3 +1,5 @@
+import { Trash2 } from 'lucide-react';
+import { Tag } from '../../../shared/components/Tag';
 import { useLanguage } from '../../../shared/i18n/language';
 import type { ImpactSummaryDto, SourceUpdateDto } from '../types';
 import { sourceUpdateHistoryScope } from '../utils/source-update-history';
@@ -33,19 +35,19 @@ export function SourceUpdateDeletionHistory({ update, impact, targetType, curren
   return (
     <section aria-label={t(`${label} đã xóa`, `Deleted ${label}s`)} className="mt-4 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold text-rose-600 dark:text-rose-400">
+        <h2 className="text-sm font-semibold text-fg-danger-strong dark:text-fg-danger-strong">
           {t(`${label} đã xóa`, `Deleted ${label}s`)} ({removed.length})
-        </h3>
-        {scope.projectWide && <span className="text-xs text-body-subtle">{t('Phạm vi: toàn project', 'Scope: entire project')}</span>}
+        </h2>
+        {scope.projectWide && <span className="text-xs text-body-subtle">{t('Phạm vi: toàn dự án', 'Scope: entire project')}</span>}
       </div>
       <p className="text-xs text-body-subtle">{t('Lịch sử của bản cập nhật source đã áp dụng.', 'History from the applied source update.')}</p>
       {removed.map((item) => (
-        <article key={item.id} className="rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3">
+        <article key={item.id} className="rounded-base border-2 border-border-danger-subtle bg-danger/[0.04] p-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xs font-semibold text-rose-600 line-through dark:text-rose-400">
+            <span className="font-mono text-xs font-semibold text-fg-danger-strong line-through dark:text-fg-danger-strong">
               {label}{item.targetId != null ? ` #${item.targetId}` : ''}
             </span>
-            <span className="rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">{t('- ĐÃ XÓA', '- DELETED')}</span>
+            <Tag variant="status" tone="danger" icon={Trash2}>{t('- Đã xóa', '- Deleted')}</Tag>
           </div>
           {item.reason && <p className="mt-1 text-xs text-body-subtle">{item.reason}</p>}
         </article>

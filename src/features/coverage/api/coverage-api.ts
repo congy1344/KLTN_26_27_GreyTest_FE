@@ -19,3 +19,22 @@ export async function startCoverageRefinement(projectId: number, servicePath?: s
   const { data } = await apiClient.post<CoverageRefinement>(`/projects/${projectId}/coverage/refine`, undefined, { params: serviceParams(servicePath) });
   return data;
 }
+
+/** Trạng thái lần chạy Unit Test trong sandbox trên server (mirror SandboxTestRunService.RunState). */
+export interface SandboxRunState {
+  status: 'IDLE' | 'RUNNING' | 'SUCCEEDED' | 'TESTS_FAILED' | 'FAILED';
+  message: string;
+  tests: number;
+  failed: number;
+  logTail: string;
+}
+
+export async function startSandboxRun(projectId: number, servicePath?: string, repair = false): Promise<SandboxRunState> {
+  const { data } = await apiClient.post<SandboxRunState>(`/projects/${projectId}/coverage/run`, undefined, { params: { ...serviceParams(servicePath), repair } });
+  return data;
+}
+
+export async function fetchSandboxRun(projectId: number): Promise<SandboxRunState> {
+  const { data } = await apiClient.get<SandboxRunState>(`/projects/${projectId}/coverage/run`);
+  return data;
+}

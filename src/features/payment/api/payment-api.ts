@@ -31,6 +31,23 @@ export interface PaymentTransactionDto {
   updatedAt?: string;
 }
 
+export interface PublicTierPackage {
+  code: string;
+  name: string;
+  price: number;
+  cycle: string;
+  quotaLimit: number;
+  batchConcurrency: number;
+  features: string[];
+  description: string;
+  active: boolean;
+}
+
+export async function fetchPublicTierPackages(): Promise<PublicTierPackage[]> {
+  const { data } = await apiClient.get<PublicTierPackage[]>('/payment/packages');
+  return data;
+}
+
 export async function createVnpayPaymentUrl(tier: 'PLUS' | 'PRO'): Promise<PaymentUrlResponse> {
   const { data } = await apiClient.post<PaymentUrlResponse>('/payment/create-vnpay-url', { tier });
   return data;

@@ -11,6 +11,7 @@ import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceSc
 import { TraceabilityPage } from './TraceabilityPage';
 
 vi.mock('../../projects/hooks/useProjects', () => ({
+  useAnalysis: () => ({ data: undefined }),
   useProject: vi.fn(),
   useCompleteProject: vi.fn(() => ({
     mutate: vi.fn(),
@@ -80,3 +81,11 @@ function project(status: Project['status']): Project {
     sourceAvailable: true,
   };
 }
+
+vi.mock('../../business-rules/hooks/useBusinessRules', () => ({ useBusinessRules: () => ({}) }));
+vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({}) }));
+vi.mock('../../test-cases/hooks/useTestCases', () => ({ useTestCases: () => ({}) }));
+vi.mock('../../unit-tests/hooks/useUnitTests', () => ({ useUnitTests: () => ({}) }));
+vi.mock('../../coverage/hooks/useCoverage', () => ({ useCoverageReport: () => ({}), useSandboxRun: () => ({}) }));
+
+vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({}) }));

@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Scan, Loader2, GitBranch, Archive, RefreshCw } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { AlertTriangle, Scan, Loader2, RefreshCw } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useProject, useAnalysis, useAnalyzeProject, useExistingTests } from '../hooks/useProjects';
-import { StatusBadge } from '../components/StatusBadge';
 import { AnalysisResult } from '../components/AnalysisResult';
 import { SourceUpdateModal } from '../components/SourceUpdateModal';
 import { fetchProjectSourceUpdates } from '../api/source-update-api';
@@ -17,7 +16,7 @@ import { useBusinessRules } from '../../business-rules/hooks/useBusinessRules';
 import { useTestPlans } from '../../test-plans/hooks/useTestPlans';
 import { useTestCases } from '../../test-cases/hooks/useTestCases';
 import { useUnitTests } from '../../unit-tests/hooks/useUnitTests';
-import { ProjectWorkflowTabs } from '../components/ProjectWorkflowTabs';
+import { ProjectWorkspace } from '../components/ProjectWorkspace';
 import { useLanguage } from '../../../shared/i18n/language';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ProjectServiceSelector } from '../components/ProjectServiceSelector';
@@ -86,11 +85,11 @@ export function ProjectDetailPage() {
   const casesQuery = useTestCases(hasPipelineData && serviceScope.selected ? projectId : 0, serviceScope.servicePath);
   const unitsQuery = useUnitTests(hasPipelineData && serviceScope.selected ? projectId : 0, serviceScope.servicePath);
   const pipelineCounts = [
-    `${rulesQuery.data?.length ?? 0} Business Rule`,
-    `${plansQuery.data?.length ?? 0} Test Plan`,
-    `${casesQuery.data?.length ?? 0} Test Case`,
-    `${unitsQuery.data?.length ?? 0} Unit Test`,
-  ].join(', ');
+    [rulesQuery.data?.length, 'Business Rule'],
+    [plansQuery.data?.length, 'Test Plan'],
+    [casesQuery.data?.length, 'Test Case'],
+    [unitsQuery.data?.length, 'Unit Test'],
+  ].filter(([count]) => count != null).map(([count, label]) => [count, label].join(' ')).join(', ');
 
   const handleAnalyze = () => {
     if (!projectId) return;
@@ -112,59 +111,25 @@ export function ProjectDetailPage() {
   if (projectError || !project) {
     return (
       <AppShell maxWidth="wide">
-        <ErrorState error={projectError ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
+        <ErrorState error={projectError ?? undefined} title={t('Không tìm thấy dự án', 'Project not found')} backTo="/projects" />
       </AppShell>
     );
   }
 
   return (
-    <AppShell maxWidth="wide">
-      <div className="mb-5 animate-fade-in-up">
-        <Link
-          to="/projects"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-body transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-heading"
-        >
-          <ArrowLeft size={14} strokeWidth={1.8} />
-          {t('Danh sách project', 'Projects')}
-        </Link>
-      </div>
-
-      <header className="mb-8 animate-fade-in-up delay-1">
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-sm md:p-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-default border border-border-default bg-neutral-secondary-soft text-body-subtle shadow-xs">
-                {project.sourceType === 'GITHUB' ? (
-                  <GitBranch size={20} strokeWidth={1.6} />
-                ) : (
-                  <Archive size={20} strokeWidth={1.6} />
-                )}
-              </div>
-              <div className="min-w-0">
-                <h1 className="truncate text-2xl font-bold tracking-tight text-heading md:text-3xl">
-                  {project.name}
-                </h1>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[12px] font-mono text-body-subtle">
-                    {project.sourceType}
-                  </span>
-                  {project.sourceUrl && (
-                    <a
-                      href={project.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="max-w-full truncate text-[12px] font-medium text-fg-brand hover:text-fg-brand-strong md:max-w-[520px]"
-                    >
-                      {project.sourceUrl}
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex shrink-0 flex-wrap items-center gap-3">
-              <StatusBadge status={project.status} />
-
+    <AppShell maxWidth="bleed">
+      <ProjectWorkspace
+        project={project}
+        active="analysis"
+        status={workflowStatus ?? project.status}
+        reachedStatus={serviceScope.selected?.reachedStatus}
+        servicePath={serviceScope.servicePath}
+        titlePrefix={t('Phân tích & Business Rule', 'Analysis & Business Rules')}
+        subtitle={t('Quy tắc nghiệp vụ trích từ mã nguồn, làm căn cứ cho Test Plan, Test Case và Unit Test.', 'Business Rules extracted from source guide Test Plans, Test Cases, and Unit Tests.')}
+        backTo="/projects"
+        backLabel={t('Danh sách dự án', 'Projects')}
+        showSourceUpdate={false}
+        actions={<>
               <button
                 type="button"
                 onClick={() => setShowSourceUpdateModal(true)}
@@ -179,7 +144,7 @@ export function ProjectDetailPage() {
                 <button
                   onClick={handleAnalyze}
                   disabled={analyzeMutation.isPending}
-                  className="btn btn-brand"
+                  className={hasAnalysis ? 'btn btn-secondary' : 'btn btn-brand'}
                   id="btn-analyze-project"
                 >
                   {analyzeMutation.isPending ? (
@@ -195,32 +160,30 @@ export function ProjectDetailPage() {
                   )}
                 </button>
               )}
-            </div>
-          </div>
-
+        </>}
+        selector={hasAnalysis && <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
+      >
+        <div className="mb-4 flex flex-wrap gap-2 text-xs text-body-subtle">
+          <span>{t('Nguồn', 'Source')}: <span className="font-mono">{project.sourceType}</span></span>
+          {project.sourceUrl && <a href={project.sourceUrl} target="_blank" rel="noopener noreferrer" className="rounded-control break-all text-fg-brand-strong">{project.sourceUrl}</a>}
+        </div>
           {!project.sourceAvailable && (
-            <div className="mt-4 rounded-default border border-border-warning-subtle bg-warning-soft p-3 animate-fade-in">
+            <div className="mt-4 rounded-base border border-border-warning-subtle bg-warning-soft p-3 animate-fade-in">
               <p className="text-sm font-medium text-fg-warning">
-                {t('Source của project này không còn trong storage. Bạn vẫn xem được kết quả đã lưu nhưng cần upload ZIP hoặc clone GitHub lại nếu muốn phân tích lại.', 'This project source is no longer available in storage. Saved results remain visible, but you must upload the ZIP or clone the GitHub repository again to reanalyze it.')}
+                {t('Source của dự án này không còn trong storage. Bạn vẫn xem được kết quả đã lưu nhưng cần upload ZIP hoặc clone GitHub lại nếu muốn phân tích lại.', 'This project source is no longer available in storage. Saved results remain visible, but you must upload the ZIP or clone the GitHub repository again to reanalyze it.')}
               </p>
             </div>
           )}
 
           {analyzeMutation.isError && (
-            <div className="mt-4 rounded-default border border-border-danger-subtle bg-danger-soft p-3 animate-fade-in">
+            <div className="mt-4 rounded-base border border-border-danger-subtle bg-danger-soft p-3 animate-fade-in">
               <p className="text-sm font-medium text-fg-danger-strong">
                 {getErrorMessage(analyzeMutation.error)}
               </p>
             </div>
           )}
-        </div>
-      </header>
-      {hasAnalysis && serviceScope.selected && workflowStatus && (
-        <ProjectWorkflowTabs projectId={projectId} active="analysis" reachedStatus={serviceScope.selected?.reachedStatus} status={workflowStatus} servicePath={serviceScope.servicePath} />
-      )}
-      {hasAnalysis && <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
       {hasAnalysis && serviceScope.isError && (
-        <div className="mb-6 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4 shadow-sm">
+        <div className="mb-6 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4">
           <AlertTriangle size={17} className="mt-0.5 shrink-0 text-fg-warning" />
           <div>
             <p className="text-sm font-semibold text-fg-warning">
@@ -231,7 +194,7 @@ export function ProjectDetailPage() {
         </div>
       )}
       {hasAnalysis && serviceScope.isSuccess && serviceScope.services.length === 0 && (
-        <div className="mb-6 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4 shadow-sm">
+        <div className="mb-6 flex items-start gap-3 rounded-base border border-border-warning-subtle bg-warning-soft p-4">
           <AlertTriangle size={17} className="mt-0.5 shrink-0 text-fg-warning" />
           <div>
             <p className="text-sm font-semibold text-fg-warning">
@@ -246,16 +209,19 @@ export function ProjectDetailPage() {
 
       {analyzeMutation.isPending && (
         <div className="mb-6 animate-fade-in">
-          <div className="flex items-center gap-3 rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-sm">
+          <div className="flex items-center gap-3 rounded-base border border-border-default bg-neutral-primary-soft p-5">
             <Loader2 size={18} strokeWidth={1.8} className="animate-spin text-fg-brand" />
             <div>
               <p className="text-sm font-semibold text-heading">{t('Đang phân tích source code', 'Analyzing source code')}</p>
-              <p className="mt-0.5 text-xs text-body-subtle">{t('JavaParser đang quét các file .java trong project.', 'JavaParser is scanning the project Java files.')}</p>
+              <p className="mt-0.5 text-xs text-body-subtle">{t('JavaParser đang quét các file .java trong dự án.', 'JavaParser is scanning the project Java files.')}</p>
             </div>
           </div>
         </div>
       )}
 
+      {(hasAnalysis || analyzeMutation.isSuccess) && <details className="mb-6 rounded-base border border-border-default bg-neutral-primary-soft" open={!serviceScope.selected || undefined}>
+        <summary className="rounded-base cursor-pointer px-4 py-3 text-sm font-semibold text-heading">{t('Kết quả phân tích mã nguồn', 'Source analysis results')}</summary>
+        <div className="p-4">
       {analyzeMutation.isSuccess && analyzeMutation.data && (
         <AnalysisResult data={analyzeMutation.data} existingTests={existingTests} methodDiffMap={methodDiffMap} />
       )}
@@ -271,13 +237,16 @@ export function ProjectDetailPage() {
       {!analyzeMutation.isSuccess && hasAnalysis && analysisError && (
         <div className="rounded-base border border-border-danger-subtle bg-danger-soft p-4 animate-fade-in">
           <p className="text-sm font-semibold text-fg-danger-strong">
-            {t('Không thể tải kết quả analysis', 'Unable to load analysis results')}
+            {t('Không thể tải kết quả phân tích', 'Unable to load analysis results')}
           </p>
           <p className="mt-1 text-xs text-fg-danger-strong">
             {getErrorMessage(analysisError)}
           </p>
         </div>
       )}
+
+        </div>
+      </details>}
 
       {hasAnalysis && serviceScope.selected && (
         <BusinessRulesPanel
@@ -289,6 +258,7 @@ export function ProjectDetailPage() {
           projectStatus={project?.status}
         />
       )}
+      </ProjectWorkspace>
       <SourceUpdateModal
         project={project}
         servicePath={serviceScope.servicePath}
@@ -308,10 +278,10 @@ export function ProjectDetailPage() {
       />
       <ConfirmDialog
         open={showReanalyzeConfirm}
-        title={t('Phân tích lại project?', 'Reanalyze project?')}
+        title={t('Phân tích lại dự án?', 'Reanalyze project?')}
         description={t(
-          `Hệ thống sẽ xóa artifact của mọi service (service đang chọn: ${pipelineCounts}) và toàn bộ lịch sử coverage trước khi phân tích lại. Thao tác này không thể hoàn tác.`,
-          `The system will delete artifacts from every service (selected service: ${pipelineCounts}) and the complete coverage history before reanalysis. This action cannot be undone.`,
+          `Hệ thống sẽ xóa artifact của mọi service ${pipelineCounts ? '(service đang chọn: ' + pipelineCounts + ') ' : ''}và toàn bộ lịch sử coverage trước khi phân tích lại. Thao tác này không thể hoàn tác.`,
+          `The system will delete artifacts from every service ${pipelineCounts ? '(selected service: ' + pipelineCounts + ') ' : ''}and the complete coverage history before reanalysis. This action cannot be undone.`,
         )}
         confirmLabel={t('Phân tích lại', 'Reanalyze')}
         cancelLabel={t('Hủy', 'Cancel')}

@@ -2,8 +2,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '../../../shared/components/AppShell';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { ErrorState } from '../../../shared/components/ErrorState';
-import { ProjectWorkflowTabs } from '../../projects/components/ProjectWorkflowTabs';
-import { ProjectPageHeader } from '../../projects/components/ProjectPageHeader';
+import { ProjectWorkspace } from '../../projects/components/ProjectWorkspace';
 import { useProject } from '../../projects/hooks/useProjects';
 import { canOpenTestPlans } from '../../projects/utils/project-workflow';
 import { TestPlansPanel } from '../components/TestPlansPanel';
@@ -32,7 +31,7 @@ export function TestPlansPage() {
   if (error || serviceScope.error || !project) {
     return (
       <AppShell maxWidth="wide">
-        <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy project', 'Project not found')} backTo="/projects" />
+        <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy dự án', 'Project not found')} backTo="/projects" />
       </AppShell>
     );
   }
@@ -42,22 +41,25 @@ export function TestPlansPage() {
   }
 
   return (
-    <AppShell maxWidth="wide">
-      <ProjectPageHeader
+    <AppShell maxWidth="bleed">
+      <ProjectWorkspace
         project={project}
         servicePath={serviceScope.servicePath}
         titlePrefix="Test Plan"
         subtitle={t('Sinh và rà soát Test Plan từ các Business Rule đã duyệt.', 'Generate and review Test Plans from approved Business Rules.')}
         backTo={projectWorkflowPath(projectId, undefined, serviceScope.servicePath)}
         backLabel="Analysis & Business Rules"
-      />
+        active="test-plans"
+        status={status ?? project.status}
+        reachedStatus={serviceScope.selected?.reachedStatus}
+        selector={<ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
+      >
       {serviceScope.selected && status && (
         <>
-          <ProjectWorkflowTabs projectId={projectId} active="test-plans" reachedStatus={serviceScope.selected?.reachedStatus} status={status} servicePath={serviceScope.servicePath} />
-          <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
           <TestPlansPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} projectStatus={status} servicePath={serviceScope.servicePath} />
         </>
       )}
+      </ProjectWorkspace>
     </AppShell>
   );
 }

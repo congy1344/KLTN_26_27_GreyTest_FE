@@ -1,9 +1,11 @@
+import { Tag } from '../../../shared/components/Tag';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { Box, Boxes, ClipboardCheck, Code2, Database, FileCode2, Folder, Globe, ListTree, Table2, TestTube2 } from 'lucide-react';
 import type { ExistingTestInfo, JavaClassInfo, JavaMethodInfo } from '../types';
 import { useLanguage, type Language } from '../../../shared/i18n/language';
+import { CodeBlock } from '../../../shared/components/CodeBlock';
 import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 
@@ -25,7 +27,8 @@ type TreeEntryKind = 'folder' | 'java-file' | 'test-file' | 'controller' | 'serv
   | 'repository' | 'entity' | 'record' | 'enum' | 'class' | 'method' | 'test-method';
 
 const EMPTY_TESTS: ExistingTestInfo[] = [];
-const CODE_BLOCK_CLASS = 'max-h-[calc(100vh-220px)] overflow-auto rounded-default border border-border-default bg-neutral-primary-medium p-3 font-mono text-xs leading-relaxed text-heading';
+// Khung code chiếm gần hết chiều cao màn hình để đọc được nhiều dòng một lúc.
+const CODE_BODY_HEIGHT = 'max-h-[calc(100vh-260px)]';
 
 export function pathParts(path: string) {
   return path.replace(/\\/g, '/').split('/').filter(Boolean);
@@ -91,19 +94,19 @@ function methodDetail(method: JavaMethodInfo, language: Language, diffType?: 'AD
           {method.visibility.toLowerCase()} {method.returnType} {method.methodName}({method.parameters.map((p) => p.type).join(', ')})
         </div>
         {diffType === 'ADDED' && (
-          <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+          <Tag>
             + {formatSemanticLabel('ADDED', language)}
-          </span>
+          </Tag>
         )}
         {diffType === 'MODIFIED' && (
-          <span className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
+          <Tag>
             {formatSemanticLabel('MODIFIED', language)}
-          </span>
+          </Tag>
         )}
         {diffType === 'DELETED' && (
-          <span className="rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
+          <Tag>
             - {formatSemanticLabel('DELETED', language)}
-          </span>
+          </Tag>
         )}
       </div>
       {method.endpoints.length > 0 && (
@@ -111,9 +114,7 @@ function methodDetail(method: JavaMethodInfo, language: Language, diffType?: 'AD
           {method.endpoints.map((endpoint) => <div key={endpoint.id}>{endpoint.httpMethod} {endpoint.path}</div>)}
         </div>
       )}
-      <pre className={CODE_BLOCK_CLASS}>
-        <code>{method.sourceCode}</code>
-      </pre>
+      <CodeBlock code={method.sourceCode} startLine={method.lineStart} title={method.methodName} meta={`L${method.lineStart}-${method.lineEnd}`} bodyClassName={CODE_BODY_HEIGHT} />
     </div>
   );
 }
@@ -124,16 +125,14 @@ function classDetail(javaClass: JavaClassInfo, emptyMessage: string) {
     <div className="space-y-3">
       <div className="space-y-1">
         <div className="font-mono text-xs text-body-subtle">{javaClass.qualifiedName}</div>
-        <div className="font-mono text-[11px] text-body-subtle" title={javaClass.filePath}>
+        <div className="font-mono text-xs text-body-subtle" title={javaClass.filePath}>
           {displaySourcePath(javaClass.filePath)}
         </div>
       </div>
       {sourceCode ? (
-        <pre className={CODE_BLOCK_CLASS}>
-          <code>{sourceCode}</code>
-        </pre>
+        <CodeBlock code={sourceCode} title={javaClass.className} meta={displaySourcePath(javaClass.filePath)} bodyClassName={CODE_BODY_HEIGHT} />
       ) : (
-        <div className="rounded-default border border-border-warning-subtle bg-warning-soft p-3 text-xs text-body">
+        <div className="rounded-base border border-border-warning-subtle bg-warning-soft p-3 text-xs text-body">
           {emptyMessage}
         </div>
       )}
@@ -148,24 +147,24 @@ function renderEntries(entries: TreeEntry[], expandedIds: Set<string>, language:
       itemId={entry.id}
       label={(
         <span className="flex items-center gap-2 text-sm" data-node-kind={entry.kind}>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-neutral-secondary-soft">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-control bg-neutral-secondary-soft">
             {entryIcon(entry.kind)}
           </span>
           <span className="truncate">{entry.label}</span>
           {entry.diffType === 'ADDED' && (
-            <span className="ml-auto rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+            <Tag className="ml-auto">
               + {formatSemanticLabel('ADDED', language)}
-            </span>
+            </Tag>
           )}
           {entry.diffType === 'MODIFIED' && (
-            <span className="ml-auto rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-amber-600 dark:text-amber-400">
+            <Tag className="ml-auto">
               {formatSemanticLabel('MODIFIED', language)}
-            </span>
+            </Tag>
           )}
           {entry.diffType === 'DELETED' && (
-            <span className="ml-auto rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-rose-600 dark:text-rose-400">
+            <Tag className="ml-auto">
               - {formatSemanticLabel('DELETED', language)}
-            </span>
+            </Tag>
           )}
         </span>
       )}
@@ -238,16 +237,16 @@ export function ClassTree({ classes, existingTests = EMPTY_TESTS, methodDiffMap 
       }
     }
     const test = existingTests.find((item) => `test:${item.id}` === selectedId);
-    return test ? <pre className={CODE_BLOCK_CLASS}><code>{test.sourceCode}</code></pre> : null;
+    return test ? <CodeBlock code={test.sourceCode} title={displaySourcePath(test.filePath)} bodyClassName={CODE_BODY_HEIGHT} /> : null;
   }, [classes, existingTests, methodDiffMap, selectedId, t, language]);
 
   if (!classes.length && !existingTests.length) {
-    return <div className="rounded-base border border-border-default bg-neutral-primary-soft p-8 text-center shadow-sm"><p className="text-sm font-semibold text-heading">{t('Chưa có source được trích xuất', 'No source has been extracted')}</p></div>;
+    return <div className="rounded-base border border-border-default bg-neutral-primary-soft p-8 text-center"><p className="text-sm font-semibold text-heading">{t('Chưa có source được trích xuất', 'No source has been extracted')}</p></div>;
   }
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-      <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 shadow-sm">
+      <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3">
         <SimpleTreeView
           selectedItems={selectedItem}
           onSelectedItemsChange={(_event, item) => setSelectedItem(item)}
@@ -257,7 +256,7 @@ export function ClassTree({ classes, existingTests = EMPTY_TESTS, methodDiffMap 
           {renderEntries(entries, expandedIds, language)}
         </SimpleTreeView>
       </div>
-      <div className="min-h-[220px] rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+      <div className="min-h-[220px] rounded-base border border-border-default bg-neutral-primary-soft p-4">
         {selectedDetail ? <>{selectedDetail}</> : <div className="flex h-full items-center justify-center text-sm text-body-subtle"><FileCode2 size={16} className="mr-2" />{t('Chọn class, method hoặc test để xem chi tiết.', 'Select a class, method, or test to view details.')}</div>}
       </div>
     </div>

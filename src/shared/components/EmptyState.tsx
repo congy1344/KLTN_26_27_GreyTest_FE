@@ -13,7 +13,7 @@ interface EmptyStateProps {
 export function EmptyState({ icon: Icon, title, hint, action, minHeight = 'min-h-[240px]' }: EmptyStateProps) {
   return (
     <div className={`flex ${minHeight} flex-col items-center justify-center p-8 text-center animate-fade-in`}>
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-default bg-neutral-secondary-medium text-body-subtle">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-control bg-neutral-secondary-medium text-body-subtle">
         <Icon size={17} strokeWidth={1.8} />
       </div>
       <p className="text-sm font-semibold text-heading">{title}</p>

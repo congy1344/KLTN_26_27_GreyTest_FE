@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { Upload, GitBranch, File as FileIcon, ArrowRight, Loader2 } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
@@ -6,12 +7,24 @@ import { GlassCard } from '../../../shared/components/GlassCard';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { useLanguage } from '../../../shared/i18n/language';
 
-export function ProjectUploadForm() {
+interface ProjectUploadFormProps {
+  onSuccess?: () => void;
+  source?: 'zip' | 'github';
+}
+
+export function ProjectUploadForm({ onSuccess, source }: ProjectUploadFormProps = {}) {
   const [file, setFile] = useState<File | null>(null);
   const [githubUrl, setGithubUrl] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const zipDropRef = useRef<HTMLButtonElement>(null);
+  const githubInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (source === 'zip') zipDropRef.current?.focus();
+    if (source === 'github') githubInputRef.current?.focus();
+  }, [source]);
+  const navigate = useNavigate();
   const upload = useUploadProject();
   const clone = useCloneGithub();
   const { t } = useLanguage();
@@ -28,9 +41,11 @@ export function ProjectUploadForm() {
     e.preventDefault();
     if (file) {
       upload.mutate(file, {
-        onSuccess: () => {
+        onSuccess: (project) => {
           setFile(null);
-          setSuccessMessage(t('Upload thành công. Bấm Phân tích trong danh sách để bắt đầu.', 'Upload successful. Select Analyze in the list to begin.'));
+          setSuccessMessage(t('Tải lên thành công. Mở dự án để phân tích.', 'Upload successful. Open the project to analyze it.'));
+          onSuccess?.();
+          navigate(project?.id ? `/projects/${project.id}` : '/projects');
         },
       });
     }
@@ -40,9 +55,11 @@ export function ProjectUploadForm() {
     e.preventDefault();
     if (githubUrl.trim()) {
       clone.mutate(githubUrl.trim(), {
-        onSuccess: () => {
+        onSuccess: (project) => {
           setGithubUrl('');
-          setSuccessMessage(t('Clone thành công. Bấm Phân tích trong danh sách để bắt đầu.', 'Clone successful. Select Analyze in the list to begin.'));
+          setSuccessMessage(t('Clone thành công. Mở dự án để phân tích.', 'Clone successful. Open the project to analyze it.'));
+          onSuccess?.();
+          navigate(project?.id ? `/projects/${project.id}` : '/projects');
         },
       });
     }
@@ -73,12 +90,12 @@ export function ProjectUploadForm() {
         <GlassCard className="h-full">
           <form onSubmit={submitZip} className="flex h-full flex-col">
             <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-default bg-brand-softer text-fg-brand-strong">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-neutral-secondary-soft text-body-subtle">
                 <Upload size={16} strokeWidth={1.8} />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-heading">Upload ZIP</h3>
-                <p className="text-xs text-body-subtle">{t('Tải source để phân tích sau', 'Upload source for later analysis')}</p>
+                <h2 className="text-base font-semibold text-heading font-display">Upload ZIP</h2>
+                <p className="text-xs text-body-subtle">{t('Chọn file ZIP của dự án Spring Boot', 'Choose a Spring Boot project ZIP')}</p>
               </div>
             </div>
 
@@ -91,23 +108,25 @@ export function ProjectUploadForm() {
               id="zip-upload-input"
             />
 
-            <div
+            <button
+              type="button"
+              ref={zipDropRef}
               onClick={() => fileInputRef.current?.click()}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`mb-4 flex min-h-[162px] cursor-pointer flex-col items-center justify-center rounded-default border border-dashed px-4 py-8 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+              className={`mb-4 flex min-h-[162px] cursor-pointer flex-col items-center justify-center rounded-base border border-dashed px-4 py-8 transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                 isDragging
                   ? 'border-border-brand bg-brand-softer text-fg-brand'
                   : file
-                    ? 'border-border-brand-subtle bg-brand-softer text-fg-brand-strong'
+                    ? 'border-border-brand-subtle bg-neutral-secondary-soft text-body-subtle'
                     : 'border-border-default-medium bg-neutral-secondary-medium text-body hover:border-border-default-strong hover:bg-neutral-secondary-soft'
               }`}
             >
               {file ? (
                 <div className="flex items-center gap-2 text-sm">
-                  <FileIcon size={16} className="text-fg-brand-strong animate-pulse" strokeWidth={1.8} />
-                  <span className="max-w-[180px] truncate font-medium">{file.name}</span>
+                  <FileIcon size={16} className="text-fg-brand-strong " strokeWidth={1.8} />
+                  <span className="max-w-[180px] truncate font-mono font-medium">{file.name}</span>
                 </div>
               ) : (
                 <>
@@ -119,10 +138,10 @@ export function ProjectUploadForm() {
                   <p className="text-xs font-medium">
                     {t('Kéo thả file', 'Drag and drop a')} <span className="text-fg-brand">.zip</span> {t('vào đây', 'file here')}
                   </p>
-                  <p className="mt-1 text-[11px] text-body-subtle">{t('hoặc click để chọn', 'or click to choose')}</p>
+                  <p className="mt-1 text-xs text-body-subtle">{t('hoặc click để chọn', 'or click to choose')}</p>
                 </>
               )}
-            </div>
+            </button>
 
             <button
               type="submit"
@@ -148,20 +167,21 @@ export function ProjectUploadForm() {
         <GlassCard className="h-full">
           <form onSubmit={submitGithub} className="flex h-full flex-col">
             <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-default bg-brand-softer text-fg-brand-strong">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong">
                 <GitBranch size={16} strokeWidth={1.8} />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-heading">GitHub Repository</h3>
+                <h2 className="text-base font-semibold text-heading font-display">GitHub Repository</h2>
                 <p className="text-xs text-body-subtle">{t('Clone repo public để phân tích', 'Clone a public repository for analysis')}</p>
               </div>
             </div>
 
-            <div className="mb-4 flex min-h-[162px] flex-col justify-center rounded-default border border-border-default bg-neutral-secondary-soft p-4">
+            <div className="mb-4 flex min-h-[162px] flex-col justify-center">
               <label htmlFor="github-url-input" className="mb-2 block text-xs font-medium text-heading">
                 Repository URL
               </label>
               <input
+                ref={githubInputRef}
                 id="github-url-input"
                 type="url"
                 value={githubUrl}
@@ -170,15 +190,15 @@ export function ProjectUploadForm() {
                 className="form-input w-full"
                 disabled={clone.isPending}
               />
-              <p className="mt-2 text-[11px] leading-relaxed text-body-subtle">
-                {t('Hỗ trợ repository public. Sau khi clone, bấm Phân tích trong danh sách project.', 'Public repositories are supported. After cloning, select Analyze in the project list.')}
+              <p className="mt-2 text-xs leading-relaxed text-body-subtle">
+                {t('Dán URL repository public. Bạn sẽ mở dự án sau khi clone.', 'Paste a public repository URL. The project will open after cloning.')}
               </p>
             </div>
 
             <button
               type="submit"
               disabled={!githubUrl.trim() || clone.isPending}
-              className="btn btn-brand mt-auto w-full justify-center"
+              className="btn btn-secondary mt-auto w-full justify-center"
               id="btn-clone-github"
             >
               {clone.isPending ? (
@@ -199,7 +219,7 @@ export function ProjectUploadForm() {
 
       {error && (
         <div className="flex items-center gap-2.5 rounded-base border border-border-danger-subtle bg-danger-soft px-4 py-3 text-[14px] text-fg-danger-strong animate-fade-in">
-          <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
+
           <p className="font-medium">{getErrorMessage(error)}</p>
         </div>
       )}

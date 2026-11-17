@@ -1,3 +1,5 @@
+import { useLanguage } from '../i18n/language';
+import { IconButton } from './IconButton';
 import { useEffect, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
@@ -23,6 +25,7 @@ export function InlineAlert({
   onDismiss,
   children,
 }: InlineAlertProps) {
+  const { t } = useLanguage();
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -39,22 +42,14 @@ export function InlineAlert({
   return (
     <div
       role="alert"
-      className={`mt-3 flex items-start justify-between gap-3 rounded-default border p-3 text-sm font-medium animate-fade-in ${toneClasses[tone]}`}
+      className={`mt-3 flex items-start justify-between gap-3 rounded-base border p-3 text-sm font-medium animate-fade-in ${toneClasses[tone]}`}
     >
       <div className="min-w-0 flex-1">{children}</div>
       {dismissible && (
-        <button
-          type="button"
-          onClick={() => {
+        <IconButton icon={X} label={t('Đóng thông báo', 'Dismiss notification')} onClick={() => {
             setDismissed(true);
             onDismiss?.();
-          }}
-          aria-label="Đóng thông báo"
-          title="Đóng thông báo"
-          className="shrink-0 -mr-1 -mt-0.5 rounded-md p-1 text-current opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
-        >
-          <X size={15} />
-        </button>
+          }} title={t('Đóng thông báo', 'Dismiss notification')} />
       )}
     </div>
   );

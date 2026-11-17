@@ -1,45 +1,105 @@
-import { Beaker } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Search, X, Upload, GitBranch } from 'lucide-react';
+import { IconButton } from '../../../shared/components/IconButton';
 import { ProjectList } from '../components/ProjectList';
-import { ProjectUploadForm } from '../components/ProjectUploadForm';
 import { AppShell } from '../../../shared/components/AppShell';
 import { useLanguage } from '../../../shared/i18n/language';
+import { useProjects } from '../hooks/useProjects';
+import { StatusFilter } from '../components/StatusFilter';
+import { STATUS_CONFIG } from '../components/StatusBadge';
+import type { ProjectStatus } from '../types';
 
 export function ProjectsPage() {
   const { t } = useLanguage();
+  const { data: projects } = useProjects();
+  const hasProjects = Boolean(projects && projects.length > 0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('q') ?? '';
+  const statusParam = searchParams.get('status') ?? 'ALL';
+  const statusFilter = Object.prototype.hasOwnProperty.call(STATUS_CONFIG, statusParam) ? statusParam as ProjectStatus : 'ALL';
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const searchedProjects = (projects ?? []).filter((project) =>
+    !normalizedQuery || project.name.toLowerCase().includes(normalizedQuery),
+  );
+  const statusCounts: Partial<Record<ProjectStatus, number>> = {};
+  for (const project of searchedProjects) {
+    statusCounts[project.status] = (statusCounts[project.status] ?? 0) + 1;
+  }
+  const resultCount = statusFilter === 'ALL' ? searchedProjects.length : statusCounts[statusFilter] ?? 0;
+  const hasFilters = Boolean(searchQuery || statusFilter !== 'ALL');
+
+  function updateFilter(key: 'q' | 'status', value: string) {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (!value || value === 'ALL') next.delete(key);
+      else next.set(key, value);
+      return next;
+    }, { replace: true });
+  }
+
+  function resetFilters() {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('q');
+      next.delete('status');
+      return next;
+    }, { replace: true });
+  }
+
   return (
-    <AppShell>
-      <header className="mb-8 animate-fade-in-up">
-        <div className="inline-flex items-center gap-2 rounded-full border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-[12px] font-semibold text-heading shadow-xs">
-          <Beaker size={14} strokeWidth={1.8} className="text-fg-brand" />
-          {t('Hệ thống sinh test tự động', 'Automated test generation system')}
+    <AppShell maxWidth="bleed">
+      <section className="animate-fade-in" id="section-projects">
+        <div className="projects-band">
+          <svg viewBox="0 0 480 300" fill="none" aria-hidden="true" className="projects-band-mark">
+            <path d="M370 50A140 140 0 1 0 410 150H300" style={{ stroke: 'var(--band-mark)' }} strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="370" cy="50" r="22" style={{ fill: 'var(--accent)' }} />
+            <circle cx="130" cy="150" r="22" style={{ fill: 'var(--band-dot)' }} />
+            <circle cx="300" cy="150" r="22" style={{ fill: 'var(--on-band)' }} />
+          </svg>
+          <div className="relative mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-8 px-4 py-12 sm:px-8 sm:pb-14">
+            <div className="max-w-[600px]">
+              <h1 className="font-display text-[40px] font-bold leading-tight sm:text-[44px]">{t('Dự án của bạn', 'Your projects')}</h1>
+              <p className="mt-3 max-w-[520px] text-base text-band-muted">{t('Tải một dự án Java Spring Boot lên để GreyTest đọc mã nguồn, rút Business Rule và sinh test theo từng nhánh.', 'Upload a Java Spring Boot project for GreyTest to read its source, extract Business Rules, and generate tests for each branch.')}</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link to="/projects/new?source=zip" className="btn btn-brand min-h-[46px] px-5"><Upload size={16} aria-hidden="true" />{t('Tải file ZIP', 'Upload ZIP')}</Link>
+              <Link to="/projects/new?source=github" className="btn btn-band min-h-[46px] px-5"><GitBranch size={16} aria-hidden="true" />{t('Clone từ GitHub', 'Clone from GitHub')}</Link>
+            </div>
+          </div>
         </div>
-        <div className="mt-4 max-w-3xl">
-          <h1 className="text-3xl font-bold tracking-tight text-heading md:text-5xl">
-            {t('Quản lý project kiểm thử', 'Test project management')}
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-body">
-            {t(
-              'Nhập source code Java Spring Boot để GreyTest phân tích cấu trúc, tách production analysis với existing tests và chuẩn bị dữ liệu cho pipeline AI.',
-              'Import Java Spring Boot source code so GreyTest can analyze its structure, separate production analysis from existing tests, and prepare data for the AI pipeline.',
-            )}
-          </p>
-        </div>
-      </header>
+        <div className="mx-auto max-w-7xl px-4 py-7 sm:px-8 sm:pb-14">
 
-      <section className="mb-8 animate-fade-in-up delay-1" id="section-upload">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-heading">{t('Thêm project', 'Add project')}</h2>
-          <span className="text-xs text-body-subtle">{t('ZIP hoặc GitHub public', 'ZIP or public GitHub repository')}</span>
-        </div>
-        <ProjectUploadForm />
-      </section>
+        {hasProjects && (
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-base border border-border-default bg-neutral-primary-soft p-3">
+            <div className="relative min-w-[200px] flex-[1_1_260px]">
+              <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-3 text-body-subtle" />
+              <input type="text" data-testid="project-search-input" value={searchQuery}
+                onChange={(event) => updateFilter('q', event.target.value)}
+                aria-label={t('Tìm theo tên dự án', 'Search by project name')}
+                placeholder={t('Tìm theo tên dự án', 'Search by project name')}
+                className="h-10 w-full rounded-control border border-border-default bg-neutral-primary-soft pl-9 pr-12 text-sm text-heading placeholder:text-body-subtle transition-colors hover:border-border-default-strong" />
+              {searchQuery && <span className="absolute inset-y-0 right-1 flex items-center">
+                <IconButton icon={X} size="sm" label={t('Xóa tìm kiếm', 'Clear search')} onClick={() => updateFilter('q', '')} />
+              </span>}
+            </div>
+            <StatusFilter value={statusFilter} onChange={(value) => updateFilter('status', value)}
+              counts={statusCounts} total={searchedProjects.length} />
+            {hasFilters && <button type="button" data-testid="reset-filter-btn" onClick={resetFilters}
+              className="btn btn-ghost h-10 shrink-0 px-3 text-sm">
+              {t('Đặt lại bộ lọc', 'Reset filters')}
+            </button>}
+            <p role="status" className="ml-auto whitespace-nowrap text-sm text-body-subtle">{t(`${resultCount} dự án`, `${resultCount} projects`)}</p>
+          </div>
+        )}
 
-      <section className="animate-fade-in-up delay-2" id="section-projects">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-heading">{t('Danh sách project', 'Projects')}</h2>
-          <span className="text-xs text-body-subtle">{t('Click vào project để xem analysis', 'Select a project to view its analysis')}</span>
+
+
+        <ProjectList
+          searchQuery={searchQuery}
+          statusFilter={statusFilter}
+          onResetFilters={resetFilters}
+        />
         </div>
-        <ProjectList />
       </section>
     </AppShell>
   );

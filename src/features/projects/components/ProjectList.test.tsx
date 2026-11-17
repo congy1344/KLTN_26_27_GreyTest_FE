@@ -80,4 +80,18 @@ describe('ProjectList', () => {
 
     expect(screen.getByText('Coverage destination')).toBeInTheDocument();
   });
+
+  it('displays empty state with reset button when search or filter does not match any project', () => {
+    const handleReset = vi.fn();
+    render(
+      <MemoryRouter>
+        <ProjectList searchQuery="Non-existent" onResetFilters={handleReset} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Không tìm thấy dự án nào')).toBeInTheDocument();
+    const resetBtn = screen.getByRole('button', { name: 'Xóa bộ lọc' });
+    fireEvent.click(resetBtn);
+    expect(handleReset).toHaveBeenCalledTimes(1);
+  });
 });
