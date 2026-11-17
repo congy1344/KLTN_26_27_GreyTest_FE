@@ -1,9 +1,8 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
-  Beaker,
   CheckCircle2,
   ExternalLink,
   KeyRound,
@@ -16,6 +15,7 @@ import {
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { useForgotPassword, useLogin, useRegister } from '../hooks/useAuth';
 import { useLanguage } from '../../../shared/i18n/language';
+import { BrandMark } from '../../../shared/components/BrandMark';
 import { LanguageToggle } from '../../../shared/components/LanguageToggle';
 import { ThemeToggle } from '../../../shared/components/ThemeToggle';
 
@@ -98,12 +98,17 @@ export function validateFullNameInput(
   return null;
 }
 
+type AuthMode = 'login' | 'register' | 'forgot';
+
+// Mỗi chế độ có đường dẫn riêng để chia sẻ link và nút Back của trình duyệt hoạt động đúng.
+const AUTH_PATHS: Record<AuthMode, string> = { login: '/login', register: '/register', forgot: '/forgot-password' };
+
 export function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [searchParams] = useSearchParams();
   const wasDisabled = searchParams.get('disabled') === 'true';
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const { pathname } = useLocation();
+  const mode: AuthMode = pathname === '/register' ? 'register' : pathname === '/forgot-password' ? 'forgot' : 'login';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -122,13 +127,6 @@ export function LoginPage() {
       ? forgotPasswordMutation.error
       : (loginMutation.error ?? registerMutation.error);
   const { t } = useLanguage();
-
-  // Tự động bỏ đuôi /login trên thanh địa chỉ trình duyệt về đường dẫn gốc '/'
-  useEffect(() => {
-    if (location.pathname === '/login') {
-      navigate({ pathname: '/', search: location.search }, { replace: true });
-    }
-  }, [location.pathname, location.search, navigate]);
 
   if (localStorage.getItem('greytest.token')) {
     return <Navigate to="/projects" replace />;
@@ -149,8 +147,8 @@ export function LoginPage() {
   const showFullNameValid =
     mode === 'register' && (fullNameTouched || fullName.length > 0) && !fullNameError;
 
-  const switchMode = (nextMode: 'login' | 'register' | 'forgot') => {
-    setMode(nextMode);
+  const switchMode = (nextMode: AuthMode) => {
+    navigate(AUTH_PATHS[nextMode], { replace: true });
     setSubmitted(false);
     if (!email) setEmailTouched(false);
     if (!password) setPasswordTouched(false);
@@ -191,18 +189,11 @@ export function LoginPage() {
 
   return (
     <div className="relative flex min-h-[100dvh] items-center justify-center bg-neutral-primary px-4 py-10 text-body">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-0 h-px w-[82vw] -translate-x-1/2 bg-gradient-to-r from-transparent via-border-brand-subtle to-transparent" />
-        <div className="absolute right-[8%] top-[-18rem] h-[34rem] w-[34rem] rounded-full bg-brand/[0.08] blur-[110px]" />
-        <div className="absolute left-[4%] bottom-[-16rem] h-[28rem] w-[28rem] rounded-full bg-brand/[0.05] blur-[100px]" />
-      </div>
-      <section className="relative w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-6 shadow-md animate-fade-in-up">
+      <section className="relative w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-6 animate-fade-in-up">
         <div className="mb-6 flex items-start gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-default border border-border-brand-subtle bg-brand-softer text-fg-brand-strong">
-            <Beaker size={18} strokeWidth={1.8} />
-          </span>
+          <BrandMark size={40} decorative />
           <div>
-            <h1 className="text-xl font-bold text-heading">GreyTest</h1>
+            <h1 className="font-semibold text-heading text-[28px] font-display">GreyTest</h1>
             <p className="text-xs text-body-subtle">
               {mode === 'forgot'
                 ? t(
@@ -221,12 +212,12 @@ export function LoginPage() {
           </div>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 rounded-default border border-border-default bg-neutral-secondary-soft p-1">
+        <div className="mb-5 grid grid-cols-2 gap-1 rounded-base border border-border-default bg-neutral-secondary-medium p-1">
           <button
             type="button"
             aria-pressed={mode === 'login'}
             onClick={() => switchMode('login')}
-            className={`rounded-sm px-3 py-2 text-sm font-semibold transition-colors duration-200 ${mode === 'login' ? 'bg-neutral-primary-soft text-heading shadow-xs' : 'text-body-subtle hover:text-body'}`}
+            className={`rounded-control px-3 py-2 text-sm font-semibold transition-colors duration-200 ${mode === 'login' ? 'bg-neutral-primary-soft text-heading ring-1 ring-border-default' : 'text-body-subtle hover:text-heading'}`}
           >
             {t('Đăng nhập', 'Sign in')}
           </button>
@@ -234,14 +225,14 @@ export function LoginPage() {
             type="button"
             aria-pressed={mode === 'register'}
             onClick={() => switchMode('register')}
-            className={`rounded-sm px-3 py-2 text-sm font-semibold transition-colors duration-200 ${mode === 'register' ? 'bg-neutral-primary-soft text-heading shadow-xs' : 'text-body-subtle hover:text-body'}`}
+            className={`rounded-control px-3 py-2 text-sm font-semibold transition-colors duration-200 ${mode === 'register' ? 'bg-neutral-primary-soft text-heading ring-1 ring-border-default' : 'text-body-subtle hover:text-heading'}`}
           >
             {t('Đăng ký', 'Register')}
           </button>
         </div>
 
         {wasDisabled && !error && (
-          <div role="alert" className="mb-4 flex items-center gap-2.5 rounded-default border border-border-danger-subtle bg-danger-soft p-3 text-sm font-medium text-fg-danger-strong animate-fade-in">
+          <div role="alert" className="mb-4 flex items-center gap-2.5 rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-sm font-medium text-fg-danger-strong animate-fade-in">
             <ShieldAlert size={18} className="shrink-0" />
             <span>{t('Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.', 'Your account has been disabled. Please contact an administrator.')}</span>
           </div>
@@ -252,14 +243,14 @@ export function LoginPage() {
             <label className="block">
               <div className="mb-1.5 flex items-center justify-between">
                 <span className="text-xs font-semibold text-heading">{t('Họ tên', 'Full name')}</span>
-                <span className="text-[11px] font-mono text-body-subtle">
+                <span className="text-xs font-mono text-body-subtle">
                   {fullName.trim().length}/{MAX_FULL_NAME_LENGTH}
                 </span>
               </div>
               <input
                 aria-label={t('Họ tên', 'Full name')}
                 aria-invalid={showFullNameError}
-                className={`form-input ${showFullNameError ? 'border-red-500 focus:border-red-500' : showFullNameValid ? 'border-emerald-500/70' : ''}`}
+                className={`form-input ${showFullNameError ? 'border-border-danger ' : showFullNameValid ? 'border-border-success-subtle' : ''}`}
                 autoComplete="name"
                 maxLength={MAX_FULL_NAME_LENGTH}
                 value={fullName}
@@ -281,14 +272,14 @@ export function LoginPage() {
           <label className="block">
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-xs font-semibold text-heading">Email</span>
-              <span className="text-[11px] font-mono text-body-subtle">
+              <span className="text-xs font-mono text-body-subtle">
                 {email.trim().length}/{MAX_EMAIL_LENGTH}
               </span>
             </div>
             <input
               aria-label="Email"
               aria-invalid={showEmailError}
-              className={`form-input ${showEmailError ? 'border-red-500 focus:border-red-500' : showEmailValid ? 'border-emerald-500/70' : ''}`}
+              className={`form-input ${showEmailError ? 'border-border-danger ' : showEmailValid ? 'border-border-success-subtle' : ''}`}
               type="email"
               autoComplete="email"
               autoFocus
@@ -308,7 +299,7 @@ export function LoginPage() {
               </p>
             )}
             {showEmailValid && (
-              <p data-testid="email-validation-valid" className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <p data-testid="email-validation-valid" className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-fg-success-strong dark:text-fg-success-strong">
                 <CheckCircle2 size={13} className="shrink-0" />
                 <span>{t('Định dạng Email hợp lệ', 'Valid email format')}</span>
               </p>
@@ -319,14 +310,14 @@ export function LoginPage() {
             <label className="block">
               <div className="mb-1.5 flex items-center justify-between">
                 <span className="text-xs font-semibold text-heading">{t('Mật khẩu', 'Password')}</span>
-                <span className="text-[11px] font-mono text-body-subtle">
+                <span className="text-xs font-mono text-body-subtle">
                   {password.length}/{MAX_PASSWORD_LENGTH}
                 </span>
               </div>
               <input
                 aria-label={t('Mật khẩu', 'Password')}
                 aria-invalid={showPasswordError}
-                className={`form-input ${showPasswordError ? 'border-red-500 focus:border-red-500' : showPasswordValid ? 'border-emerald-500/70' : ''}`}
+                className={`form-input ${showPasswordError ? 'border-border-danger ' : showPasswordValid ? 'border-border-success-subtle' : ''}`}
                 type="password"
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 minLength={MIN_PASSWORD_LENGTH}
@@ -352,7 +343,7 @@ export function LoginPage() {
             <div
               role="status"
               data-testid="forgot-password-success"
-              className="space-y-2.5 rounded-default border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-700 dark:text-emerald-300 animate-fade-in"
+              className="space-y-2.5 rounded-base border border-border-success-subtle bg-success-soft p-3.5 text-xs text-fg-success-strong dark:text-fg-success-strong animate-fade-in"
             >
               <div className="flex items-start gap-2 font-medium">
                 <MailCheck size={16} className="mt-0.5 shrink-0" />
@@ -363,7 +354,7 @@ export function LoginPage() {
                   <a
                     href={forgotPasswordMutation.data.resetUrl}
                     data-testid="forgot-password-reset-link"
-                    className="inline-flex items-center gap-1.5 rounded-sm bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                    className="btn btn-brand px-3 py-1.5 text-xs"
                   >
                     <ExternalLink size={13} />
                     {t('Mở đường dẫn nhập mật khẩu mới', 'Open password reset link')}
@@ -374,7 +365,7 @@ export function LoginPage() {
           )}
 
           {error && (
-            <div role="alert" className="rounded-default border border-border-danger-subtle bg-danger-soft p-3 text-sm font-medium text-fg-danger-strong animate-fade-in">
+            <div role="alert" className="rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-sm font-medium text-fg-danger-strong animate-fade-in">
               {getErrorMessage(error)}
             </div>
           )}
@@ -402,7 +393,7 @@ export function LoginPage() {
             <button
               type="button"
               onClick={() => switchMode('login')}
-              className="mt-2 flex w-full items-center justify-center gap-1.5 text-xs font-semibold text-body-subtle hover:text-heading"
+              className="btn btn-ghost h-9 py-0 mt-3"
             >
               <ArrowLeft size={13} />
               {t('Quay lại đăng nhập', 'Back to sign in')}
@@ -412,16 +403,13 @@ export function LoginPage() {
               type="button"
               data-testid="forgot-password-trigger"
               onClick={() => switchMode('forgot')}
-              className="mt-2 flex w-full items-center justify-center text-xs font-semibold text-fg-brand hover:underline"
+              className="rounded-control mt-2 flex w-full items-center justify-center text-xs font-semibold text-fg-brand hover:underline"
             >
               {t('Quên mật khẩu?', 'Forgot password?')}
             </button>
           )}
         </form>
 
-        <p className="mt-5 text-center text-[11px] text-body-subtle">
-          {t('GreyTest · Hệ thống AI QA Agent hướng Grey-box', 'GreyTest · Grey-box AI QA Agent system')}
-        </p>
       </section>
     </div>
   );

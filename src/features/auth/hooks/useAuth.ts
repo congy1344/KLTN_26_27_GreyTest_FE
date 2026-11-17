@@ -30,6 +30,8 @@ export function useUserQuota() {
   return useQuery({
     queryKey: USER_QUOTA_KEY,
     queryFn: fetchUserQuota,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
     enabled: Boolean(localStorage.getItem('greytest.token')),
     retry: false,
   });

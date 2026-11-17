@@ -1,3 +1,5 @@
+import { IconButton } from '../../../shared/components/IconButton';
+import { Tag } from '../../../shared/components/Tag';
 import { X, Printer, CheckCircle2, ShieldCheck, Beaker } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n/language';
 import type { PaymentTransactionDto } from '../api/payment-api';
@@ -48,19 +50,19 @@ export function InvoiceModal({ open, transaction, user, onClose }: InvoiceModalP
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fade-in print:hidden"
+        className="fixed inset-0 bg-dark/60 backdrop-blur-sm animate-fade-in print:hidden"
         onClick={onClose}
       />
 
       {/* Invoice Card */}
-      <div className="relative w-full max-w-xl rounded-2xl border border-border-default bg-neutral-primary-soft p-6 sm:p-8 shadow-2xl animate-scale-in z-10 max-h-[92vh] overflow-y-auto print:max-h-none print:shadow-none print:border-none print:p-0">
+      <div className="relative w-full max-w-xl rounded-base border border-border-default bg-neutral-primary-soft p-6 sm:p-8 shadow-2xl animate-scale-in z-10 max-h-[92vh] overflow-y-auto print:max-h-none print:shadow-none print:border-none print:p-0">
         {/* Close & Print Action Bar (hidden when printing) */}
         <div className="mb-6 flex items-center justify-between border-b border-border-default-subtle pb-4 print:hidden">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-softer text-fg-brand">
+            <span className="flex h-7 w-7 items-center justify-center rounded-control bg-brand-softer text-fg-brand">
               <Beaker size={15} />
             </span>
-            <span className="text-xs font-bold text-heading">GreyTest Invoice</span>
+            <span className="text-xs font-semibold text-heading">GreyTest Invoice</span>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -71,58 +73,51 @@ export function InvoiceModal({ open, transaction, user, onClose }: InvoiceModalP
               <Printer size={13} />
               <span>{t('In hóa đơn', 'Print Invoice')}</span>
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg p-1.5 text-body-subtle hover:bg-neutral-secondary hover:text-heading transition-colors"
-              title={t('Đóng', 'Close')}
-            >
-              <X size={18} />
-            </button>
+            <IconButton icon={X} label={t('Đóng', 'Close')} onClick={onClose} title={t('Đóng', 'Close')} />
           </div>
         </div>
 
         {/* Invoice Printable Content */}
-        <div className="space-y-6 text-xs text-body print:text-black">
+        <div className="space-y-6 text-xs text-body print:text-heading">
           {/* Header */}
           <div className="flex items-start justify-between border-b border-border-default-subtle pb-5">
             <div>
-              <h2 id="invoice-modal-title" className="text-lg font-bold text-heading uppercase tracking-wide">
+              <h2 id="invoice-modal-title" className="font-semibold text-heading text-lg font-display">
                 {t('HÓA ĐƠN DỊCH VỤ ĐIỆN TỬ', 'ELECTRONIC SERVICE INVOICE')}
               </h2>
-              <p className="mt-1 font-mono text-body-subtle text-[11px]">
+              <p className="mt-1 text-body-subtle text-xs">
                 {t('Mã hóa đơn:', 'Invoice ID:')} <strong className="text-heading">INV-{transaction.orderId}</strong>
               </p>
-              <p className="text-body-subtle text-[11px]">
+              <p className="text-body-subtle text-xs">
                 {t('Ngày lập:', 'Issue Date:')} {formattedDate}
               </p>
             </div>
             <div className="text-right">
-              <div className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                <CheckCircle2 size={13} />
-                <span>{t('ĐÃ THANH TOÁN', 'PAID')}</span>
-              </div>
+              <Tag variant="status" tone={'success'} icon={CheckCircle2}>
+
+                <span>{t('Đã thanh toán', 'Paid')}</span>
+              </Tag>
             </div>
           </div>
 
           {/* Seller & Customer Info */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
-              <p className="font-semibold text-heading mb-1 uppercase text-[11px] tracking-wider text-body-subtle">
+              <p className="font-semibold text-heading mb-1 text-xs r text-body-subtle">
                 {t('Đơn vị cung cấp', 'Provider')}
               </p>
-              <p className="font-bold text-heading">Hệ thống AI QA Agent GreyTest</p>
-              <p className="text-body-subtle text-[11px]">Đồ án Tốt nghiệp Kỹ thuật Phần mềm</p>
-              <p className="text-body-subtle text-[11px]">Cổng thanh toán: VNPay</p>
+              <p className="font-semibold text-heading">Hệ thống AI QA Agent GreyTest</p>
+              <p className="text-body-subtle text-xs">Đồ án Tốt nghiệp Kỹ thuật Phần mềm</p>
+              <p className="text-body-subtle text-xs">Cổng thanh toán: VNPay</p>
             </div>
             <div>
-              <p className="font-semibold text-heading mb-1 uppercase text-[11px] tracking-wider text-body-subtle">
+              <p className="font-semibold text-heading mb-1 text-xs r text-body-subtle">
                 {t('Thông tin khách hàng', 'Customer')}
               </p>
-              <p className="font-bold text-heading">{user?.fullName ?? t('Khách hàng', 'Customer')}</p>
-              <p className="text-body-subtle text-[11px]">{user?.email ?? '—'}</p>
+              <p className="font-semibold text-heading">{user?.fullName ?? t('Khách hàng', 'Customer')}</p>
+              <p className="text-body-subtle text-xs">{user?.email ?? '—'}</p>
               {user?.phoneNumber && (
-                <p className="text-body-subtle text-[11px]">
+                <p className="text-body-subtle text-xs">
                   {t('SĐT:', 'Phone:')} {user.phoneNumber}
                 </p>
               )}
@@ -130,7 +125,7 @@ export function InvoiceModal({ open, transaction, user, onClose }: InvoiceModalP
           </div>
 
           {/* Line Items Table */}
-          <div className="overflow-hidden rounded-lg border border-border-default">
+          <div className="overflow-hidden rounded-base border border-border-default">
             <table className="w-full text-left text-xs">
               <thead className="bg-neutral-secondary-soft text-body-subtle">
                 <tr>
@@ -143,7 +138,7 @@ export function InvoiceModal({ open, transaction, user, onClose }: InvoiceModalP
                 <tr>
                   <td className="px-3.5 py-3">
                     <p className="font-semibold text-heading">{packageName}</p>
-                    <p className="text-[11px] text-body-subtle">
+                    <p className="text-xs text-body-subtle">
                       {isPro
                         ? t('300 lượt gọi AI, JaCoCo Coverage Refinement & AST Deep Analysis', '300 AI credits, JaCoCo refinement & AST deep analysis')
                         : t('200 lượt gọi AI, sinh test và phân tích cú pháp', '200 AI credits, test generation and syntax analysis')}
@@ -170,16 +165,16 @@ export function InvoiceModal({ open, transaction, user, onClose }: InvoiceModalP
               <span>{t('Thuế GTGT (VAT 0%):', 'VAT (0%):')}</span>
               <span>0 đ</span>
             </div>
-            <div className="flex justify-between text-sm font-bold text-heading pt-1 border-t border-border-default-subtle">
+            <div className="flex justify-between text-sm font-semibold text-heading pt-1 border-t border-border-default-subtle">
               <span>{t('Tổng thanh toán:', 'Total:')}</span>
               <span className="text-brand text-base">{formattedAmount}</span>
             </div>
           </div>
 
           {/* Payment Method Details */}
-          <div className="rounded-lg bg-neutral-secondary-soft p-3 text-[11px] text-body-subtle space-y-1">
+          <div className="rounded-base bg-neutral-secondary-soft p-3 text-xs text-body-subtle space-y-1">
             <div className="flex items-center gap-1.5 font-semibold text-heading">
-              <ShieldCheck size={14} className="text-emerald-500" />
+              <ShieldCheck size={14} className="text-fg-success-strong" />
               <span>{t('Chi tiết giao dịch qua VNPay', 'VNPay Transaction Details')}</span>
             </div>
             <div className="grid grid-cols-2 gap-2 pt-1">
@@ -195,7 +190,7 @@ export function InvoiceModal({ open, transaction, user, onClose }: InvoiceModalP
           </div>
 
           {/* Footer Note */}
-          <p className="text-center text-[10px] text-body-subtle pt-2">
+          <p className="text-center text-xs text-body-subtle pt-2">
             {t(
               'Hóa đơn điện tử này được tạo tự động bởi hệ thống GreyTest và có giá trị xác thực giao dịch trực tuyến.',
               'This electronic invoice was generated automatically by GreyTest and serves as proof of online transaction.'
@@ -206,4 +201,3 @@ export function InvoiceModal({ open, transaction, user, onClose }: InvoiceModalP
     </div>
   );
 }
-

@@ -24,8 +24,6 @@ vi.mock('../hooks/useAdmin', () => ({
         'ai.batch_concurrency': '4',
         'vnpay.tmn_code': 'CGXZLS0Z',
         'vnpay.url': 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
-        'log.output_dir': '../log/llm-usage',
-        'alert.quota_threshold_percent': '85',
       },
       details: [],
     },
@@ -71,7 +69,8 @@ describe('AdminSettingsPage', () => {
     expect(screen.getByRole('heading', { level: 1, name: /Cấu Hình Hệ Thống/i })).toBeInTheDocument();
     expect(screen.getByDisplayValue('CGXZLS0Z')).toBeInTheDocument();
     expect(screen.getByDisplayValue('4')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('85')).toBeInTheDocument();
+    // Ngưỡng cảnh báo và thư mục log chưa từng có tác dụng nên không còn trên trang.
+    expect(screen.queryByText(/alert\.quota_threshold_percent|log\.output_dir/)).not.toBeInTheDocument();
   });
 
   it('modifies a setting and submits with confirmation dialog', () => {
@@ -98,13 +97,15 @@ describe('AdminSettingsPage', () => {
 
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        settings: expect.objectContaining({
-          'ai.batch_concurrency': '5',
-          'vnpay.tmn_code': 'CGXZLS0Z',
-        }),
+        // Chỉ ô đã sửa được gửi đi; model và VNPay giữ nguyên không bị ghi lại.
+        settings: { 'ai.batch_concurrency': '5' },
       }),
       expect.any(Object),
     );
+    // Hai khoá đã bỏ ở backend; gửi lại sẽ bị từ chối và làm hỏng nút Lưu.
+    const sent = mockUpdate.mock.calls[0][0].settings;
+    expect(sent).not.toHaveProperty('log.output_dir');
+    expect(sent).not.toHaveProperty('alert.quota_threshold_percent');
   });
 
   it('renders settings form without redundant in-page tab switcher', () => {

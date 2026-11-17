@@ -100,12 +100,12 @@ describe('AdminQuotasPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Quản Lý Hạn Ngạch & Gói Dịch Vụ Tier')).toBeInTheDocument();
+    expect(screen.getByText("Quản lý hạn ngạch & gói dịch vụ Tier")).toBeInTheDocument();
     expect(screen.getByText('FREE TIER')).toBeInTheDocument();
     expect(screen.getByText('PLUS TIER')).toBeInTheDocument();
     expect(screen.getByText('PRO TIER')).toBeInTheDocument();
-    expect(screen.getByText('Quản Lý Danh Mục Gói Dịch Vụ & Hạn Mức Tier')).toBeInTheDocument();
-    expect(screen.getByText('Thêm Gói Mới')).toBeInTheDocument();
+    expect(screen.getByText("Quản lý danh mục gói dịch vụ & hạn mức Tier")).toBeInTheDocument();
+    expect(screen.getByText("Thêm gói mới")).toBeInTheDocument();
     expect(screen.getAllByText('10 tài khoản').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Quay lại Dashboard/i)).toBeInTheDocument();
   });
@@ -129,7 +129,7 @@ describe('AdminQuotasPage', () => {
     const quotaInput = screen.getByDisplayValue('100');
     fireEvent.change(quotaInput, { target: { value: '150' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu Gói Dịch Vụ' }));
+    fireEvent.click(screen.getByRole('button', { name: "Lưu gói dịch vụ" }));
     expect(screen.getByText('Xác nhận lưu thay đổi gói dịch vụ?')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận lưu' }));
 
@@ -156,8 +156,8 @@ describe('AdminQuotasPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Thêm Gói Mới' }));
-    expect(screen.getByText('Thêm Gói Dịch Vụ Mới')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: "Thêm gói mới" }));
+    expect(screen.getByText("Thêm gói dịch vụ mới")).toBeInTheDocument();
 
     const codeInput = screen.getByPlaceholderText('VD: VIP_ENTERPRISE');
     fireEvent.change(codeInput, { target: { value: 'VIP' } });
@@ -165,7 +165,7 @@ describe('AdminQuotasPage', () => {
     const nameInput = screen.getByPlaceholderText('VD: Gói Doanh Nghiệp');
     fireEvent.change(nameInput, { target: { value: 'Gói VIP Doanh Nghiệp' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu Gói Dịch Vụ' }));
+    fireEvent.click(screen.getByRole('button', { name: "Lưu gói dịch vụ" }));
     expect(screen.getByText('Xác nhận tạo gói dịch vụ mới?')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận lưu' }));
 

@@ -3,7 +3,7 @@ export function serviceParams(servicePath?: string) {
 }
 
 export function projectWorkflowPath(projectId: number, step?: string, servicePath?: string) {
-  const path = step ? `/projects/${projectId}/${step}` : `/projects/${projectId}`;
+  const path = `/projects/${projectId}/${step && step !== 'analysis' ? step : 'business-rules'}`;
   if (!servicePath) return path;
   return `${path}?${new URLSearchParams({ servicePath }).toString()}`;
 }

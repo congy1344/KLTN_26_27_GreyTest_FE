@@ -1,4 +1,5 @@
-import { AlertTriangle, CheckCircle2, Clock, ShieldCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CircleDot, ShieldCheck } from 'lucide-react';
+import { Tag } from '../../../shared/components/Tag';
 import { useState } from 'react';
 import { useLanguage } from '../../../shared/i18n/language';
 import type { AdminOverview } from '../types';
@@ -80,11 +81,11 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
   ];
 
   return (
-    <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-6 sm:p-8 shadow-xs">
+    <div className="rounded-base border border-border-default bg-neutral-primary-soft p-6 sm:p-8 shadow-xs">
       <div className="flex flex-wrap items-center justify-between gap-5 border-b border-border-default pb-6">
         <div className="flex items-center gap-5">
           <div
-            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl transition-colors ${
+            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-base transition-colors ${
               isNoData
                 ? 'bg-neutral-secondary text-body-subtle border border-border-default'
                 : isOverallPassed
@@ -96,26 +97,17 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-body-subtle">Quality Gate</span>
-              <span
-                className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-extrabold tracking-wide ${
-                  isNoData
-                    ? 'bg-neutral-secondary text-body border border-border-default'
-                    : isOverallPassed
-                      ? 'bg-success-soft text-fg-success-strong border border-border-success-subtle'
-                      : 'bg-danger-soft text-fg-danger-strong border border-border-danger-subtle'
-                }`}
-              >
-                {isNoData ? <Clock size={15} /> : isOverallPassed ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
+              <span className="text-xs font-semibold text-body-subtle">Quality Gate</span>
+              <Tag variant="status" tone={isNoData ? "neutral" : isOverallPassed ? "success" : "danger"} icon={isNoData ? CircleDot : isOverallPassed ? CheckCircle2 : AlertCircle}>
                 {isNoData
-                  ? (language === 'vi' ? 'CHƯA CÓ BÁO CÁO ĐO LƯỜNG' : 'PENDING MEASUREMENT')
+                  ? (language === 'vi' ? 'Chưa có báo cáo đo lường' : 'PENDING MEASUREMENT')
                   : isOverallPassed
-                    ? (language === 'vi' ? 'ĐẠT TIÊU CHUẨN' : 'PASSED')
-                    : (language === 'vi' ? 'CHƯA ĐẠT CHUẨN QUALITY GATE' : 'FAILED QUALITY GATE')}
-              </span>
+                    ? (language === 'vi' ? 'Đạt tiêu chuẩn' : 'PASSED')
+                    : (language === 'vi' ? 'Chưa đạt chuẩn Quality Gate' : 'FAILED QUALITY GATE')}
+              </Tag>
             </div>
-            <h2 className="mt-1.5 text-2xl sm:text-3xl font-extrabold text-heading tracking-tight">
-              {language === 'vi' ? 'Đánh giá Chất lượng Kiểm thử Toàn hệ thống' : 'Overall Test Generation Quality Verdict'}
+            <h2 className="mt-1.5 text-2xl sm:text-3xl font-extrabold text-heading">
+              {language === 'vi' ? 'Đánh giá chất lượng kiểm thử toàn hệ thống' : "Overall Test generation quality verdict"}
             </h2>
           </div>
         </div>
@@ -124,7 +116,7 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="rounded-lg border border-border-default bg-neutral-secondary-soft px-4 py-2 text-xs sm:text-sm font-bold text-body hover:bg-neutral-secondary hover:text-heading shadow-2xs transition-colors"
+            className="btn btn-secondary rounded-control px-4 py-2 text-xs sm:text-sm font-bold transition-colors"
           >
             {expanded ? (language === 'vi' ? 'Thu gọn' : 'Collapse') : (language === 'vi' ? 'Chi tiết tiêu chí' : 'View Conditions')}
           </button>
@@ -134,7 +126,7 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
       {/* 5 Prominent Metric Tiles with Large Numbers */}
       <div className="mt-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
         {conditions.map((cond) => (
-          <div key={cond.id} className="flex flex-col justify-between rounded-xl border border-border-default-subtle bg-neutral-secondary-soft/60 p-4 sm:p-5 transition-all hover:border-border-default hover:shadow-2xs">
+          <div key={cond.id} className="flex flex-col justify-between rounded-base border border-border-default-subtle bg-neutral-secondary-soft/60 p-4 sm:p-5 transition-colors hover:border-border-default hover:shadow-2xs">
             <div>
               <p className="text-xs sm:text-sm font-bold text-heading min-h-[2.5rem] leading-snug" title={cond.name}>
                 {cond.name}
@@ -145,14 +137,14 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
                 </span>
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-1 border-t border-border-default-subtle/80 pt-2 text-[11px] sm:text-xs text-body-subtle font-medium">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-1 border-t border-border-default-subtle/80 pt-2 text-xs sm:text-xs text-body-subtle font-medium">
               <span>{language === 'vi' ? 'Chuẩn' : 'Req'}: {cond.threshold}</span>
               <span
-                className={`font-sans text-[11px] sm:text-xs font-bold ${
+                className={`font-sans text-xs sm:text-xs font-bold ${
                   cond.status === 'PASSED'
-                    ? 'text-fg-success'
+                    ? 'text-fg-success-strong'
                     : cond.status === 'FAILED'
-                      ? 'text-danger'
+                      ? 'text-fg-danger-strong'
                       : 'text-body-subtle'
                 }`}
               >
@@ -164,14 +156,14 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
       </div>
 
       {expanded && (
-        <div className="mt-6 overflow-x-auto rounded-xl border border-border-default-subtle">
+        <div className="mt-6 overflow-x-auto rounded-base border border-border-default-subtle bg-neutral-primary-soft">
           <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="border-b border-border-default-subtle bg-neutral-secondary-soft font-bold uppercase text-body-subtle">
+            <thead className="text-xs border-b border-border-default-subtle bg-neutral-secondary-soft font-semibold text-body-subtle">
               <tr>
-                <th className="p-3.5 sm:p-4">{language === 'vi' ? 'Chỉ số kiểm thử' : 'Metric'}</th>
-                <th className="p-3.5 sm:p-4">{language === 'vi' ? 'Ngưỡng tối thiểu' : 'Required Threshold'}</th>
-                <th className="p-3.5 sm:p-4">{language === 'vi' ? 'Giá trị thực tế' : 'Live Value'}</th>
-                <th className="p-3.5 sm:p-4 text-right">{language === 'vi' ? 'Kết luận' : 'Status'}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5 sm:p-4">{language === 'vi' ? 'Chỉ số kiểm thử' : 'Metric'}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5 sm:p-4">{language === 'vi' ? 'Ngưỡng tối thiểu' : "Required threshold"}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5 sm:p-4">{language === 'vi' ? 'Giá trị thực tế' : "Live value"}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5 sm:p-4 text-right">{language === 'vi' ? 'Kết luận' : 'Status'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default-subtle">
@@ -181,17 +173,9 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
                   <td className="p-3.5 sm:p-4 font-sans tabular-nums text-body">{cond.threshold}</td>
                   <td className="p-3.5 sm:p-4 font-sans tabular-nums font-bold text-heading">{cond.actual}</td>
                   <td className="p-3.5 sm:p-4 text-right font-sans tabular-nums font-bold">
-                    <span
-                      className={`inline-block rounded-full px-3 py-1 text-xs font-bold ${
-                        cond.status === 'PASSED'
-                          ? 'bg-success-soft text-fg-success-strong'
-                          : cond.status === 'FAILED'
-                            ? 'bg-danger-soft text-fg-danger-strong'
-                            : 'bg-neutral-secondary text-body-subtle'
-                      }`}
-                    >
+                    <Tag variant="status" tone={cond.status === 'PASSED' ? "success" : cond.status === 'FAILED' ? "danger" : "neutral"} icon={cond.status === 'PASSED' ? CheckCircle2 : cond.status === 'FAILED' ? AlertCircle : CircleDot}>
                       {cond.status}
-                    </span>
+                    </Tag>
                   </td>
                 </tr>
               ))}

@@ -1,25 +1,23 @@
+import { Tag } from '../../../shared/components/Tag';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  AlertTriangle,
+import { Check, AlertCircle,
   ArrowRight,
   BarChart3,
   CheckCircle2,
-  FileUp,
-  GitBranch,
   Loader2,
-  ShieldCheck,
+  Play,
+  Sparkles,
   UploadCloud,
 } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
-import { MetricCard } from '../../../shared/components/MetricCard';
 import { useLanguage } from '../../../shared/i18n/language';
 import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { parseApiDate } from '../../../shared/utils/date-time';
-import { useCoverageReport, useStartCoverageRefinement, useUploadCoverage } from '../hooks/useCoverage';
+import { useCoverageReport, useSandboxRun, useStartCoverageRefinement, useUploadCoverage } from '../hooks/useCoverage';
 import type { CoverageGap } from '../types';
 import type { ProjectStatus } from '../../projects/types';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
@@ -40,7 +38,9 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
   const reportQuery = useCoverageReport(projectId, servicePath);
   const upload = useUploadCoverage(projectId, servicePath);
   const refinement = useStartCoverageRefinement(projectId, servicePath);
-  const report = reportQuery.data ?? null;
+  const sandbox = useSandboxRun(projectId, servicePath);
+  const sandboxRunning = sandbox.state?.status === 'RUNNING';
+  const report =reportQuery.data ?? null;
   const serviceCoverage = report?.serviceCoverage ?? null;
   const fileName = selectedFile?.name ?? '';
   const canRefine = projectStatus === 'COVERAGE_ANALYZED' || projectStatus === 'COMPLETED';
@@ -63,243 +63,119 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
     });
   };
 
+  const metrics = [
+    { label: 'JaCoCo Line Coverage', value: report?.lineCoverage, hint: deltaHint(report?.lineCoverage, report?.previousLineCoverage, t) },
+    { label: 'JaCoCo Branch Coverage', value: report?.branchCoverage, hint: deltaHint(report?.branchCoverage, report?.previousBranchCoverage, t) },
+    { label: 'Requirement Coverage', value: report?.requirementCoverage, hint: deltaHint(report?.requirementCoverage, report?.previousRequirementCoverage, t), success: true },
+    { label: 'Service Line Coverage', value: serviceCoverage?.lineCoverage,
+      hint: serviceCoverage && serviceCoverage.coveredLines != null && serviceCoverage.totalLines != null ? t(`${serviceCoverage.coveredLines}/${serviceCoverage.totalLines} dòng`, `${serviceCoverage.coveredLines}/${serviceCoverage.totalLines} lines`) : undefined },
+    { label: 'Service Branch Coverage', value: serviceCoverage?.branchCoverage,
+      hint: serviceCoverage && serviceCoverage.coveredBranches != null && serviceCoverage.totalBranches != null ? t(`${serviceCoverage.coveredBranches}/${serviceCoverage.totalBranches} nhánh`, `${serviceCoverage.coveredBranches}/${serviceCoverage.totalBranches} branches`) : undefined },
+  ];
+  const runStatus = sandbox.state?.status;
+  const statusLabel = runStatus === 'RUNNING' ? t('Đang chạy', 'Running')
+    : runStatus === 'SUCCEEDED' ? t('Thành công', 'Succeeded')
+    : runStatus === 'TESTS_FAILED' ? t('Có test lỗi', 'Tests failed')
+    : runStatus === 'FAILED' ? t('Thất bại', 'Failed') : undefined;
   return (
-    <section className="mt-8 animate-fade-in">
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-heading">Coverage</h3>
-          <p className="mt-1 text-xs text-body-subtle">
-            {t('Upload JaCoCo XML sau khi chạy Unit Test local, rồi xem coverage và coverage gap.', 'Upload JaCoCo XML after running Unit Tests locally, then inspect coverage and gaps.')}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="btn btn-brand shrink-0"
-          disabled={!report || !canRefine}
-          onClick={() => navigate(projectWorkflowPath(projectId, 'traceability', servicePath), {
-            state: {
-              workflowNotice: t(
-                'Coverage đã được phân tích. Chuyển sang bước Traceability.',
-                'Coverage has been analyzed. Continue with Traceability.',
-              ),
-            },
-          })}
-        >
-          {t('Tiếp tục đến Traceability', 'Continue to Traceability')}
-          <ArrowRight size={14} strokeWidth={1.8} />
+    <section className="space-y-5 animate-fade-in">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-2xl text-sm text-body-subtle">{t('Đo bằng JaCoCo và đối chiếu với Business Rule. Chỉ số Service phản ánh phạm vi GreyTest sinh Unit Test.', 'Measured by JaCoCo and traced to Business Rules. Service metrics reflect the scope of generated Unit Tests.')}</p>
+        <button type="button" className="btn btn-secondary" disabled={!report || !canRefine}
+          onClick={() => navigate(projectWorkflowPath(projectId, 'traceability', servicePath), { state: { workflowNotice: t('Coverage đã được phân tích. Chuyển sang bước Traceability.', 'Coverage has been analyzed. Continue with Traceability.') } })}>
+          {t('Tiếp tục đến Traceability', 'Continue to Traceability')}<ArrowRight size={14} strokeWidth={1.8} />
         </button>
       </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-        <MetricCard icon={BarChart3} label="JaCoCo Line Coverage" value={report ? `${report.lineCoverage}%` : '-'} tone="brand" hint={deltaHint(report?.lineCoverage, report?.previousLineCoverage, t)} />
-        <MetricCard icon={GitBranch} label="JaCoCo Branch Coverage" value={report ? `${report.branchCoverage}%` : '-'} hint={deltaHint(report?.branchCoverage, report?.previousBranchCoverage, t)} />
-        <MetricCard icon={ShieldCheck} label="Requirement Coverage" value={report ? `${report.requirementCoverage}%` : '-'} hint={deltaHint(report?.requirementCoverage, report?.previousRequirementCoverage, t)} />
-        <MetricCard
-          icon={BarChart3}
-          label="Service Line Coverage"
-          value={serviceCoverage ? `${serviceCoverage.lineCoverage}%` : '-'}
-          tone="brand"
-          hint={serviceCoverage ? t(`${serviceCoverage.coveredLines}/${serviceCoverage.totalLines} dòng`, `${serviceCoverage.coveredLines}/${serviceCoverage.totalLines} lines`) : undefined}
-        />
-        <MetricCard
-          icon={GitBranch}
-          label="Service Branch Coverage"
-          value={!serviceCoverage ? '-' : serviceCoverage.branchCoverage == null ? 'N/A' : `${serviceCoverage.branchCoverage}%`}
-          hint={!serviceCoverage ? undefined : serviceCoverage.branchCoverage == null
-            ? t('Không có nhánh', 'No branches')
-            : t(`${serviceCoverage.coveredBranches}/${serviceCoverage.totalBranches} nhánh`, `${serviceCoverage.coveredBranches}/${serviceCoverage.totalBranches} branches`)}
-        />
-        <MetricCard icon={AlertTriangle} label="Refinable Service Gaps" value={refinableGapCount} />
-      </div>
-      <p className="mt-2 text-xs text-body-subtle">
-        {t(
-          'JaCoCo Line/Branch tính trên toàn bộ class trong report. Service chỉ tính các class Service, là phạm vi GreyTest sinh Unit Test.',
-          'JaCoCo Line/Branch count every class in the report. Service counts only Service classes, the scope GreyTest generates Unit Tests for.',
-        )}
-      </p>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(280px,0.72fr)_minmax(0,1.28fr)]">
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-default bg-brand-softer text-fg-brand-strong">
-              <FileUp size={16} strokeWidth={1.8} />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-heading">JaCoCo XML</p>
-              <p className="mt-0.5 truncate text-xs text-body-subtle">target/site/jacoco/jacoco.xml</p>
-            </div>
+      {metrics.some((metric) => metric.value != null) && <section aria-label={t('Chỉ số coverage', 'Coverage metrics')} className="grid grid-cols-[repeat(auto-fit,minmax(176px,1fr))] gap-3">
+        {metrics.filter((metric) => metric.value != null).map((metric) => <div key={metric.label} className="rounded-base border border-border-default bg-neutral-primary-soft p-4">
+          <p className="text-xs font-semibold text-body">{metric.label}</p>
+          <p className="mb-2.5 mt-1.5 font-display text-[30px] font-semibold text-heading">{metric.value}%</p>
+          <div className="h-1.5 overflow-hidden rounded-base bg-neutral-secondary-medium">
+            <div className={`h-1.5 ${metric.success ? 'bg-success' : 'bg-brand'}`} style={{ width: `${metric.value}%` }} />
           </div>
-
-          <input
-            id={`coverage-file-${projectId}`}
-            aria-label={t('Chọn JaCoCo XML', 'Choose JaCoCo XML')}
-            className="sr-only"
-            type="file"
-            accept=".xml,text/xml"
-            onChange={(event) => {
-              setSelectedFile(event.currentTarget.files?.[0] ?? null);
-              event.currentTarget.value = '';
-              upload.reset();
-            }}
-          />
-          <label
-            htmlFor={`coverage-file-${projectId}`}
-            className="group flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-default border border-dashed border-border-default-strong bg-neutral-secondary-soft px-4 py-5 text-center transition-colors hover:border-border-brand-subtle hover:bg-brand-softer/40 focus-within:ring-2 focus-within:ring-brand"
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-default bg-neutral-secondary-medium text-body-subtle transition-colors group-hover:bg-neutral-primary-soft group-hover:text-fg-brand-strong">
-              <UploadCloud size={18} strokeWidth={1.8} />
-            </span>
-            <span className="mt-3 text-sm font-semibold text-heading">
-              {fileName || t('Chọn file jacoco.xml', 'Choose jacoco.xml')}
-            </span>
-            <span className="mt-1 text-xs text-body-subtle">
-              {t('Chỉ nhận file XML từ JaCoCo', 'JaCoCo XML files only')}
-            </span>
+          {metric.hint && <p className="mt-2 text-xs text-body-subtle">{metric.hint}</p>}
+        </div>)}
+      </section>}
+      <section aria-label={t('Chạy test trên server', 'Run tests on server')} className="overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border-default px-4 py-4">
+          <div className="min-w-0 flex-[1_1_260px]">
+            <h2 className="font-display text-lg font-semibold text-heading">{t('Chạy test trên server', 'Run tests on server')}</h2>
+            <p className="mt-1 text-sm text-body-subtle">{t('Mỗi lần chạy dùng một container riêng để biên dịch và chạy test bằng Maven.', 'Each run compiles and tests with Maven in a separate container.')}</p>
+          </div>
+          <button type="button" className="btn btn-secondary" disabled={sandboxRunning || sandbox.start.isPending} onClick={() => sandbox.start.mutate(false)}>
+            {sandboxRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+            {sandboxRunning ? t('Đang chạy trong sandbox...', 'Running in sandbox...') : t('Chạy test', 'Run tests')}
+          </button>
+          <button type="button" className="btn btn-brand" disabled={sandboxRunning || sandbox.start.isPending} onClick={() => sandbox.start.mutate(true)}>
+            <Sparkles size={14} />{t('Chạy và để AI sửa test lỗi', 'Run and let AI fix failing tests')}
+          </button>
+        </div>
+        <p className="px-4 py-3 text-xs text-body-subtle">{t('AI sửa các test không đạt theo lỗi chạy thật rồi chạy lại, tối đa 3 vòng; có tính vào quota AI.', 'AI fixes failing tests from the real failure and reruns, up to 3 rounds; this uses AI quota.')}</p>
+        {sandbox.start.isError && <div className="px-4 pb-3"><InlineAlert tone="danger">{getErrorMessage(sandbox.start.error)}</InlineAlert></div>}
+        {statusLabel && <div className="flex flex-wrap items-center gap-3 px-4 py-3" aria-live="polite">
+          <Tag variant="status" tone={runStatus === 'SUCCEEDED' ? 'success' : runStatus === 'TESTS_FAILED' ? 'warning' : runStatus === 'FAILED' ? 'danger' : 'brand'} icon={runStatus === 'RUNNING' ? Loader2 : runStatus === 'SUCCEEDED' ? Check : AlertCircle}>{statusLabel}</Tag>
+          <span className="text-sm">{sandbox.state?.message}</span>
+        </div>}
+        {sandbox.state?.logTail && <pre className="code-surface max-h-80 overflow-auto px-4 py-3 font-mono text-xs leading-relaxed">{sandbox.state.logTail}</pre>}
+      </section>
+      <section className="rounded-base border border-border-default bg-neutral-primary-soft p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex-[1_1_240px]">
+            <h2 className="font-display text-lg font-semibold text-heading">JaCoCo XML</h2>
+            <p className="mt-1 font-mono text-xs text-body-subtle">target/site/jacoco/jacoco.xml</p>
+          </div>
+          <input id={`coverage-file-${projectId}`} aria-label={t('Chọn JaCoCo XML', 'Choose JaCoCo XML')} className="sr-only" type="file" accept=".xml,text/xml"
+            onChange={(event) => { setSelectedFile(event.currentTarget.files?.[0] ?? null); event.currentTarget.value = ''; upload.reset(); }} />
+          <label htmlFor={`coverage-file-${projectId}`} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-base border border-dashed border-border-default-strong px-4 py-2 text-sm text-body hover:bg-neutral-secondary-soft">
+            <UploadCloud size={16} /><span className="break-all font-mono">{fileName || t('Chọn file jacoco.xml', 'Choose jacoco.xml')}</span>
           </label>
-
-          <button className="btn btn-brand mt-3 w-full" disabled={!fileName || upload.isPending} onClick={handleUpload}>
+          <button className="btn btn-secondary" disabled={!fileName || upload.isPending} onClick={handleUpload}>
             {upload.isPending ? <Loader2 size={14} className="animate-spin" /> : <BarChart3 size={14} />}
             {upload.isPending ? t('Đang phân tích...', 'Analyzing...') : t('Upload và phân tích coverage', 'Upload and analyze coverage')}
           </button>
-
-          {upload.isError && <div className="mt-3"><InlineAlert tone="danger">{getErrorMessage(upload.error)}</InlineAlert></div>}
-          {showSuccess && (
-            <div className="mt-3"><InlineAlert tone="success">{t('Upload và phân tích thành công', 'Uploaded and analyzed successfully')}</InlineAlert></div>
-          )}
-
-          <div className="mt-4 grid gap-2 text-sm">
-            <ContextRow label={t('File đã chọn', 'Selected file')} value={fileName || t('Chưa chọn file', 'No file selected')} />
-            <ContextRow label="JaCoCo line gate" value=">= 80%" />
-            <ContextRow label="JaCoCo branch gate" value=">= 70%" />
-          </div>
         </div>
-
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft shadow-sm">
-          <div className="border-b border-border-default p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-heading">Coverage result</p>
-              {report && (
-                <span className="rounded-full bg-brand-softer px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong">
-                  {t(`Vòng ${report.round}`, `Round ${report.round}`)}
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-body-subtle">
-              {report
-                ? t(`Upload lúc ${parseApiDate(report.uploadedAt).toLocaleString('vi-VN')}`, `Uploaded at ${parseApiDate(report.uploadedAt).toLocaleString('en-US')}`)
-                : t('Chưa có coverage report.', 'No coverage report yet.')}
-            </p>
-          </div>
-
-          {reportQuery.isLoading ? (
-            <LoadingState label={t('Đang tải coverage...', 'Loading coverage...')} minHeight="min-h-[330px]" />
-          ) : reportQuery.isError ? (
-            <div className="p-4">
-              <InlineAlert tone="danger">{getErrorMessage(reportQuery.error)}</InlineAlert>
-              <button type="button" className="btn btn-secondary mt-3" onClick={() => reportQuery.refetch()}>
-                {t('Thử lại', 'Retry')}
-              </button>
-            </div>
-          ) : !report ? (
-            <EmptyState
-              icon={BarChart3}
-              title={t('Chưa có coverage report', 'No coverage report yet')}
-              hint={t('Upload jacoco.xml để phân tích coverage theo class/method.', 'Upload jacoco.xml to analyze coverage by class and method.')}
-              minHeight="min-h-[330px]"
-            />
-          ) : visibleGaps.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title={t('Không có coverage gap cần bổ sung', 'No coverage gaps to refine')}
-              hint={t('Mọi method trong phạm vi đều đạt ngưỡng line >= 80% và branch >= 70%.', 'All scoped methods meet the line >= 80% and branch >= 70% gates.')}
-              minHeight="min-h-[330px]"
-            />
-          ) : (
-            <>
-              <div className="divide-y divide-border-default">
-                {visibleGaps.map((gap) => (
-                  <GapRow key={`${gap.className}.${gap.methodName}-${gap.methodId}`} gap={gap} />
-                ))}
-              </div>
-              <div className="border-t border-border-default bg-brand-softer/40 p-4">
-                {refinement.isError && (
-                  <InlineAlert tone="danger">{getErrorMessage(refinement.error)}</InlineAlert>
-                )}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs leading-relaxed text-body-subtle">
-                    {refinableGapCount > 0
-                      ? t(
-                          `AI sẽ bổ sung ${refinableGapCount} Service gap và tự sinh Unit Test cho vòng ${report.round + 1}.`,
-                          `AI will refine ${refinableGapCount} Service gaps and generate their Unit Tests for round ${report.round + 1}.`,
-                        )
-                      : t('Không có coverage gap nào cần bổ sung.', 'No coverage gaps need refinement.')}
-                  </p>
-                  <button
-                    type="button"
-                    disabled={refinement.isPending || !canRefine || refinableGapCount === 0}
-                    onClick={() => refinement.mutate(undefined, {
-                      onSuccess: () => navigate(projectWorkflowPath(projectId, 'unit-tests', servicePath), {
-                        state: {
-                          workflowNotice: t(
-                            `Đã sinh bổ sung Test Case và Unit Test cho vòng ${report.round + 1}.`,
-                            `Supplemental Test Cases and Unit Tests for round ${report.round + 1} were generated.`,
-                          ),
-                        },
-                      }),
-                    })}
-                    className="btn btn-brand shrink-0"
-                  >
-                    {refinement.isPending ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} strokeWidth={1.8} />}
-                    {refinement.isPending
-                      ? t('AI đang bổ sung...', 'AI is refining...')
-                      : canRefine
-                        ? refinableGapCount > 0
-                          ? t(`Bắt đầu vòng ${report.round + 1}`, `Start round ${report.round + 1}`)
-                          : t('Không có Service gap', 'No Service gaps')
-                        : t('Upload JaCoCo vòng mới trước', 'Upload the new JaCoCo report first')}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+        {upload.isError && <div className="mt-3"><InlineAlert tone="danger">{getErrorMessage(upload.error)}</InlineAlert></div>}
+        {showSuccess && <div className="mt-3"><InlineAlert tone="success">{t('Upload và phân tích thành công', 'Uploaded and analyzed successfully')}</InlineAlert></div>}
+      </section>
+      <section aria-label={t('Nhánh chưa được phủ', 'Uncovered branches')} className="overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border-default px-4 py-3.5">
+          <h2 className="flex-1 font-display text-lg font-semibold text-heading">{t('Nhánh chưa được phủ', 'Uncovered branches')}</h2>
+          {report && <Tag className="font-mono tabular-nums">{t(`Vòng ${report.round}`, `Round ${report.round}`)}</Tag>}
+          {report && visibleGaps.length > 0 && <button type="button" className="btn btn-secondary" disabled={refinement.isPending || !canRefine || refinableGapCount === 0}
+            onClick={() => refinement.mutate(undefined, { onSuccess: () => navigate(projectWorkflowPath(projectId, 'unit-tests', servicePath), { state: { workflowNotice: t(`Đã sinh bổ sung Test Case và Unit Test cho vòng ${report.round + 1}.`, `Supplemental Test Cases and Unit Tests for round ${report.round + 1} were generated.`) } }) })}>
+            {refinement.isPending ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
+            {refinement.isPending ? t('AI đang bổ sung...', 'AI is refining...') : canRefine ? t('Sinh Test Case bổ sung', 'Generate supplemental Test Cases') : t('Upload JaCoCo vòng mới trước', 'Upload the new JaCoCo report first')}
+          </button>}
         </div>
-      </div>
+        {report && <p className="px-4 py-3 text-xs text-body-subtle">{t(`Upload lúc ${parseApiDate(report.uploadedAt).toLocaleString('vi-VN')}`, `Uploaded at ${parseApiDate(report.uploadedAt).toLocaleString('en-US')}`)}</p>}
+        {reportQuery.isLoading ? <LoadingState label={t('Đang tải coverage...', 'Loading coverage...')} minHeight="min-h-[180px]" />
+          : reportQuery.isError ? <div className="p-4"><InlineAlert tone="danger">{getErrorMessage(reportQuery.error)}</InlineAlert><button type="button" className="btn btn-secondary mt-3" onClick={() => reportQuery.refetch()}>{t('Thử lại', 'Retry')}</button></div>
+          : !report ? <EmptyState icon={BarChart3} title={t('Chưa có coverage report', 'No coverage report yet')} hint={t('Upload jacoco.xml để phân tích coverage theo class/method.', 'Upload jacoco.xml to analyze coverage by class and method.')} minHeight="min-h-[180px]" />
+          : !visibleGaps.length ? <EmptyState icon={CheckCircle2} title={t('Không có coverage gap cần bổ sung', 'No coverage gaps to refine')} hint={t('Mọi method trong phạm vi đều đạt ngưỡng line >= 80% và branch >= 70%.', 'All scoped methods meet the line >= 80% and branch >= 70% gates.')} minHeight="min-h-[180px]" />
+          : <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm">
+            <thead className="text-xs text-body-subtle"><tr>
+              <th scope="col" className="px-4 py-2.5 font-semibold">Method</th><th scope="col" className="px-4 py-2.5 font-semibold">{t('Dòng thiếu', 'Missed lines')}</th>
+              <th scope="col" className="px-4 py-2.5 font-semibold">{t('Nhánh thiếu', 'Missed branches')}</th><th scope="col" className="px-4 py-2.5 font-semibold">{t('Mức', 'Risk')}</th>
+            </tr></thead>
+            <tbody>{visibleGaps.map((gap) => <GapRow key={`${gap.className}.${gap.methodName}-${gap.methodId}`} gap={gap} />)}</tbody>
+          </table></div>}
+        {refinement.isError && <div className="p-4"><InlineAlert tone="danger">{getErrorMessage(refinement.error)}</InlineAlert></div>}
+        {report && visibleGaps.length > 0 && <p className="px-4 py-3 text-xs text-body-subtle">{t(`AI sẽ bổ sung ${refinableGapCount} Service gap và tự sinh Unit Test cho vòng ${report.round + 1}.`, `AI will refine ${refinableGapCount} Service gaps and generate their Unit Tests for round ${report.round + 1}.`)}</p>}
+      </section>
     </section>
   );
 }
 
 function GapRow({ gap }: { gap: CoverageGap }) {
-  const { t, language } = useLanguage();
-  const missedLines = gap.missedLines.length
-    ? gap.missedLines.slice(0, 5).join(', ') + (gap.missedLines.length > 5 ? ', ...' : '')
-    : '-';
-  return (
-    <article className="grid gap-3 px-4 py-4 text-sm md:grid-cols-[minmax(0,1fr)_120px_90px_150px] md:items-center">
-      <div className="min-w-0">
-        <p className="truncate font-mono text-xs font-semibold text-heading">{gap.className}.{gap.methodName}</p>
-        <p className="mt-1 text-xs leading-relaxed text-body-subtle">{gap.suggestion}</p>
-      </div>
-      <span className="font-mono text-xs text-body-subtle" title={gap.missedLines.join(', ')}>
-        {t('Dòng', 'Lines')} {missedLines}
-      </span>
-      <span className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-        gap.risk === 'HIGH' ? 'bg-danger-soft text-fg-danger-strong' : 'bg-warning-soft text-fg-warning'
-      }`}>
-        {gap.risk === 'HIGH' ? <AlertTriangle size={11} /> : <CheckCircle2 size={11} />}
-        {formatSemanticLabel(gap.risk, language)}
-      </span>
-      <span className="inline-flex w-fit rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-fg-success-strong">
-        {gap.refinable ? t('Service · Có thể bổ sung', 'Service · Refinable') : t('Có thể bổ sung', 'Refinable')}
-      </span>
-    </article>
-  );
-}
-
-function ContextRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-2 rounded-default bg-neutral-secondary-soft px-3 py-2">
-      <dt className="text-body-subtle">{label}</dt>
-      <dd className="truncate font-medium text-heading">{value}</dd>
-    </div>
-  );
+  const { language, t } = useLanguage();
+  return <tr className="border-t border-border-default">
+    <td className="px-4 py-3 align-top">
+      <p className="font-mono text-xs text-heading">{gap.className}.{gap.methodName}</p>
+      <p className="mt-1 text-xs text-body-subtle">{gap.suggestion}</p>
+      <p className="mt-1 text-xs text-fg-success-strong">{gap.refinable ? t('Service, Có thể bổ sung', 'Service, Refinable') : t('Có thể bổ sung', 'Refinable')}</p>
+    </td>
+    <td className="px-4 py-3 align-top font-mono text-xs text-body">{gap.missedLines.join(', ')}</td>
+    <td className="px-4 py-3 align-top font-mono text-xs text-body">{gap.missedBranches.join(', ')}</td>
+    <td className="px-4 py-3 align-top"><Tag>{formatSemanticLabel(gap.risk, language)}</Tag></td>
+  </tr>;
 }

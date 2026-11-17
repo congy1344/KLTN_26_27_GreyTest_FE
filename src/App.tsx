@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { NewProjectPage } from './features/projects/pages/NewProjectPage';
 import { ProjectsPage } from './features/projects/pages/ProjectsPage';
 import { ProjectDetailPage } from './features/projects/pages/ProjectDetailPage';
 import { TestPlansPage } from './features/test-plans/pages/TestPlansPage';
@@ -10,6 +11,7 @@ import { CoveragePage } from './features/coverage/pages/CoveragePage';
 import { TraceabilityPage } from './features/traceability/pages/TraceabilityPage';
 import { ReportPage } from './features/report/pages/ReportPage';
 import { LoginPage } from './features/auth/pages/LoginPage';
+import { LandingPage } from './features/landing/pages/LandingPage';
 import { ResetPasswordPage } from './features/auth/pages/ResetPasswordPage';
 import { useCurrentUser } from './features/auth/hooks/useAuth';
 import { AdminDashboardPage } from './features/admin/pages/AdminDashboardPage';
@@ -42,9 +44,16 @@ function ScrollToTop() {
   return null;
 }
 
+/** Đường dẫn cũ /projects/:id chuyển sang bước đầu tiên, giữ nguyên query (servicePath). */
+function ProjectIndexRedirect() {
+  const { id } = useParams();
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: `/projects/${id}/business-rules`, search }} replace />;
+}
+
 function RequireAuth({ children }: { children: ReactNode }) {
   if (!localStorage.getItem('greytest.token')) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
   return children;
 }
@@ -52,7 +61,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
 export function RequireAdmin({ children }: { children: ReactNode }) {
   const { data: user, isLoading } = useCurrentUser();
   if (!localStorage.getItem('greytest.token')) return <Navigate to="/admin/login" replace />;
-  if (isLoading) return <div className="p-8 text-center text-sm text-body-subtle">Đang kiểm tra quyền quản trị...</div>;
+  if (isLoading) return <div className="p-8 text-center text-sm text-body-subtle">Đang kiểm tra quyền quản trị…</div>;
   if (user?.role !== 'ADMIN') return <Navigate to="/admin/login" replace />;
   return children;
 }
@@ -65,8 +74,10 @@ export default function App() {
       <UpgradeToProModal />
       <AccountDisabledModal />
       <Routes>
-        <Route path="/" element={<LoginPage />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
@@ -74,7 +85,9 @@ export default function App() {
         <Route path="/subscription" element={<Navigate to="/settings" replace />} />
         <Route path="/payment/vnpay-return" element={<RequireAuth><VnpayReturnPage /></RequireAuth>} />
         <Route path="/projects" element={<RequireAuth><ProjectsPage /></RequireAuth>} />
-        <Route path="/projects/:id" element={<RequireAuth><ProjectDetailPage /></RequireAuth>} />
+        <Route path="/projects/new" element={<RequireAuth><NewProjectPage /></RequireAuth>} />
+        <Route path="/projects/:id" element={<RequireAuth><ProjectIndexRedirect /></RequireAuth>} />
+        <Route path="/projects/:id/business-rules" element={<RequireAuth><ProjectDetailPage /></RequireAuth>} />
         <Route path="/projects/:id/test-plans" element={<RequireAuth><TestPlansPage /></RequireAuth>} />
         <Route path="/projects/:id/test-cases" element={<RequireAuth><TestCasesPage /></RequireAuth>} />
         <Route path="/projects/:id/unit-tests" element={<RequireAuth><UnitTestsPage /></RequireAuth>} />

@@ -3,8 +3,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '../../../shared/components/AppShell';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { ErrorState } from '../../../shared/components/ErrorState';
-import { ProjectWorkflowTabs } from '../../projects/components/ProjectWorkflowTabs';
-import { ProjectPageHeader } from '../../projects/components/ProjectPageHeader';
+import { ProjectWorkspace } from '../../projects/components/ProjectWorkspace';
 import { useProject } from '../../projects/hooks/useProjects';
 import { canOpenCoverage } from '../../projects/utils/project-workflow';
 import { CoveragePanel } from '../components/CoveragePanel';
@@ -56,22 +55,25 @@ export function CoveragePage() {
   }
 
   return (
-    <AppShell maxWidth="wide">
-      <ProjectPageHeader
+    <AppShell maxWidth="bleed">
+      <ProjectWorkspace
         project={project}
         servicePath={serviceScope.servicePath}
         titlePrefix="Coverage"
         subtitle={t('Upload JaCoCo XML để xem coverage và gợi ý bổ sung test.', 'Upload JaCoCo XML to inspect coverage and test suggestions.')}
         backTo={projectWorkflowPath(projectId, 'unit-tests', serviceScope.servicePath)}
         backLabel="Unit Test"
-      />
+        active="coverage"
+        status={status ?? project.status}
+        reachedStatus={serviceScope.selected?.reachedStatus}
+        selector={<ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
+      >
       {serviceScope.selected && status && (
         <>
-          <ProjectWorkflowTabs projectId={projectId} active="coverage" reachedStatus={serviceScope.selected?.reachedStatus} status={status} servicePath={serviceScope.servicePath} />
-          <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
           <CoveragePanel projectId={projectId} projectStatus={status === 'CASE_APPROVED' ? serviceScope.selected?.reachedStatus ?? status : status} servicePath={serviceScope.servicePath} />
         </>
       )}
+      </ProjectWorkspace>
     </AppShell>
   );
 }

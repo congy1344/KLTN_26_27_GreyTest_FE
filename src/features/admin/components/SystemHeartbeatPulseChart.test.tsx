@@ -29,7 +29,7 @@ describe('SystemHeartbeatPulseChart (Admin System Management)', () => {
 
     // Enterprise management header & stream info
     expect(screen.getByText(/Giám Sát Lưu Lượng Yêu Cầu & Quản Trị Tải Hệ Thống/i)).toBeInTheDocument();
-    expect(screen.getByText(/(HTTP STREAM|DÒNG HTTP) · (PORT|CỔNG) 8080/i)).toBeInTheDocument();
+    expect(screen.getByText(/(HTTP STREAM|DÒNG HTTP), (PORT|CỔNG) 8080/i)).toBeInTheDocument();
     expect(screen.getByText(/Tường lửa WAF: Kích hoạt/i)).toBeInTheDocument();
     expect(screen.getAllByText(/100 req\/min\/IP/i).length).toBeGreaterThanOrEqual(1);
 
@@ -99,8 +99,8 @@ describe('SystemHeartbeatPulseChart (Admin System Management)', () => {
 
     // Terminal console title and HTTP port
     expect(screen.getByText('server-access.log')).toBeInTheDocument();
-    expect(screen.getByText('CỔNG HTTP 8080')).toBeInTheDocument();
-    expect(screen.getByText('THEO DÕI TRỰC TIẾP')).toBeInTheDocument();
+    expect(screen.getByText("Cổng HTTP 8080")).toBeInTheDocument();
+    expect(screen.getByText("Theo dõi trực tiếp")).toBeInTheDocument();
 
     // Search and filter controls
     expect(screen.getByRole('textbox', { name: 'Lọc nhật ký request' })).toBeInTheDocument();
@@ -555,7 +555,7 @@ describe('SystemHeartbeatPulseChart (Admin System Management)', () => {
       const { container } = renderWithProviders(<SystemHeartbeatPulseChart serverThreadCount={25} serverActiveConnections={1} />);
 
       const getCoords = () => {
-        const polyline = container.querySelector('polyline');
+        const polyline = container.querySelector('svg[aria-label="HTTP traffic stream waveform"] polyline');
         const points = polyline?.getAttribute('points') || '';
         return points.split(' ').map((p) => p.split(',').map(Number));
       };

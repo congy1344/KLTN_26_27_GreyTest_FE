@@ -71,7 +71,7 @@ describe('AdminActivityPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Nhật ký hoạt động')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Nhật ký hoạt động' })).toBeInTheDocument();
     expect(screen.getByText('dev@greytest.dev')).toBeInTheDocument();
     expect(screen.getByText('admin@greytest.dev')).toBeInTheDocument();
 

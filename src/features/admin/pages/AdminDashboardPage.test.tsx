@@ -113,15 +113,15 @@ describe('AdminDashboardPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/Xu hướng Hoạt động Kiểm thử · 30 ngày/i)).toBeInTheDocument();
+    expect(screen.getByText(/Xu hướng hoạt động kiểm thử, 30 ngày/i)).toBeInTheDocument();
 
     const monthBtn = screen.getByRole('button', { name: /Theo tháng/i });
     fireEvent.click(monthBtn);
-    expect(screen.getByText(/Xu hướng Hoạt động Kiểm thử · 12 tháng/i)).toBeInTheDocument();
+    expect(screen.getByText(/Xu hướng hoạt động kiểm thử, 12 tháng/i)).toBeInTheDocument();
 
     const yearBtn = screen.getByRole('button', { name: /Theo năm/i });
     fireEvent.click(yearBtn);
-    expect(screen.getByText(/Xu hướng Hoạt động Kiểm thử · 5 năm/i)).toBeInTheDocument();
+    expect(screen.getByText(/Xu hướng hoạt động kiểm thử, 5 năm/i)).toBeInTheDocument();
   });
 
   it('allows filtering trend by custom date range', () => {
@@ -141,11 +141,11 @@ describe('AdminDashboardPage', () => {
     fireEvent.change(fromInput, { target: { value: '2026-11-01' } });
     fireEvent.change(toInput, { target: { value: '2026-11-08' } });
 
-    expect(screen.getByText(/Xu hướng Hoạt động Kiểm thử · 2026-11-01 đến 2026-11-08/i)).toBeInTheDocument();
+    expect(screen.getByText(/Xu hướng hoạt động kiểm thử, 2026-11-01 đến 2026-11-08/i)).toBeInTheDocument();
 
     const resetBtn = screen.getByRole('button', { name: /Đặt lại/i });
     fireEvent.click(resetBtn);
 
-    expect(screen.getByText(/Xu hướng Hoạt động Kiểm thử · 30 ngày/i)).toBeInTheDocument();
+    expect(screen.getByText(/Xu hướng hoạt động kiểm thử, 30 ngày/i)).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchCoverageReport, startCoverageRefinement, uploadCoverage } from '../api/coverage-api';
+import { fetchCoverageReport, fetchSandboxRun, startCoverageRefinement, startSandboxRun, uploadCoverage } from '../api/coverage-api';
 
 function coverageKey(projectId: number, servicePath?: string) {
   return ['coverage', projectId, servicePath ?? 'auto'];
@@ -38,4 +39,30 @@ export function useStartCoverageRefinement(projectId: number, servicePath?: stri
       queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
     },
   });
+}
+
+/** Chạy Unit Test trong sandbox trên server; tự hỏi lại trạng thái mỗi 2 giây khi đang chạy. */
+export function useSandboxRun(projectId: number, servicePath?: string) {
+  const queryClient = useQueryClient();
+  const key = ['coverage-run', projectId];
+  const state = useQuery({
+    queryKey: key,
+    queryFn: () => fetchSandboxRun(projectId),
+    enabled: projectId > 0,
+    refetchInterval: (query) => (query.state.data?.status === 'RUNNING' ? 2000 : false),
+  });
+  const start = useMutation({
+    // repair=true: AI sửa test không đạt rồi chạy lại (tốn quota AI).
+    mutationFn: (repair: boolean) => startSandboxRun(projectId, servicePath, repair),
+    onSuccess: (data) => queryClient.setQueryData(key, data),
+  });
+  const status = state.data?.status;
+  useEffect(() => {
+    // Chạy xong thì coverage và status project đã đổi ở backend.
+    if (status !== 'SUCCEEDED' && status !== 'TESTS_FAILED') return;
+    queryClient.invalidateQueries({ queryKey: ['coverage', projectId] });
+    queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+    queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
+  }, [status, projectId, queryClient]);
+  return { state: state.data, start };
 }

@@ -1,6 +1,7 @@
+import { Tag } from '../../../shared/components/Tag';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { History, RefreshCw, FileText } from 'lucide-react';
+import { Check, X, History, RefreshCw, FileText } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n/language';
 import { fetchPaymentHistory, type PaymentTransactionDto } from '../api/payment-api';
 import { InvoiceModal } from './InvoiceModal';
@@ -32,8 +33,8 @@ export function PaymentHistory({
   });
 
   const statuses = {
-    SUCCESS: { label: t('Thành công', 'Successful'), color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' },
-    FAILED: { label: t('Không thành công', 'Unsuccessful'), color: 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' },
+    SUCCESS: { label: t('Thành công', 'Successful') },
+    FAILED: { label: t('Không thành công', 'Unsuccessful') },
   };
 
   const transactions = (history.data ?? []).filter(
@@ -41,12 +42,12 @@ export function PaymentHistory({
   );
 
   return (
-    <section aria-labelledby="payment-history-title" className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
+    <section aria-labelledby="payment-history-title" className="rounded-base border border-border-default bg-neutral-primary-soft p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h3 id="payment-history-title" className="flex items-center gap-2 text-base font-bold text-heading">
+          <h2 id="payment-history-title" className="flex items-center gap-2 text-base font-semibold text-heading font-display">
             <History size={18} /> {t('Lịch sử thanh toán & Hóa đơn', 'Payment History & Invoices')}
-          </h3>
+          </h2>
           <p className="text-xs text-body-subtle mt-0.5">
             {t('Tra cứu các giao dịch nâng cấp gói dịch vụ và xem/in hóa đơn điện tử.', 'Lookup subscription upgrade transactions and view/print electronic invoices.')}
           </p>
@@ -57,7 +58,7 @@ export function PaymentHistory({
               type="button"
               disabled={isCancelling}
               onClick={onCancelSubscription}
-              className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-danger-subtle bg-danger-soft/20 text-xs font-semibold text-fg-danger-strong hover:bg-danger-soft hover:border-danger transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
+              className="btn btn-ghost-danger shrink-0 px-3 text-xs"
             >
               {t('Hủy gói', 'Cancel plan')}
             </button>
@@ -66,7 +67,7 @@ export function PaymentHistory({
             type="button"
             disabled={history.isFetching}
             onClick={() => void history.refetch()}
-            className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-neutral-primary-soft text-xs font-semibold text-body hover:bg-neutral-secondary-soft hover:text-heading transition-colors shadow-2xs disabled:opacity-50 shrink-0 cursor-pointer"
+            className="btn btn-secondary shrink-0 px-3 text-xs"
           >
             <RefreshCw size={13} className={history.isFetching ? 'animate-spin text-brand' : ''} />
             <span>{t('Làm mới', 'Refresh')}</span>
@@ -79,7 +80,7 @@ export function PaymentHistory({
       ) : history.isError ? (
         <div role="alert" className="flex items-center gap-3 text-sm text-fg-danger-strong">
           <span>{t('Không tải được lịch sử thanh toán.', 'Unable to load payment history.')}</span>
-          <button type="button" disabled={history.isFetching} onClick={() => void history.refetch()} className="underline">
+          <button type="button" disabled={history.isFetching} onClick={() => void history.refetch()} className="rounded-control underline">
             {t('Thử lại', 'Retry')}
           </button>
         </div>
@@ -105,7 +106,7 @@ export function PaymentHistory({
             </thead>
             <tbody className="divide-y divide-border-default-subtle">
               {transactions.map((transaction) => (
-                <tr key={transaction.id} className="text-heading hover:bg-neutral-secondary-soft/50 transition-colors">
+                <tr key={transaction.id} className="text-heading hover:bg-neutral-secondary-soft transition-colors">
                   <td className="whitespace-nowrap px-3 py-3">
                     <time dateTime={transaction.createdAt || undefined}>
                       {transaction.createdAt ? transaction.createdAt.split('T')[0].split('-').reverse().join('/') : '—'}
@@ -113,32 +114,32 @@ export function PaymentHistory({
                   </td>
                   <td className="px-3 py-3 font-mono font-medium">{transaction.orderId}</td>
                   <td className="px-3 py-3 font-semibold">
-                    <span className="rounded px-1.5 py-0.5 text-[11px] font-bold bg-brand-softer text-fg-brand-strong border border-border-brand-subtle">
+                    <Tag>
                       {transaction.tier}
-                    </span>
+                    </Tag>
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 font-semibold">
                     {new Intl.NumberFormat(language === 'vi' ? 'vi-VN' : 'en-US', { style: 'currency', currency: 'VND' }).format(transaction.amount)}
                   </td>
                   <td className="px-3 py-3">{transaction.vnpBankCode || '—'}</td>
                   <td className="px-3 py-3">
-                    <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 font-medium text-[11px] ${transaction.status === 'SUCCESS' ? statuses.SUCCESS.color : statuses.FAILED.color}`}>
+                    <Tag variant="status" tone={transaction.status === 'SUCCESS' ? 'success' : 'danger'} icon={transaction.status === 'SUCCESS' ? Check : X}>
                       {transaction.status === 'SUCCESS' ? statuses.SUCCESS.label : statuses.FAILED.label}
-                    </span>
+                    </Tag>
                   </td>
                   <td className="px-3 py-3">
                     {transaction.status === 'SUCCESS' ? (
                       <button
                         type="button"
                         onClick={() => setSelectedInvoiceTxn(transaction)}
-                        className="btn btn-secondary px-2.5 py-1 text-[11px] font-semibold flex items-center gap-1 text-fg-brand hover:text-fg-brand-strong"
+                        className="btn btn-secondary px-2.5 py-1 text-xs font-semibold flex items-center gap-1 text-heading hover:text-heading"
                         title={t('Xem hóa đơn điện tử', 'View electronic invoice')}
                       >
                         <FileText size={12} />
                         <span>{t('Xem hóa đơn', 'Invoice')}</span>
                       </button>
                     ) : (
-                      <span className="text-body-subtle">—</span>
+                      <span className="text-body-subtle">{t('Chưa có', 'None')}</span>
                     )}
                   </td>
                 </tr>

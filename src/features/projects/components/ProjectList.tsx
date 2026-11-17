@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, GitBranch, Archive, FolderOpen, Scan, Loader2, Clock } from 'lucide-react';
+import { ChevronDown, Trash2, GitBranch, Archive, FolderOpen, Scan, Loader2, Clock } from 'lucide-react';
 import { useAnalyzeProject, useDeleteProject, useProjects } from '../hooks/useProjects';
 import { StatusBadge } from './StatusBadge';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
@@ -61,14 +61,26 @@ export function ProjectList({
   searchQuery = '',
   statusFilter = 'ALL',
   onResetFilters,
-  onOpenUploadModal,
 }: ProjectListProps = {}) {
-  const { data: projects, isLoading, error } = useProjects();
+  const { data: projects, isLoading, error, refetch } = useProjects();
   const remove = useDeleteProject();
   const analyze = useAnalyzeProject();
   const navigate = useNavigate();
   const { language, t } = useLanguage();
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  // Trạng thái thu gọn từng nhóm chỉ là tiện ích của người xem, lưu trong trình duyệt.
+  const [collapsed, setCollapsed] = useState<Record<'ZIP' | 'GITHUB', boolean>>(() => {
+    try {
+      return { ZIP: false, GITHUB: false, ...JSON.parse(localStorage.getItem('greytest.projectGroups') ?? '{}') };
+    } catch {
+      return { ZIP: false, GITHUB: false };
+    }
+  });
+  const toggleGroup = (source: 'ZIP' | 'GITHUB') => setCollapsed((current) => {
+    const next = { ...current, [source]: !current[source] };
+    try { localStorage.setItem('greytest.projectGroups', JSON.stringify(next)); } catch { /* trình duyệt chặn lưu trữ thì chỉ giữ trong phiên */ }
+    return next;
+  });
   const sortedProjects = [...(projects ?? [])].sort(
     (left, right) => parseApiDate(right.createdAt).getTime() - parseApiDate(left.createdAt).getTime(),
   );
@@ -83,27 +95,16 @@ export function ProjectList({
   if (isLoading) return <SkeletonLoader count={3} />;
 
   if (error) {
-    return <ErrorState error={error} />;
+    return <ErrorState error={error} title={t('Không tải được danh sách dự án', 'Unable to load projects')} onRetry={() => refetch()} />;
   }
 
   if (!sortedProjects.length) {
     return (
-      <div className="rounded-base border border-border-default bg-neutral-primary-soft shadow-sm min-h-[360px] flex flex-col items-center justify-center">
+      <div className="rounded-base border border-border-default bg-neutral-primary-soft min-h-[360px] flex flex-col items-center justify-center">
         <EmptyState
           icon={FolderOpen}
           title={t('Chưa có dự án nào', 'No projects yet')}
-          hint={t('Upload file ZIP hoặc clone từ GitHub, sau đó bấm Phân tích.', 'Upload a ZIP file or clone from GitHub, then select Analyze.')}
-          action={
-            onOpenUploadModal && (
-              <button
-                type="button"
-                onClick={onOpenUploadModal}
-                className="btn btn-brand px-3.5 py-1.5 text-xs font-semibold inline-flex items-center gap-1.5"
-              >
-                <span>{t('Thêm dự án', 'Add project')}</span>
-              </button>
-            )
-          }
+          hint={t('Dự án và kết quả kiểm thử sẽ xuất hiện ở đây. Tạo dự án để tải source lên.', 'Your projects and test results will appear here. Create a project to upload source code.')}
         />
       </div>
     );
@@ -111,7 +112,7 @@ export function ProjectList({
 
   if (!filteredProjects.length) {
     return (
-      <div className="rounded-base border border-border-default bg-neutral-primary-soft p-8 text-center shadow-xs min-h-[360px] flex flex-col items-center justify-center">
+      <div className="rounded-base border border-border-default bg-neutral-primary-soft p-8 text-center min-h-[360px] flex flex-col items-center justify-center">
         <p className="text-sm font-semibold text-heading">
           {t('Không tìm thấy dự án nào', 'No matching projects found')}
         </p>
@@ -134,86 +135,103 @@ export function ProjectList({
   return (
     <div className="space-y-3 min-h-[360px]">
       {remove.error && <InlineAlert tone="danger">{getErrorMessage(remove.error)}</InlineAlert>}
-      {filteredProjects.map((p, i) => {
-        const isGithub = p.sourceType === 'GITHUB';
-        return (
-        <div
-          key={p.id}
-          role="button"
-          tabIndex={0}
-          onClick={() => navigate(getProjectResumePath(p.id, p.status))}
-          onKeyDown={(e) => {
-            if (e.target !== e.currentTarget) return;
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              navigate(getProjectResumePath(p.id, p.status));
-            }
-          }}
-          className={`flex cursor-pointer items-center justify-between gap-4 rounded-base border bg-neutral-primary-soft px-5 py-4 shadow-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:border-border-default-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand animate-fade-in-up ${
-            isGithub ? 'border-border-brand-subtle' : 'border-border-default'
-          }`}
-          style={{ animationDelay: `${i * 0.06}s` }}
-        >
-          <div className="flex min-w-0 flex-1 items-center gap-3.5">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-default ${
-              isGithub ? 'bg-brand-softer text-fg-brand-strong' : 'bg-neutral-secondary-medium text-body-subtle'
-            }`}>
-              {isGithub ? (
-                <GitBranch size={16} strokeWidth={1.7} />
-              ) : (
-                <Archive size={16} strokeWidth={1.7} />
-              )}
-            </div>
-
-            <div className="min-w-0">
-              <h4 className="truncate text-sm font-semibold text-heading">{p.name}</h4>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                  isGithub ? 'bg-brand-softer text-fg-brand-strong' : 'bg-neutral-secondary-medium text-body'
+      {(['ZIP', 'GITHUB'] as const).map((source) => {
+        const group = filteredProjects.filter((p) => p.sourceType === source);
+        if (!group.length) return null;
+        const isCollapsed = collapsed[source];
+        const groupId = `project-group-${source.toLowerCase()}`;
+        return <section key={source} className="space-y-3">
+          <h2 className="pt-3 text-base font-semibold text-heading">
+            <button
+              type="button"
+              aria-expanded={!isCollapsed}
+              aria-controls={groupId}
+              onClick={() => toggleGroup(source)}
+              className="flex min-h-[44px] items-center gap-2 rounded-control pr-2 text-left hover:text-fg-brand-strong"
+            >
+              <ChevronDown size={16} aria-hidden="true" className={`shrink-0 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+              {source === 'ZIP' ? t('Tải lên từ file ZIP', 'Uploaded from ZIP') : t('Clone từ GitHub', 'Cloned from GitHub')}{' '}
+              <span className="font-mono text-sm font-normal text-body-subtle">{group.length}</span>
+            </button>
+          </h2>
+          <div className="collapsible" data-collapsed={isCollapsed}>
+          {/* inert khi thu gọn: không bấm, không tab tới được nhưng vẫn chạy được hiệu ứng thu gọn. */}
+          <div id={groupId} {...(isCollapsed ? { inert: '', 'aria-hidden': true } : {})} className="overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft divide-y divide-border-default">
+          {group.map((p) => {
+            const isGithub = p.sourceType === 'GITHUB';
+            return (
+            <div
+              key={p.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(getProjectResumePath(p.id, p.status))}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate(getProjectResumePath(p.id, p.status));
+                }
+              }}
+              className="flex cursor-pointer flex-wrap items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-neutral-secondary-soft"
+            >
+              <div className="flex min-w-0 basis-full items-center gap-3.5 sm:basis-0 sm:flex-1">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-control ${
+                  isGithub ? 'bg-neutral-secondary-soft text-body-subtle' : 'bg-neutral-secondary-medium text-body-subtle'
                 }`}>
-                  {isGithub ? 'GitHub' : 'ZIP'}
-                </span>
-                <span className="h-1 w-1 rounded-full bg-neutral-quaternary" />
-                <span className="inline-flex items-center gap-1 text-[11px] text-body-subtle">
-                  <Clock size={11} className="text-body-subtle/70 shrink-0" />
-                  <span>{formatDateTime(p.createdAt, language)}</span>
-                  <span className="text-body-subtle/70">({timeAgo(p.createdAt, language)})</span>
-                </span>
+                  {isGithub ? (
+                    <GitBranch size={16} strokeWidth={1.7} />
+                  ) : (
+                    <Archive size={16} strokeWidth={1.7} />
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  <h3 className="truncate font-mono text-sm font-medium text-heading">{p.name}</h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 text-xs text-body-subtle">
+                      <Clock size={11} className="text-body-subtle shrink-0" />
+                      <span>{formatDateTime(p.createdAt, language)}</span>
+                      <span className="text-body-subtle">({timeAgo(p.createdAt, language)})</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-3">
+                <StatusBadge status={p.status} />
+                {p.status === 'UPLOADED' && p.sourceAvailable && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); analyze.mutate(p.id); }}
+                    disabled={analyze.isPending}
+                    className="btn btn-secondary"
+                    title={t('Phân tích dự án', 'Analyze project')}
+                    id={`btn-analyze-project-${p.id}`}
+                  >
+                    {analyze.isPending && analyze.variables === p.id
+                      ? <Loader2 size={14} className="animate-spin" />
+                      : <Scan size={14} />}
+                    <span className="hidden sm:inline">{t('Phân tích', 'Analyze')}</span>
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setProjectToDelete(p);
+                  }}
+                  disabled={remove.isPending}
+                  className="btn-ghost-danger"
+                  title={t('Xóa dự án', 'Delete project')}
+                  id={`btn-delete-project-${p.id}`}
+                >
+                  <Trash2 size={14} strokeWidth={1.6} />
+                </button>
               </div>
             </div>
+            );
+          })}
           </div>
-
-          <div className="flex shrink-0 items-center gap-3">
-            <StatusBadge status={p.status} />
-            {p.status === 'UPLOADED' && p.sourceAvailable && (
-              <button
-                onClick={(e) => { e.stopPropagation(); analyze.mutate(p.id); }}
-                disabled={analyze.isPending}
-                className="btn btn-secondary"
-                title={t('Phân tích dự án', 'Analyze project')}
-                id={`btn-analyze-project-${p.id}`}
-              >
-                {analyze.isPending && analyze.variables === p.id
-                  ? <Loader2 size={14} className="animate-spin" />
-                  : <Scan size={14} />}
-                <span className="hidden sm:inline">{t('Phân tích', 'Analyze')}</span>
-              </button>
-            )}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setProjectToDelete(p);
-              }}
-              disabled={remove.isPending}
-              className="btn-ghost-danger"
-              title={t('Xóa dự án', 'Delete project')}
-              id={`btn-delete-project-${p.id}`}
-            >
-              <Trash2 size={14} strokeWidth={1.6} />
-            </button>
           </div>
-        </div>
-        );
+        </section>;
       })}
       <ConfirmDialog
         open={projectToDelete != null}

@@ -10,6 +10,7 @@ import { useProject, useProjectServices } from '../../projects/hooks/useProjects
 import { TestPlansPage } from './TestPlansPage';
 
 vi.mock('../../projects/hooks/useProjects', () => ({
+  useAnalysis: () => ({ data: undefined }),
   useProject: vi.fn(),
   useProjectServices: vi.fn(),
 }));
@@ -44,7 +45,7 @@ describe('TestPlansPage', () => {
       <MemoryRouter initialEntries={['/projects/105/test-plans']}>
         <Routes>
           <Route path="/projects/:id/test-plans" element={<TestPlansPage />} />
-          <Route path="/projects/:id" element={<div>Analysis Page</div>} />
+          <Route path="/projects/:id/business-rules" element={<div>Analysis Page</div>} />
         </Routes>
       </MemoryRouter>,
     );
@@ -74,3 +75,11 @@ function project(status: Project['status']): Project {
     sourceAvailable: true,
   };
 }
+
+vi.mock('../../business-rules/hooks/useBusinessRules', () => ({ useBusinessRules: () => ({}) }));
+vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({}) }));
+vi.mock('../../test-cases/hooks/useTestCases', () => ({ useTestCases: () => ({}) }));
+vi.mock('../../unit-tests/hooks/useUnitTests', () => ({ useUnitTests: () => ({}) }));
+vi.mock('../../coverage/hooks/useCoverage', () => ({ useCoverageReport: () => ({}), useSandboxRun: () => ({}) }));
+
+vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({}) }));

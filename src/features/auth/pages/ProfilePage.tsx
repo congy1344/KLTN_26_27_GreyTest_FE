@@ -1,7 +1,10 @@
+import { SelectMenu } from '../../../shared/components/SelectMenu';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Tag } from '../../../shared/components/Tag';
 import { FormEvent, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import {
+import { Clock,
   AlertCircle,
   ArrowLeft,
   ArrowRight,
@@ -50,6 +53,7 @@ import { fetchPublicTierPackages, PublicTierPackage } from '../../payment/api/pa
  * và theo dõi thông tin gói dịch vụ & hạn mức AI.
  */
 export function ProfilePage() {
+  const navigate = useNavigate();
   const { data: user, isLoading: isUserLoading } = useCurrentUser();
   const { data: quota } = useUserQuota();
   const { t, language } = useLanguage();
@@ -177,6 +181,7 @@ export function ProfilePage() {
   const isPlus = tier === 'PLUS';
   const isWeekly = isPro || isPlus;
 
+  const unlimited = quota?.limit === null;
   const quotaLimit = quota?.limit ?? (isPro ? 300 : isPlus ? 200 : 100);
   const quotaUsed = quota?.used ?? 0;
   const remaining = quota?.remaining ?? Math.max(0, quotaLimit - quotaUsed);
@@ -225,15 +230,9 @@ export function ProfilePage() {
         {/* Header điều hướng */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              to="/projects"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border-default bg-neutral-primary-soft text-body-subtle transition-colors hover:border-border-default-strong hover:text-heading"
-              title={t('Quay lại danh sách dự án', 'Back to projects')}
-            >
-              <ArrowLeft size={16} />
-            </Link>
+            <IconButton icon={ArrowLeft} label={t('Quay lại danh sách dự án', 'Back to projects')} title={t('Quay lại danh sách dự án', 'Back to projects')} onClick={() => navigate("/projects")} />
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-heading">
+              <h1 className="font-semibold text-heading text-[28px] font-display">
                 {t('Hồ sơ cá nhân & Gói dịch vụ', 'Profile & Subscription')}
               </h1>
               <p className="text-xs text-body-subtle">
@@ -247,31 +246,31 @@ export function ProfilePage() {
 
           <div className="flex items-center gap-2">
             {isPro ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-600 dark:text-purple-400">
-                <Sparkles size={13} /> {t('Tài khoản PRO', 'PRO Account')}
-              </span>
+              <Tag>
+                <Sparkles size={12} aria-hidden="true"  /> {t('Tài khoản PRO', 'PRO Account')}
+              </Tag>
             ) : isPlus ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                <Zap size={13} /> {t('Tài khoản PLUS', 'PLUS Account')}
-              </span>
+              <Tag>
+                <Zap size={12} aria-hidden="true"  /> {t('Tài khoản PLUS', 'PLUS Account')}
+              </Tag>
             ) : (
-              <span className="inline-flex items-center rounded-full border border-border-default bg-neutral-secondary-soft px-3 py-1 text-xs font-medium text-body-subtle">
+              <Tag>
                 {t('Tài khoản FREE', 'FREE Account')}
-              </span>
+              </Tag>
             )}
           </div>
         </div>
 
         {/* Khối 1: Thông tin người dùng & Chỉnh sửa thông tin cá nhân */}
-        <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs" data-testid="edit-profile-section">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5" data-testid="edit-profile-section">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <div
-                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-lg font-bold ${
+                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-base text-lg font-semibold ${
                   isPro
-                    ? 'bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-xs'
+                    ? 'bg-neutral-secondary-medium text-heading '
                     : isPlus
-                    ? 'bg-gradient-to-tr from-indigo-600 to-blue-600 text-white shadow-xs'
+                    ? 'bg-neutral-secondary-medium text-heading '
                     : 'bg-neutral-secondary text-heading border border-border-default'
                 }`}
               >
@@ -279,44 +278,38 @@ export function ProfilePage() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold text-heading">
+                  <h2 className="font-semibold text-heading text-lg font-display">
                     {user?.fullName ?? (isUserLoading ? '...' : 'Người dùng')}
                   </h2>
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                      user?.role === 'ADMIN'
-                        ? 'bg-danger-soft text-fg-danger-strong border border-border-danger-subtle'
-                        : 'bg-neutral-secondary text-body-subtle'
-                    }`}
-                  >
+                  <Tag>
                     {formatSemanticLabel(user?.role ?? 'USER', language)}
-                  </span>
+                  </Tag>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-body-subtle">
                   <span className="flex items-center gap-1.5">
-                    <Mail size={13} className="text-body-subtle/80" />
+                    <Mail size={13} className="text-body-subtle" />
                     {user?.email ?? '—'}
                   </span>
                   {user?.phoneNumber && (
                     <span className="flex items-center gap-1.5">
-                      <Phone size={13} className="text-body-subtle/80" />
+                      <Phone size={13} className="text-body-subtle" />
                       {user.phoneNumber}
                     </span>
                   )}
                   {user?.gender && (
                     <span className="flex items-center gap-1.5">
-                      <Users size={13} className="text-body-subtle/80" />
+                      <Users size={13} className="text-body-subtle" />
                       {user.gender === 'MALE' ? t('Nam', 'Male') : user.gender === 'FEMALE' ? t('Nữ', 'Female') : t('Khác', 'Other')}
                     </span>
                   )}
                   {user?.dateOfBirth && (
                     <span className="flex items-center gap-1.5">
-                      <Calendar size={13} className="text-body-subtle/80" />
+                      <Calendar size={13} className="text-body-subtle" />
                       {user.dateOfBirth.split('-').reverse().join('/')}
                     </span>
                   )}
                   <span className="flex items-center gap-1.5">
-                    <Shield size={13} className="text-body-subtle/80" />
+                    <Shield size={13} className="text-body-subtle" />
                     {user?.role === 'ADMIN' ? t('Quản trị viên', 'Administrator') : t('Thành viên', 'Member')}
                   </span>
                 </div>
@@ -341,7 +334,7 @@ export function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => openUpgradeModal('PRO')}
-                  className="btn text-xs px-4 py-2 font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xs flex items-center gap-1.5"
+                  className="btn text-xs px-4 py-2 font-semibold text-heading bg-neutral-secondary-medium flex items-center gap-1.5"
                 >
                   <Zap size={13} />
                   {t('Nâng cấp gói', 'Upgrade Tier')}
@@ -352,9 +345,9 @@ export function ProfilePage() {
 
           {/* Form Chỉnh sửa thông tin người dùng (Họ và tên) */}
           <form onSubmit={handleUpdateProfile} noValidate className="mt-6 border-t border-border-default pt-5">
-            <h3 className="text-sm font-semibold text-heading mb-1">
+            <h2 className="text-base font-semibold text-heading mb-1 font-display">
               {t('Chỉnh sửa thông tin cá nhân', 'Edit Personal Information')}
-            </h3>
+            </h2>
             <p className="text-xs text-body-subtle mb-4">
               {t(
                 'Cập nhật họ tên hiển thị trên hệ thống. Email đăng ký được cố định để xác thực tài khoản.',
@@ -365,7 +358,7 @@ export function ProfilePage() {
             {profileSuccessMsg && (
               <div
                 role="status"
-                className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-medium text-emerald-700 dark:text-emerald-300 animate-fade-in"
+                className="mb-4 flex items-center gap-2 rounded-base border border-border-success-subtle bg-success-soft p-3 text-xs font-medium text-fg-success-strong dark:text-fg-success-strong animate-fade-in"
               >
                 <CheckCircle2 size={15} className="shrink-0" />
                 <span>{profileSuccessMsg}</span>
@@ -375,7 +368,7 @@ export function ProfilePage() {
             {updateProfileMutation.error && (
               <div
                 role="alert"
-                className="mb-4 flex items-center gap-2 rounded-lg border border-border-danger-subtle bg-danger-soft p-3 text-xs font-medium text-fg-danger-strong animate-fade-in"
+                className="mb-4 flex items-center gap-2 rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-xs font-medium text-fg-danger-strong animate-fade-in"
               >
                 <AlertCircle size={15} className="shrink-0" />
                 <span>{getErrorMessage(updateProfileMutation.error)}</span>
@@ -386,13 +379,13 @@ export function ProfilePage() {
               <label className="block">
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-xs font-semibold text-heading">{t('Họ và tên', 'Full name')}</span>
-                  <span className="text-[11px] font-mono text-body-subtle">
+                  <span className="text-xs font-mono text-body-subtle">
                     {fullName.trim().length}/{MAX_FULL_NAME_LENGTH}
                   </span>
                 </div>
                 <input
                   aria-label={t('Họ và tên', 'Full name')}
-                  className={`form-input ${fullNameTouched && fullNameError ? 'border-red-500 focus:border-red-500' : ''}`}
+                  className={`form-input ${fullNameTouched && fullNameError ? 'border-border-danger ' : ''}`}
                   value={fullName}
                   maxLength={MAX_FULL_NAME_LENGTH}
                   onChange={(e) => {
@@ -413,7 +406,7 @@ export function ProfilePage() {
               <label className="block">
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-xs font-semibold text-heading">Email</span>
-                  <span className="inline-flex items-center gap-1 text-[11px] text-body-subtle">
+                  <span className="inline-flex items-center gap-1 text-xs text-body-subtle">
                     <Lock size={11} /> {t('Không thể sửa', 'Read-only')}
                   </span>
                 </div>
@@ -428,13 +421,13 @@ export function ProfilePage() {
               <label className="block">
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-xs font-semibold text-heading">{t('Số điện thoại', 'Phone number')}</span>
-                  <span className="text-[11px] text-body-subtle">{t('Tùy chọn', 'Optional')}</span>
+                  <span className="text-xs text-body-subtle">{t('Tùy chọn', 'Optional')}</span>
                 </div>
                 <input
                   type="tel"
                   aria-label={t('Số điện thoại', 'Phone number')}
                   placeholder={t('Ví dụ: 0912345678', 'e.g. 0912345678')}
-                  className={`form-input placeholder:text-body-subtle/50 ${phoneError ? 'border-red-500 focus:border-red-500' : ''}`}
+                  className={`form-input placeholder:text-body-subtle ${phoneError ? 'border-border-danger ' : ''}`}
                   value={phoneNumber}
                   maxLength={20}
                   onChange={(e) => {
@@ -453,28 +446,23 @@ export function ProfilePage() {
               <label className="block">
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-xs font-semibold text-heading">{t('Giới tính', 'Gender')}</span>
-                  <span className="text-[11px] text-body-subtle">{t('Tùy chọn', 'Optional')}</span>
+                  <span className="text-xs text-body-subtle">{t('Tùy chọn', 'Optional')}</span>
                 </div>
-                <select
+                <SelectMenu
                   aria-label={t('Giới tính', 'Gender')}
-                  className="form-input"
                   value={gender}
-                  onChange={(e) => {
-                    setGender(e.target.value);
+                  onChange={(selectedValue) => {
+                    setGender(selectedValue);
                     setProfileSuccessMsg(null);
                   }}
-                >
-                  <option value="">{t('— Chọn giới tính —', '— Select gender —')}</option>
-                  <option value="MALE">{t('Nam', 'Male')}</option>
-                  <option value="FEMALE">{t('Nữ', 'Female')}</option>
-                  <option value="OTHER">{t('Khác', 'Other')}</option>
-                </select>
+                  options={[{ value: "", label: String(t('— Chọn giới tính —', '— Select gender —')) }, { value: "MALE", label: String(t('Nam', 'Male')) }, { value: "FEMALE", label: String(t('Nữ', 'Female')) }, { value: "OTHER", label: String(t('Khác', 'Other')) }]}
+                />
               </label>
 
               <label className="block sm:col-span-2">
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-xs font-semibold text-heading">{t('Ngày sinh', 'Date of birth')}</span>
-                  <span className="text-[11px] text-body-subtle">{t('Tùy chọn', 'Optional')}</span>
+                  <span className="text-xs text-body-subtle">{t('Tùy chọn', 'Optional')}</span>
                 </div>
                 <input
                   type="date"
@@ -495,7 +483,7 @@ export function ProfilePage() {
                 type="submit"
                 data-testid="save-profile-btn"
                 disabled={updateProfileMutation.isPending || Boolean(fullNameError) || Boolean(phoneError)}
-                className="btn btn-brand px-4 py-2 text-xs font-semibold flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                className="btn btn-brand px-4 py-2 text-xs font-semibold flex items-center gap-1.5"
               >
                 {updateProfileMutation.isPending ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -521,10 +509,10 @@ export function ProfilePage() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-heading flex items-center gap-1.5">
+                  <h2 className="text-base font-semibold text-heading flex items-center gap-1.5 font-display">
                     <KeyRound size={14} className="text-fg-brand" />
                     {t('Đổi mật khẩu tài khoản', 'Change Account Password')}
-                  </h3>
+                  </h2>
                   <p className="text-xs text-body-subtle mt-0.5">
                     {t(
                       'Mật khẩu mới phải từ 6–72 ký tự, có chữ hoặc số và không chứa khoảng trắng.',
@@ -537,7 +525,7 @@ export function ProfilePage() {
               {changePwdSuccess && (
                 <div
                   role="status"
-                  className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-medium text-emerald-700 dark:text-emerald-300 animate-fade-in"
+                  className="flex items-center gap-2 rounded-base border border-border-success-subtle bg-success-soft p-3 text-xs font-medium text-fg-success-strong dark:text-fg-success-strong animate-fade-in"
                 >
                   <CheckCircle2 size={15} className="shrink-0" />
                   <span>{changePwdSuccess}</span>
@@ -547,7 +535,7 @@ export function ProfilePage() {
               {changePasswordMutation.error && (
                 <div
                   role="alert"
-                  className="flex items-center gap-2 rounded-lg border border-border-danger-subtle bg-danger-soft p-3 text-xs font-medium text-fg-danger-strong animate-fade-in"
+                  className="flex items-center gap-2 rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-xs font-medium text-fg-danger-strong animate-fade-in"
                 >
                   <AlertCircle size={15} className="shrink-0" />
                   <span>{getErrorMessage(changePasswordMutation.error)}</span>
@@ -563,7 +551,7 @@ export function ProfilePage() {
                     aria-label={t('Mật khẩu hiện tại', 'Current password')}
                     className={`form-input ${
                       (currentPwdTouched || changePwdSubmitted) && currentPasswordError
-                        ? 'border-red-500 focus:border-red-500'
+                        ? 'border-border-danger '
                         : ''
                     }`}
                     type="password"
@@ -592,7 +580,7 @@ export function ProfilePage() {
                     <span className="text-xs font-semibold text-heading">
                       {t('Mật khẩu mới', 'New password')}
                     </span>
-                    <span className="text-[11px] font-mono text-body-subtle">
+                    <span className="text-xs font-mono text-body-subtle">
                       {newPassword.length}/{MAX_PASSWORD_LENGTH}
                     </span>
                   </div>
@@ -600,9 +588,9 @@ export function ProfilePage() {
                     aria-label={t('Mật khẩu mới', 'New password')}
                     className={`form-input ${
                       (newPwdTouched || newPassword.length > 0 || changePwdSubmitted) && newPasswordError
-                        ? 'border-red-500 focus:border-red-500'
+                        ? 'border-border-danger '
                         : (newPwdTouched || newPassword.length > 0) && !newPasswordError
-                          ? 'border-emerald-500/70'
+                          ? 'border-border-success-subtle'
                           : ''
                     }`}
                     type="password"
@@ -635,9 +623,9 @@ export function ProfilePage() {
                     aria-label={t('Xác nhận mật khẩu mới', 'Confirm new password')}
                     className={`form-input ${
                       (confirmPwdTouched || confirmPassword.length > 0 || changePwdSubmitted) && confirmPasswordError
-                        ? 'border-red-500 focus:border-red-500'
+                        ? 'border-border-danger '
                         : (confirmPwdTouched || confirmPassword.length > 0) && !confirmPasswordError
-                          ? 'border-emerald-500/70'
+                          ? 'border-border-success-subtle'
                           : ''
                     }`}
                     type="password"
@@ -660,7 +648,7 @@ export function ProfilePage() {
                     </p>
                   )}
                   {(confirmPwdTouched || confirmPassword.length > 0) && !confirmPasswordError && (
-                    <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-fg-success-strong dark:text-fg-success-strong">
                       <CheckCircle2 size={12} className="shrink-0" />
                       <span>{t('Mật khẩu xác nhận khớp', 'Passwords match')}</span>
                     </p>
@@ -672,7 +660,7 @@ export function ProfilePage() {
                 <button
                   type="submit"
                   disabled={changePasswordMutation.isPending}
-                  className="btn btn-brand px-4 py-2 text-xs font-semibold"
+                  className="btn btn-secondary px-4 py-2 text-xs font-semibold"
                 >
                   {changePasswordMutation.isPending ? t('Đang cập nhật...', 'Updating...') : t('Lưu mật khẩu mới', 'Save new password')}
                 </button>
@@ -682,23 +670,23 @@ export function ProfilePage() {
         </div>
 
         {cancelPlan.isError && (
-          <p role="alert" className="rounded-lg border border-border-danger-subtle bg-danger-soft p-3 text-sm text-fg-danger-strong">
+          <p role="alert" className="rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-sm text-fg-danger-strong">
             {t('Không thể hủy gói: ', 'Could not cancel plan: ')}{getErrorMessage(cancelPlan.error)}
           </p>
         )}
         {cancelPlan.isSuccess && (
-          <p role="status" className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+          <p role="status" className="rounded-base border border-border-success-subtle bg-success-soft p-3 text-sm text-fg-success-strong dark:text-fg-success-strong">
             {t('Đã hủy gói. Tài khoản đã chuyển về Free.', 'Plan canceled. Your account is now on Free.')}
           </p>
         )}
 
         {/* Khối 2: Tóm tắt Quota sử dụng & Gói dịch vụ */}
-        <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-heading">
+              <h2 className="text-base font-semibold text-heading font-display">
                 {isWeekly ? t('Hạn mức gọi AI tuần này', 'Weekly AI quota') : t('Hạn mức gọi AI tháng này', 'Monthly AI quota')}
-              </h3>
+              </h2>
               <p className="text-xs text-body-subtle mt-0.5">
                 {t('1 lượt tương ứng với 2 Unit Test, 2 Test Case, 2 Test Plan hoặc 3 phương thức mã nguồn.', '1 credit corresponds to 2 Unit Tests, 2 Test Cases, 2 Test Plans, or 3 source methods.')}
               </p>
@@ -722,30 +710,32 @@ export function ProfilePage() {
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="font-medium text-heading">
-                {t('Đã sử dụng:', 'Used:')} <strong className="text-brand font-bold">{quotaUsed}</strong> / {quotaLimit} {t('lượt', 'credits')}
+                {unlimited ? t('Đã dùng', 'Used') : t('Đã sử dụng:', 'Used:')} <strong className="text-fg-brand font-semibold">{quota ? quotaUsed : '—'}</strong>{!unlimited && <> / {quota?.limit ?? '—'}</>} {t('lượt', 'credits')}
               </span>
-              <span className="font-semibold text-heading">{usedPercent}%</span>
+              <span className="font-semibold text-heading">{unlimited ? t('Không giới hạn', 'Unlimited') : `${usedPercent}%`}</span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-secondary">
-              <div
-                className={`h-full transition-all duration-500 rounded-full ${
-                  usedPercent >= 90
-                    ? 'bg-red-500'
-                    : usedPercent >= 70
-                    ? 'bg-amber-500'
-                    : 'bg-gradient-to-r from-purple-600 to-indigo-600'
-                }`}
-                style={{ width: `${usedPercent}%` }}
-              />
-            </div>
-            <div className="mt-2 flex items-center justify-between text-[11px] text-body-subtle">
-              <span>{t('Còn lại:', 'Remaining:')} <strong className="text-heading font-medium">{remaining}</strong> {t('lượt', 'credits')}</span>
-              {quota?.exceeded && (
-                <span className="flex items-center gap-1 text-red-500 font-medium">
-                  <AlertTriangle size={12} /> {t('Đã hết hạn mức chu kỳ này', 'Quota exceeded for this cycle')}
-                </span>
-              )}
-            </div>
+            {!unlimited && <>
+              <div className="h-2 w-full overflow-hidden rounded-base bg-neutral-secondary">
+                <div
+                  className={`h-full transition-colors duration-500 rounded-base ${
+                    usedPercent >= 90
+                      ? 'bg-danger'
+                      : usedPercent >= 70
+                      ? 'bg-warning'
+                      : 'bg-neutral-secondary-medium  '
+                  }`}
+                  style={{ width: `${usedPercent}%` }}
+                />
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs text-body-subtle">
+                <span>{t('Còn lại:', 'Remaining:')} <strong className="text-heading font-medium">{remaining}</strong> {t('lượt', 'credits')}</span>
+                {quota?.exceeded && (
+                  <span className="flex items-center gap-1 text-fg-danger-strong font-medium">
+                    <AlertTriangle size={12} /> {t('Đã hết hạn mức chu kỳ này', 'Quota exceeded for this cycle')}
+                  </span>
+                )}
+              </div>
+            </>}
           </div>
 
           <div className="mt-4 pt-3 border-t border-border-default-subtle flex items-center justify-between">
@@ -754,7 +744,7 @@ export function ProfilePage() {
             </span>
             <Link
               to="/settings"
-              className="text-xs font-semibold text-fg-brand hover:underline flex items-center gap-1"
+              className="rounded-control text-xs font-semibold text-fg-brand hover:underline flex items-center gap-1"
             >
               <span>{t('Quản lý gói dịch vụ', 'Manage Subscriptions')}</span>
               <ArrowRight size={13} />
@@ -765,9 +755,9 @@ export function ProfilePage() {
         {/* Khối 3: Bảng giá & Các gói dịch vụ */}
         <div>
           <div className="mb-4">
-            <h3 className="text-base font-bold text-heading">
+            <h2 className="text-base font-semibold text-heading font-display">
               {t('Các gói dịch vụ GreyTest', 'GreyTest Subscription Plans')}
-            </h3>
+            </h2>
             <p className="text-xs text-body-subtle mt-0.5">
               {t('Lựa chọn gói phù hợp với quy mô kiểm thử và dự án của bạn.', 'Choose a plan that fits your testing scale and project needs.')}
             </p>
@@ -776,41 +766,41 @@ export function ProfilePage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {/* Gói Free */}
             {showFree && (
-              <div className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all shadow-xs ${
+              <div className={`relative flex flex-col justify-between rounded-base border p-5 transition-colors  ${
                 isCurrentFree
                   ? 'border-brand-primary bg-neutral-primary-soft ring-1 ring-brand-primary/30'
-                  : 'border-border-default bg-neutral-primary-soft/60'
+                  : 'border-border-default bg-neutral-primary-soft'
               }`}>
                 {isCurrentFree && (
-                  <span className="absolute -top-2.5 right-4 rounded-full bg-brand px-2.5 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                  <Tag variant="status" tone={'success'} icon={Check} className="absolute -top-2.5 right-4">
                     {t('Đang sử dụng', 'Active')}
-                  </span>
+                  </Tag>
                 )}
                 <div>
-                  <span className="text-xs font-semibold text-body-subtle uppercase tracking-wider">{t('GÓI MIỄN PHÍ (FREE)', 'Free Tier')}</span>
+                  <Tag>{t('Gói miễn phí (FREE)', 'Free Tier')}</Tag>
                   <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-heading">0đ</span>
+                    <span className="text-[22px] font-semibold text-heading">0đ</span>
                     <span className="text-xs text-body-subtle">/{t('tháng', 'month')}</span>
                   </div>
                   {isFreePaused && isCurrentFree && (
-                    <div className="mt-2 rounded bg-amber-500/10 p-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                    <Tag variant="status" tone="warning" icon={Clock} className="mt-2">
                       {t('Đang tạm dừng áp dụng cho người dùng mới', 'Paused for new users')}
-                    </div>
+                    </Tag>
                   )}
                   <p className="mt-2 text-xs text-body-subtle">
                     {freePkg?.description || t('Dành cho sinh viên và dự án thử nghiệm cơ bản', 'For students and basic experimental projects')}
                   </p>
                   <ul className="mt-4 space-y-2 text-xs text-body">
                     <li className="flex items-center gap-2">
-                      <Check size={14} className="text-emerald-500 shrink-0" />
-                      <span>{t('100 lượt gọi AI / tháng', '100 AI credits / month')}</span>
+                      <Check size={14} className="text-fg-success-strong shrink-0" />
+                      <span>{freePkg ? t(`${freePkg.quotaLimit} lượt gọi AI`, `${freePkg.quotaLimit} AI credits`) : t('Chưa có hạn mức', 'Quota unavailable')}</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check size={14} className="text-emerald-500 shrink-0" />
-                      <span>{t('Sinh tối đa 2 batch đồng thời', 'Max 2 concurrent batches')}</span>
+                      <Check size={14} className="text-fg-success-strong shrink-0" />
+                      <span>{freePkg ? t(`Sinh tối đa ${freePkg.batchConcurrency} batch đồng thời`, `Max ${freePkg.batchConcurrency} concurrent batches`) : t('Chưa có dữ liệu', 'Data unavailable')}</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check size={14} className="text-emerald-500 shrink-0" />
+                      <Check size={14} className="text-fg-success-strong shrink-0" />
                       <span>{t('Sinh Test Plan & Test Case cơ bản', 'Basic Test Plan & Test Cases')}</span>
                     </li>
                   </ul>
@@ -834,41 +824,41 @@ export function ProfilePage() {
 
             {/* Gói PLUS */}
             {showPlus && (
-              <div className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all shadow-xs ${
+              <div className={`relative flex flex-col justify-between rounded-base border p-5 transition-colors  ${
                 isCurrentPlus
-                  ? 'border-indigo-500 bg-neutral-primary-soft ring-1 ring-indigo-500/30'
-                  : 'border-border-default bg-neutral-primary-soft/60'
+                  ? 'border-border-brand bg-neutral-primary-soft ring-1 ring-border-brand-subtle'
+                  : 'border-border-default bg-neutral-primary-soft'
               }`}>
                 {isCurrentPlus && (
-                  <span className="absolute -top-2.5 right-4 rounded-full bg-indigo-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                  <Tag variant="status" tone={'success'} icon={Check} className="absolute -top-2.5 right-4">
                     {t('Gói PLUS đang hoạt động', 'Active')}
-                  </span>
+                  </Tag>
                 )}
                 <div>
-                  <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">{t('Gói Tiêu Chuẩn (PLUS)', 'Standard (PLUS)')}</span>
+                  <Tag>{t('Gói tiêu chuẩn (PLUS)', 'Standard (PLUS)')}</Tag>
                   <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-heading">10.000đ</span>
+                    <span className="text-[22px] font-semibold text-heading">{plusPkg ? plusPkg.price.toLocaleString('vi-VN') + 'đ' : '—'}</span>
                     <span className="text-xs text-body-subtle">/{t('tuần', 'week')}</span>
                   </div>
                   {isPlusPaused && isCurrentPlus && (
-                    <div className="mt-2 rounded bg-amber-500/10 p-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                    <Tag variant="status" tone="warning" icon={Clock} className="mt-2">
                       {t('Gói này đang tạm dừng đăng ký mới/gia hạn', 'Package currently paused')}
-                    </div>
+                    </Tag>
                   )}
                   <p className="mt-2 text-xs text-body-subtle">
                     {plusPkg?.description || t('Dành cho nhóm phát triển mở rộng / dự án sprint nước rút', 'For scaling dev teams / sprint projects')}
                   </p>
                   <ul className="mt-4 space-y-2 text-xs text-body">
                     <li className="flex items-center gap-2">
-                      <Check size={14} className="text-indigo-500 shrink-0" />
-                      <span>{t('200 lượt gọi AI / tuần (làm mới hàng tuần)', '200 AI credits / week')}</span>
+                      <Check size={14} className="text-fg-brand-strong shrink-0" />
+                      <span>{plusPkg ? t(`${plusPkg.quotaLimit} lượt gọi AI`, `${plusPkg.quotaLimit} AI credits`) : t('Chưa có hạn mức', 'Quota unavailable')}</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check size={14} className="text-indigo-500 shrink-0" />
-                      <span>{t('Sinh tối đa 3 batch đồng thời', 'Max 3 concurrent batches')}</span>
+                      <Check size={14} className="text-fg-brand-strong shrink-0" />
+                      <span>{plusPkg ? t(`Sinh tối đa ${plusPkg.batchConcurrency} batch đồng thời`, `Max ${plusPkg.batchConcurrency} concurrent batches`) : t('Chưa có dữ liệu', 'Data unavailable')}</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check size={14} className="text-indigo-500 shrink-0" />
+                      <Check size={14} className="text-fg-brand-strong shrink-0" />
                       <span>{t('Độ ưu tiên xử lý cao hơn gói Free', 'Higher priority than Free')}</span>
                     </li>
                   </ul>
@@ -884,14 +874,14 @@ export function ProfilePage() {
                         onClick={() => openUpgradeModal('PLUS')}
                         className="btn btn-secondary w-full text-xs"
                       >
-                        {t('Gia hạn thêm gói PLUS (10.000đ)', 'Renew PLUS plan')}
+                        {t('Gia hạn thêm gói PLUS', 'Renew PLUS plan')}
                       </button>
                     )
                   ) : (
                     <button
                       onClick={() => openUpgradeModal('PLUS')}
                       disabled={isPlusPaused}
-                      className="btn w-full text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                      className="btn btn-brand w-full text-xs"
                     >
                       {isPlusPaused ? t('Tạm dừng đăng ký', 'Paused') : t('Nâng cấp PLUS', 'Upgrade PLUS')}
                     </button>
@@ -902,39 +892,37 @@ export function ProfilePage() {
 
             {/* Gói PRO */}
             {showPro && (
-              <div className={`relative flex flex-col justify-between rounded-xl border p-5 transition-all shadow-md ${
+              <div className={`relative flex flex-col justify-between rounded-base border p-5 transition-colors  ${
                 isCurrentPro
-                  ? 'border-purple-500 bg-neutral-primary-soft ring-2 ring-purple-500/40'
-                  : 'border-purple-500/40 bg-neutral-primary-soft'
+                  ? 'border-border-brand bg-neutral-primary-soft ring-2 ring-border-brand-subtle'
+                  : 'border-border-brand-subtle bg-neutral-primary-soft'
               }`}>
-                <span className="absolute -top-2.5 right-4 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-xs">
-                  {isCurrentPro ? t('Gói PRO cao cấp nhất đang hoạt động', 'Active PRO') : t('KHUYÊN DÙNG', 'RECOMMENDED')}
-                </span>
+                {isCurrentPro ? <Tag variant="status" tone="success" icon={Check} className="absolute -top-2.5 right-4">{t('Gói PRO cao cấp nhất đang hoạt động', 'Active PRO')}</Tag> : <Tag className="absolute -top-2.5 right-4">{t('Khuyên dùng', 'Recommended')}</Tag>}
                 <div>
-                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">{t('Gói Chuyên Nghiệp (PRO)', 'Professional (PRO)')}</span>
+                  <Tag>{t('Gói chuyên nghiệp (PRO)', 'Professional (PRO)')}</Tag>
                   <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-heading">20.000đ</span>
+                    <span className="text-[22px] font-semibold text-heading">{proPkg ? proPkg.price.toLocaleString('vi-VN') + 'đ' : '—'}</span>
                     <span className="text-xs text-body-subtle">/{t('tuần', 'week')}</span>
                   </div>
                   {isProPaused && isCurrentPro && (
-                    <div className="mt-2 rounded bg-amber-500/10 p-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                    <Tag variant="status" tone="warning" icon={Clock} className="mt-2">
                       {t('Gói này đang tạm dừng đăng ký mới/gia hạn', 'Package currently paused')}
-                    </div>
+                    </Tag>
                   )}
                   <p className="mt-2 text-xs text-body-subtle">
                     {proPkg?.description || t('Toàn bộ tính năng phân tích sâu & JaCoCo Refinement', 'Full deep analysis & JaCoCo refinement features')}
                   </p>
                   <ul className="mt-4 space-y-2 text-xs text-body">
                     <li className="flex items-center gap-2">
-                      <Check size={14} className="text-purple-500 shrink-0" />
-                      <span>{t('300 lượt gọi AI / tuần (làm mới hàng tuần)', '300 AI credits / week')}</span>
+                      <Check size={14} className="text-fg-brand-strong shrink-0" />
+                      <span>{proPkg ? t(`${proPkg.quotaLimit} lượt gọi AI`, `${proPkg.quotaLimit} AI credits`) : t('Chưa có hạn mức', 'Quota unavailable')}</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check size={14} className="text-purple-500 shrink-0" />
-                      <span>{t('Sinh tối đa 4 batch đồng thời', 'Max 4 concurrent batches')}</span>
+                      <Check size={14} className="text-fg-brand-strong shrink-0" />
+                      <span>{proPkg ? t(`Sinh tối đa ${proPkg.batchConcurrency} batch đồng thời`, `Max ${proPkg.batchConcurrency} concurrent batches`) : t('Chưa có dữ liệu', 'Data unavailable')}</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check size={14} className="text-purple-500 shrink-0" />
+                      <Check size={14} className="text-fg-brand-strong shrink-0" />
                       <span>{t('Toàn quyền truy cập JaCoCo Coverage Refinement', 'Full JaCoCo access')}</span>
                     </li>
                   </ul>
@@ -950,16 +938,16 @@ export function ProfilePage() {
                         onClick={() => openUpgradeModal('PRO')}
                         className="btn btn-secondary w-full text-xs"
                       >
-                        {t('Gia hạn thêm gói PRO (20.000đ)', 'Renew PRO plan')}
+                        {t('Gia hạn thêm gói PRO', 'Renew PRO plan')}
                       </button>
                     )
                   ) : (
                     <button
                       onClick={() => openUpgradeModal('PRO')}
                       disabled={isProPaused}
-                      className="btn w-full text-xs font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xs disabled:opacity-50"
+                      className="btn w-full text-xs font-semibold text-heading bg-neutral-secondary-medium"
                     >
-                      {isProPaused ? t('Tạm dừng đăng ký', 'Paused') : t('Nâng cấp PRO ngay (20.000đ)', 'Upgrade to PRO (20.000đ)')}
+                      {isProPaused ? t('Tạm dừng đăng ký', 'Paused') : t('Nâng cấp PRO', 'Upgrade to PRO')}
                     </button>
                   )}
                 </div>

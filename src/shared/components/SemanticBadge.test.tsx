@@ -14,18 +14,18 @@ afterEach(() => {
 
 describe('SemanticBadge', () => {
   it.each([
-    ['HAPPY_PATH', 'Trường hợp hợp lệ', 'bg-success-soft'],
-    ['BOUNDARY', 'Trường hợp biên', 'bg-warning-soft'],
-    ['EXCEPTION', 'Trường hợp ngoại lệ', 'bg-danger-soft'],
-    ['EDGE', 'Trường hợp đặc biệt', 'bg-purple-soft'],
-  ])('maps test type %s to its semantic color', (value, label, colorClass) => {
+    ['HAPPY_PATH', 'Trường hợp hợp lệ', 'success'],
+    ['BOUNDARY', 'Trường hợp biên', 'warning'],
+    ['EXCEPTION', 'Trường hợp ngoại lệ', 'danger'],
+    ['EDGE', 'Trường hợp đặc biệt', 'brand'],
+  ])('maps test type %s to its semantic tone', (value, label, tone) => {
     render(<SemanticBadge kind="test-type" value={value} />);
-    expect(screen.getByText(label)).toHaveClass(colorClass);
+    expect(screen.getByText(label)).toHaveAttribute('data-tone', tone);
   });
 
   it('uses warning colors for pending review', () => {
     render(<SemanticBadge kind="review-status" value="PENDING_REVIEW" />);
-    expect(screen.getByText('Chờ duyệt')).toHaveClass('bg-warning-soft', 'text-fg-warning');
+    expect(screen.getByText('Chờ duyệt')).toHaveAttribute('data-tone', 'warning');
   });
 
   it('updates labels immediately when the system language changes and preserves colors', () => {
@@ -38,11 +38,11 @@ describe('SemanticBadge', () => {
       <SemanticBadge kind="review-status" value="APPROVED" />
     </LanguageProvider>);
     expect(screen.getByText('Cao')).toBeVisible();
-    expect(screen.getByText('Đã duyệt')).toHaveClass('bg-success-soft');
+    expect(screen.getByText('Đã duyệt')).toHaveAttribute('data-tone', 'success');
     fireEvent.click(screen.getByRole('button', { name: 'EN' }));
     expect(screen.getByText('High')).toBeVisible();
-    expect(screen.getByText('Happy path')).toHaveClass('bg-success-soft');
-    expect(screen.getByText('Approved')).toHaveClass('bg-success-soft');
+    expect(screen.getByText('Happy path')).toHaveAttribute('data-tone', 'success');
+    expect(screen.getByText('Approved')).toHaveAttribute('data-tone', 'success');
     expect(screen.queryByText('Cao')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'VI' }));
     expect(screen.getByText('Cao')).toBeVisible();

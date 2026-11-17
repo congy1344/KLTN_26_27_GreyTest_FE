@@ -91,7 +91,7 @@ describe('AdminFeedbackPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Quản Lý Phản Hồi & Ý Kiến Người Dùng')).toBeInTheDocument();
+    expect(screen.getByText("Quản lý phản hồi & ý kiến người dùng")).toBeInTheDocument();
     expect(screen.getByText('Tổng phản hồi')).toBeInTheDocument();
     expect(screen.getByText('Đang chờ xử lý')).toBeInTheDocument();
     expect(screen.getAllByText('Đã giải quyết').length).toBeGreaterThan(0);
@@ -113,11 +113,11 @@ describe('AdminFeedbackPage', () => {
     const triageButtons = screen.getAllByRole('button', { name: /Xử lý/i });
     fireEvent.click(triageButtons[0]);
 
-    expect(screen.getByText('Xử Lý Phản Hồi')).toBeInTheDocument();
+    expect(screen.getByText("Xử lý phản hồi")).toBeInTheDocument();
     const noteInput = screen.getByPlaceholderText(/Ghi chú nguyên nhân hoặc kết quả xử lý/i);
     fireEvent.change(noteInput, { target: { value: 'Đã hoàn tất kiểm tra và vá lỗi.' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu Trạng Thái' }));
+    fireEvent.click(screen.getByRole('button', { name: "Lưu trạng thái" }));
     expect(screen.getByText('Xác nhận cập nhật trạng thái phản hồi?')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận lưu' }));
     expect(mockUpdateStatusMutate).toHaveBeenCalledWith(
@@ -148,7 +148,7 @@ describe('AdminFeedbackPage', () => {
     const titleInput = screen.getByPlaceholderText('VD: Cải thiện prompt sinh JUnit 5');
     fireEvent.change(titleInput, { target: { value: 'Đề xuất thêm mock Kafka' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Gửi Phản Hồi' }));
+    fireEvent.click(screen.getByRole('button', { name: "Gửi phản hồi" }));
     expect(screen.getByText('Xác nhận gửi phản hồi?')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận gửi' }));
     expect(mockCreateMutate).toHaveBeenCalledWith(

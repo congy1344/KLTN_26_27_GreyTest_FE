@@ -1,7 +1,7 @@
-import {
-  AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Crown, Eye,
-  Save, Search, Trash2, UserCheck, UserPlus, Users, UserX, X,
-} from 'lucide-react';
+import { IconButton } from '../../../shared/components/IconButton';
+import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, CircleDot, Eye, Save, Search, Trash2, UserCheck, UserPlus, UserX, Users, X } from 'lucide-react';
+import { Tag } from '../../../shared/components/Tag';
+import { SelectMenu } from '../../../shared/components/SelectMenu';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getErrorMessage } from '../../../shared/api/api-client';
@@ -72,19 +72,19 @@ export function AdminUsersPage() {
   const renderSortableHeader = (field: string, label: string) => {
     const isActive = filters.sort === field;
     return (
-      <th className="p-3" scope="col">
+      <th className="font-semibold text-body-subtle text-xs p-3" scope="col">
         <button
           type="button"
           onClick={() => toggleSort(field)}
-          className="group inline-flex items-center gap-1.5 font-bold uppercase tracking-wide text-body-subtle hover:text-heading focus:outline-hidden"
+          className="btn btn-ghost rounded-control group inline-flex items-center gap-1.5 font-bold focus:outline-hidden"
           title={`Sắp xếp theo ${label}`}
         >
           <span>{label}</span>
           {isActive ? (
             filters.direction === 'asc' ? (
-              <ArrowUp size={13} className="text-fg-brand" aria-hidden="true" />
+              <ArrowUp size={13} className="text-fg-brand-strong" aria-hidden="true" />
             ) : (
-              <ArrowDown size={13} className="text-fg-brand" aria-hidden="true" />
+              <ArrowDown size={13} className="text-fg-brand-strong" aria-hidden="true" />
             )
           ) : (
             <ArrowUpDown size={12} className="opacity-40 transition-opacity group-hover:opacity-100" aria-hidden="true" />
@@ -168,36 +168,57 @@ export function AdminUsersPage() {
             <UserPlus size={14} />
             <span>{t('Thêm người dùng', 'Add User')}</span>
           </button>
-          <span className="rounded-full bg-neutral-secondary px-3 py-1 text-xs font-semibold text-body">
+          <Tag>
             {users.data?.totalElements ?? 0} {t('tài khoản', 'accounts')}
-          </span>
+          </Tag>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
         <label className="relative"><Search className="absolute left-3 top-3 text-body-subtle" size={16} /><input aria-label="Tìm người dùng" className="form-input pl-9" placeholder="Tìm theo email hoặc họ tên" value={filters.search ?? ''} onChange={(event) => patch({ search: event.target.value })} /></label>
-        <select aria-label="Lọc role" className="form-input" value={filters.role ?? ''} onChange={(event) => patch({ role: event.target.value as UserRole | '' })}><option value="">Tất cả vai trò</option><option value="ADMIN">Quản trị viên</option><option value="USER">Người dùng</option></select>
-        <select aria-label="Lọc gói tier" className="form-input" value={filters.tier ?? ''} onChange={(event) => patch({ tier: (event.target.value as UserTier) || undefined })}><option value="">Tất cả gói</option><option value="FREE">Gói FREE</option><option value="PLUS">Gói PLUS</option><option value="PRO">Gói PRO</option></select>
-        <select aria-label="Lọc trạng thái" className="form-input" value={filters.enabled ?? ''} onChange={(event) => patch({ enabled: event.target.value as UserFilters['enabled'] })}><option value="">Mọi trạng thái</option><option value="true">Đang hoạt động</option><option value="false">Đã khóa</option></select>
-        <select aria-label="Sắp xếp" className="form-input" value={`${filters.sort}:${filters.direction}`} onChange={(event) => { const [sort, direction] = event.target.value.split(':'); patch({ sort, direction: direction as 'asc' | 'desc' }); }}>
-          <option value="createdAt:desc">Mới nhất</option>
-          <option value="createdAt:asc">Cũ nhất</option>
-          <option value="email:asc">Email A–Z</option>
-          <option value="email:desc">Email Z–A</option>
-          <option value="totalGenerationRequests:desc">Lượt sinh test: Nhiều nhất</option>
-          <option value="totalGenerationRequests:asc">Lượt sinh test: Ít nhất</option>
-          <option value="lastActivityAt:desc">Hoạt động gần nhất</option>
-          <option value="lastActivityAt:asc">Hoạt động cũ nhất</option>
-          <option value="quota:desc">Quota LLM: Dùng nhiều nhất</option>
-          <option value="quota:asc">Quota LLM: Dùng ít nhất</option>
-        </select>
+        <SelectMenu aria-label="Lọc role"
+              value={filters.role ?? ''}
+              onChange={(value) => patch({ role: value as UserRole | '' })}
+              className="w-full sm:w-auto sm:min-w-[160px]"
+              options={[{ value: "", label: "Tất cả vai trò" },
+                { value: "ADMIN", label: "Quản trị viên", tone: 'brand' },
+                { value: "USER", label: "Người dùng", tone: 'neutral' }]} />
+        <SelectMenu aria-label="Lọc gói tier"
+              value={filters.tier ?? ''}
+              onChange={(value) => patch({ tier: (value as UserTier) || undefined })}
+              className="w-full sm:w-auto sm:min-w-[160px]"
+              options={[{ value: "", label: "Tất cả gói" },
+                { value: "FREE", label: "Gói FREE", tone: 'neutral' },
+                { value: "PLUS", label: "Gói PLUS", tone: 'brand' },
+                { value: "PRO", label: "Gói PRO", tone: 'brand' }]} />
+        <SelectMenu aria-label="Lọc trạng thái"
+              value={filters.enabled ?? ''}
+              onChange={(value) => patch({ enabled: value as UserFilters['enabled'] })}
+              className="w-full sm:w-auto sm:min-w-[160px]"
+              options={[{ value: "", label: "Mọi trạng thái" },
+                { value: "true", label: "Đang hoạt động", tone: 'success' },
+                { value: "false", label: "Đã khóa", tone: 'danger' }]} />
+        <SelectMenu aria-label="Sắp xếp"
+              value={`${filters.sort}:${filters.direction}`}
+              onChange={(value) => { const [sort, direction] = value.split(':'); patch({ sort, direction: direction as 'asc' | 'desc' }); }}
+              className="w-full sm:w-auto sm:min-w-[160px]"
+              options={[{ value: "createdAt:desc", label: "Mới nhất" },
+                { value: "createdAt:asc", label: "Cũ nhất" },
+                { value: "email:asc", label: "Email A đến Z" },
+                { value: "email:desc", label: "Email Z đến A" },
+                { value: "totalGenerationRequests:desc", label: "Lượt sinh test: Nhiều nhất" },
+                { value: "totalGenerationRequests:asc", label: "Lượt sinh test: Ít nhất" },
+                { value: "lastActivityAt:desc", label: "Hoạt động gần nhất" },
+                { value: "lastActivityAt:asc", label: "Hoạt động cũ nhất" },
+                { value: "quota:desc", label: "Quota LLM: Dùng nhiều nhất" },
+                { value: "quota:asc", label: "Quota LLM: Dùng ít nhất" }]} />
         <button type="button" className="btn btn-secondary whitespace-nowrap" onClick={() => setFilters({ page: 0, size: 10, sort: 'createdAt', direction: 'desc' })}>Đặt lại</button>
       </div>
 
-      {error && <p role="alert" className="mt-4 rounded-xl bg-danger-soft p-3 text-sm text-fg-danger-strong">{getErrorMessage(error)}</p>}
-      {users.isLoading ? <LoadingState label="Đang tải danh sách người dùng..." /> : <div className="mt-5 overflow-x-auto rounded-xl border border-border-default">
+      {error && <p role="alert" className="mt-4 rounded-base bg-danger-soft p-3 text-sm text-fg-danger-strong">{getErrorMessage(error)}</p>}
+      {users.isLoading ? <LoadingState label="Đang tải danh sách người dùng..." /> : <div className="mt-5 overflow-x-auto rounded-base border border-border-default bg-neutral-primary-soft">
         <table className="w-full text-left text-sm">
-          <thead className="bg-neutral-secondary-soft text-xs uppercase tracking-wide text-body-subtle">
+          <thead className="bg-neutral-secondary-soft text-xs text-body-subtle">
             <tr>
               {renderSortableHeader('id', 'ID')}
               {renderSortableHeader('fullName', 'Họ và tên')}
@@ -206,7 +227,7 @@ export function AdminUsersPage() {
               {renderSortableHeader('enabled', 'Trạng thái')}
               {renderSortableHeader('role', 'Vai trò')}
               {renderSortableHeader('tier', 'Gói')}
-              <th className="p-3 text-right">Thao tác</th>
+              <th className="font-semibold text-body-subtle text-xs p-3 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody>{users.data?.content.map((user) => {
@@ -214,16 +235,16 @@ export function AdminUsersPage() {
             return (
               <tr key={user.id} className="border-t border-border-default-subtle transition-colors hover:bg-neutral-secondary-soft/60">
                 <td className="p-3">
-                  <span className="font-sans tabular-nums text-xs font-bold text-body-subtle bg-neutral-secondary px-2 py-0.5 rounded-md">
+                  <Tag>
                     #{user.id}
-                  </span>
+                  </Tag>
                 </td>
                 <td className="p-3">
                   <div className="flex items-center gap-2.5">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-softer text-xs font-bold uppercase text-fg-brand">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-softer text-xs font-bold text-fg-brand-strong">
                       {(user.fullName || user.email).slice(0, 2)}
                     </span>
-                    <Link className="font-semibold text-heading hover:text-fg-brand hover:underline" to={`/admin/users/${user.id}`}>
+                    <Link className="font-semibold text-heading hover:text-fg-brand-strong hover:underline" to={`/admin/users/${user.id}`}>
                       {user.fullName || 'Chưa cập nhật tên'}
                     </Link>
                   </div>
@@ -234,7 +255,7 @@ export function AdminUsersPage() {
                 <td className="p-3">
                   <div className="text-xs text-body">
                     <p>{new Date(user.createdAt).toLocaleDateString('vi-VN')}</p>
-                    <p className="text-[10px] text-body-subtle">
+                    <p className="text-xs text-body-subtle">
                       {new Date(user.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
@@ -244,9 +265,7 @@ export function AdminUsersPage() {
                     type="button"
                     disabled={isSelf || mutations.status.isPending}
                     onClick={() => setStatusTarget(user)}
-                    className={`inline-flex whitespace-nowrap items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-all ${
-                      isSelf ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:shadow-xs hover:opacity-90'
-                    } ${user.enabled ? 'bg-success-soft text-fg-success-strong' : 'bg-danger-soft text-fg-danger-strong'}`}
+                    className="btn btn-ghost rounded-control p-0"
                     title={
                       isSelf
                         ? t('Không thể tự đổi trạng thái của mình', 'Cannot toggle own status')
@@ -254,54 +273,35 @@ export function AdminUsersPage() {
                         ? t('Nhấn để khóa tài khoản', 'Click to lock account')
                         : t('Nhấn để mở khóa tài khoản', 'Click to activate account')
                     }
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${user.enabled ? 'bg-success' : 'bg-danger'}`} />
-                    <span>{user.enabled ? t('Hoạt động', 'Active') : t('Đã khóa', 'Locked')}</span>
-                  </button>
+                  ><Tag variant="status" tone={user.enabled ? 'success' : 'danger'} icon={user.enabled ? UserCheck : UserX}><span>{user.enabled ? t('Hoạt động', 'Active') : t('Đã khóa', 'Locked')}</span></Tag></button>
                 </td>
                 <td className="p-3">
-                  <select
-                    aria-label={`Vai trò của ${user.email}`}
-                    className="form-input min-w-[120px] py-1 text-xs"
-                    value={user.role}
-                    disabled={isSelf || mutations.role.isPending}
-                    onChange={(event) => setRoleTarget({ user, role: event.target.value as UserRole })}
-                  >
-                    <option value="USER">Người dùng</option>
-                    <option value="ADMIN">Quản trị viên</option>
-                  </select>
+                  <SelectMenu aria-label={`Vai trò của ${user.email}`}
+              value={user.role}
+              disabled={isSelf || mutations.role.isPending}
+              onChange={(value) => setRoleTarget({ user, role: value as UserRole })}
+              className="w-full sm:w-auto sm:min-w-[160px]"
+              options={[{ value: "USER", label: "Người dùng", tone: 'neutral' },
+                { value: "ADMIN", label: "Quản trị viên", tone: 'brand' }]} />
                 </td>
                 <td className="p-3">
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                    user.tier === 'PRO'
-                      ? 'border border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300'
-                      : user.tier === 'PLUS'
-                      ? 'border border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300'
-                      : 'bg-neutral-secondary text-body-subtle'
-                  }`}>
-                    {user.tier === 'PRO' && <Crown size={12} className="text-amber-500" />}
+                  <Tag variant="status" tone={user.tier === 'PRO' ? "brand" : user.tier === 'PLUS' ? "brand" : "neutral"} icon={CircleDot}>
                     <span>{user.tier || 'FREE'}</span>
-                  </span>
+                  </Tag>
                 </td>
                 <td className="p-3">
                   <div className="flex justify-end gap-1.5 whitespace-nowrap">
                     <Link
-                      className="btn btn-secondary whitespace-nowrap px-3 py-1 text-xs inline-flex items-center gap-1.5 shadow-2xs hover:bg-brand-softer hover:text-fg-brand hover:border-brand-subtle transition-colors"
+                      className="btn btn-secondary whitespace-nowrap px-3 py-1 text-xs inline-flex items-center gap-1.5 shadow-2xs hover:bg-brand-softer hover:text-fg-brand-strong hover:border-border-brand-subtle transition-colors"
                       to={`/admin/users/${user.id}`}
                       title={t('Xem chi tiết, chỉnh sửa và quản lý tài khoản', 'View Details & Manage User')}
                     >
                       <Eye size={13} />
                       <span className="font-semibold">{t('Chi tiết', 'Details')}</span>
                     </Link>
-                    <button
-                      type="button"
-                      disabled={isSelf || mutations.deleteUser?.isPending}
-                      className="btn btn-ghost-danger border border-border-danger-subtle whitespace-nowrap p-1 text-xs disabled:opacity-30"
-                      onClick={() => setDeleteTarget(user)}
-                      title={isSelf ? t('Không thể tự xóa chính mình', 'Cannot delete self') : t('Xóa tài khoản', 'Delete Account')}
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <IconButton disabled={isSelf || mutations.deleteUser?.isPending}
+              onClick={() => setDeleteTarget(user)}
+              title={isSelf ? t('Không thể tự xóa chính mình', 'Cannot delete self') : t('Xóa tài khoản', 'Delete Account')} label={isSelf ? t('Không thể tự xóa chính mình', 'Cannot delete self') : t('Xóa tài khoản', 'Delete Account')} icon={Trash2} className="disabled:opacity-30 hover:bg-danger-soft hover:text-fg-danger-strong" />
                   </div>
                 </td>
               </tr>
@@ -352,18 +352,16 @@ export function AdminUsersPage() {
         className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/75 px-4 backdrop-blur-sm"
         onMouseDown={(e) => e.target === e.currentTarget && setCreateModalOpen(false)}
       >
-        <form onSubmit={saveCreateUser} className="w-full max-w-md rounded-xl border border-border-default bg-neutral-primary-soft p-6 shadow-xl">
+        <form style={{ boxShadow: 'var(--shadow-lg)' }} onSubmit={saveCreateUser} className="w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-6 shadow-lg">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 text-fg-brand">
+              <div className="flex items-center gap-2 text-fg-brand-strong">
                 <UserPlus size={18} />
-                <span className="text-xs font-bold uppercase tracking-wide">Thêm Người Dùng</span>
+                <span className="text-xs font-bold">Thêm người dùng</span>
               </div>
               <h2 className="mt-1 text-lg font-bold text-heading">Tạo tài khoản mới</h2>
             </div>
-            <button type="button" aria-label="Đóng" className="btn btn-secondary p-2" onClick={() => setCreateModalOpen(false)}>
-              <X size={15} />
-            </button>
+            <IconButton onClick={() => setCreateModalOpen(false)} label="Đóng" icon={X} />
           </div>
 
           <div className="mt-4 space-y-3.5 text-xs">
@@ -406,27 +404,22 @@ export function AdminUsersPage() {
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
                 <span className="mb-1 block font-semibold text-heading">Vai trò</span>
-                <select
-                  className="form-input"
+                <SelectMenu
                   value={createForm.role}
-                  onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as UserRole })}
-                >
-                  <option value="USER">Người dùng</option>
-                  <option value="ADMIN">Quản trị viên</option>
-                </select>
+                  onChange={(selectedValue) => setCreateForm({ ...createForm, role: selectedValue as UserRole })}
+                  aria-label={'Vai trò'}
+                  options={[{ value: String("USER"), label: "Người dùng" }, { value: String("ADMIN"), label: "Quản trị viên" }]}
+                />
               </label>
 
               <label className="block">
                 <span className="mb-1 block font-semibold text-heading">Hạng tài khoản</span>
-                <select
-                  className="form-input"
+                <SelectMenu
                   value={createForm.tier}
-                  onChange={(e) => setCreateForm({ ...createForm, tier: e.target.value as UserTier })}
-                >
-                  <option value="FREE">FREE</option>
-                  <option value="PLUS">PLUS</option>
-                  <option value="PRO">PRO</option>
-                </select>
+                  onChange={(selectedValue) => setCreateForm({ ...createForm, tier: selectedValue as UserTier })}
+                  aria-label={'Hạng tài khoản'}
+                  options={[{ value: String("FREE"), label: "FREE" }, { value: String("PLUS"), label: "PLUS" }, { value: String("PRO"), label: "PRO" }]}
+                />
               </label>
             </div>
 
@@ -490,6 +483,6 @@ export function AdminUsersPage() {
 }
 
 function SummaryCard({ icon: Icon, label, value, tone }: { icon: typeof Users; label: string; value: number; tone: 'brand' | 'success' | 'danger' | 'warning' }) {
-  const colors = { brand: 'bg-brand-softer text-fg-brand', success: 'bg-success-soft text-fg-success-strong', danger: 'bg-danger-soft text-fg-danger-strong', warning: 'bg-warning-soft text-fg-warning' };
-  return <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-4 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-medium text-body-subtle">{label}</p><p className="mt-1 text-2xl font-bold text-heading font-sans tabular-nums">{value}</p></div><span className={`flex h-10 w-10 items-center justify-center rounded-lg ${colors[tone]}`}><Icon size={18} /></span></div></div>;
+  const colors = { brand: 'bg-brand-softer text-fg-brand-strong', success: 'bg-success-soft text-fg-success-strong', danger: 'bg-danger-soft text-fg-danger-strong', warning: 'bg-warning-soft text-fg-warning' };
+  return <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-medium text-body-subtle">{label}</p><p className="mt-1 text-2xl font-bold text-heading font-sans tabular-nums">{value}</p></div><span className={`flex h-10 w-10 items-center justify-center rounded-base ${colors[tone]}`}><Icon size={18} /></span></div></div>;
 }

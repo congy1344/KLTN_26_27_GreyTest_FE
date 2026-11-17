@@ -11,6 +11,7 @@ import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceSc
 import { ReportPage } from './ReportPage';
 
 vi.mock('../../projects/hooks/useProjects', () => ({
+  useAnalysis: () => ({ data: undefined }),
   useProject: vi.fn(),
   useCompleteProject: vi.fn(() => ({
     mutate: vi.fn(),
@@ -63,7 +64,7 @@ describe('ReportPage', () => {
   it('allows report once coverage is analyzed', () => {
     renderPage('COVERAGE_ANALYZED');
     expect(screen.getByText('Report Panel')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Traceability' })).toHaveAttribute('href', '/projects/105/traceability?servicePath=billing-service');
+    expect(screen.getByRole('link', { name: /06 Truy vết/ })).toHaveAttribute('href', '/projects/105/traceability?servicePath=billing-service');
     expect(screen.queryByText('Mở Traceability')).not.toBeInTheDocument();
   });
 
@@ -86,3 +87,11 @@ function project(status: Project['status']): Project {
     sourceAvailable: true,
   };
 }
+
+vi.mock('../../business-rules/hooks/useBusinessRules', () => ({ useBusinessRules: () => ({}) }));
+vi.mock('../../test-plans/hooks/useTestPlans', () => ({ useTestPlans: () => ({}) }));
+vi.mock('../../test-cases/hooks/useTestCases', () => ({ useTestCases: () => ({}) }));
+vi.mock('../../unit-tests/hooks/useUnitTests', () => ({ useUnitTests: () => ({}) }));
+vi.mock('../../coverage/hooks/useCoverage', () => ({ useCoverageReport: () => ({}), useSandboxRun: () => ({}) }));
+
+vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({}) }));

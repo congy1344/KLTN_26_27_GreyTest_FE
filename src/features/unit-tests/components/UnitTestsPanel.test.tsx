@@ -57,8 +57,23 @@ function renderPanel() {
   );
 }
 
+/** Dòng code (li) có nội dung khớp mẫu; khung code tô màu tách chữ thành nhiều span. */
+function codeLine(region: HTMLElement, pattern: RegExp) {
+  const line = within(region).getAllByRole('listitem').find((item) => pattern.test(item.textContent ?? ''));
+  if (!line) throw new Error('No code line matches ' + pattern);
+  return line;
+}
+
+/** Khung code chỉ cuộn bên trong (gán scrollTop), nên theo dõi setter thay cho scrollIntoView. */
+function spyCodeScroll() {
+  const spy = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, 'scrollTop', { configurable: true, get: () => 0, set: spy });
+  return spy;
+}
+
 describe('UnitTestsPanel', () => {
   afterEach(() => {
+    delete (HTMLElement.prototype as { scrollTop?: number }).scrollTop;
     localStorage.clear();
     cleanup();
     vi.clearAllMocks();
@@ -103,8 +118,11 @@ describe('UnitTestsPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'AI sinh Unit Test' }));
     expect(mocks.generate).toHaveBeenCalledOnce();
-    expect(screen.getByText(/lưu về backend/)).toBeInTheDocument();
-    expect(screen.getByText('Test Case đã duyệt')).toBeVisible();
+    expect(screen.getByText(/Duyệt Test Case rồi sinh và tải file JUnit\/Mockito/)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Unit Tests' })).not.toBeInTheDocument();
+    expect(screen.getByText('0/1')).toBeVisible();
+    expect(screen.queryByText('Test file')).not.toBeInTheDocument();
+    expect(screen.queryByText('File test đã gộp')).not.toBeInTheDocument();
   });
 
   it('requires approved cases before generating unit tests', () => {
@@ -125,6 +143,8 @@ describe('UnitTestsPanel', () => {
     expect(screen.getByRole('button', { name: 'Sinh lại toàn bộ' })).toBeEnabled();
     expect(screen.queryByRole('option', { name: /TC-002/ })).not.toBeInTheDocument();
     expect(screen.getByText('1/1')).toBeVisible();
+    expect(screen.getAllByText(/mỗi Test Case được duyệt có đúng một Unit Test/)).toHaveLength(1);
+    expect(screen.getByText(/mỗi Test Case được duyệt có đúng một Unit Test/).closest('[role="alert"]')).toHaveClass('bg-success-soft');
     expect(screen.queryByRole('button', { name: /Tiếp tục sinh/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tiếp tục đến Coverage/ })).toBeEnabled();
   });
@@ -187,8 +207,7 @@ describe('UnitTestsPanel', () => {
   });
 
   it('does not scroll automatically on initial render', () => {
-    const scrollIntoView = vi.fn();
-    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    const scroll = spyCodeScroll();
     mocks.tests = [
       { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java' },
     ];
@@ -201,12 +220,11 @@ describe('UnitTestsPanel', () => {
     }];
 
     renderPanel();
-    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(scroll).not.toHaveBeenCalled();
   });
 
   it('moves the code preview to the selected test method', () => {
-    const scrollIntoView = vi.fn();
-    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    const scroll = spyCodeScroll();
     const sourceCode = 'class UserServiceTest {\n  void firstMethod() {}\n\n  @DisplayName("secondMethod")\n  void secondMethod () {}\n}';
     mocks.tests = [
       { id: 11, testCaseId: 1, testMethodName: 'firstMethod', testClassName: 'UserServiceTest', filePath: 'UserServiceTest.java' },
@@ -221,14 +239,14 @@ describe('UnitTestsPanel', () => {
     }];
 
     renderPanel();
-    scrollIntoView.mockClear();
+    scroll.mockClear();
     fireEvent.click(within(screen.getByRole('tree')).getByText('secondMethod'));
 
     expect(screen.getAllByText(/BR-007 \[IF-1-TRUE\].*TP-005.*TC-001/)).not.toHaveLength(0);
     expect(screen.getByText('UserService.createUser')).toBeVisible();
     const code = screen.getByRole('region', { name: 'Generated test code' });
-    expect(within(code).getByText(/void secondMethod/).closest('li')).toHaveAttribute('aria-current', 'true');
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
+    expect(codeLine(code, /void secondMethod/)).toHaveAttribute('aria-current', 'true');
+    expect(scroll).toHaveBeenCalled();
   });
 
   it('shows exact case coverage and filters by method name', () => {
@@ -239,7 +257,7 @@ describe('UnitTestsPanel', () => {
     renderPanel();
 
     expect(screen.getByText('1/1')).toBeVisible();
-    expect(screen.getByText(/Đã kiểm chứng đủ/)).toBeVisible();
+    expect(screen.getByText(/Test Case đã khớp đủ 1:1/)).toBeVisible();
     const search = screen.getByRole('textbox', { name: 'Tìm Unit Test' });
     fireEvent.change(search, { target: { value: 'missing' } });
     expect(screen.queryByRole('treeitem', { name: /createUserValid/ })).not.toBeInTheDocument();
@@ -270,13 +288,12 @@ describe('UnitTestsPanel', () => {
     renderPanel();
 
     expect(screen.queryByText('Không tìm thấy file test.')).not.toBeInTheDocument();
-    expect(within(screen.getByRole('region', { name: 'Generated test code' }))
-      .getByText(/class ServiceTest_GreyTest_1/)).toBeVisible();
+    expect(codeLine(screen.getByRole('region', { name: 'Generated test code' }), /class ServiceTest_GreyTest_1/)).toBeVisible();
     fireEvent.click(within(screen.getByRole('tree')).getByText('ServiceTest_GreyTest_2.java'));
     fireEvent.click(within(screen.getByRole('tree')).getByText('secondMethod'));
     const code = screen.getByRole('region', { name: 'Generated test code' });
-    expect(within(code).getByText(/class ServiceTest_GreyTest_2/)).toBeVisible();
-    expect(within(code).getByText(/void secondMethod/).closest('li')).toHaveAttribute('aria-current', 'true');
+    expect(codeLine(code, /class ServiceTest_GreyTest_2/)).toBeVisible();
+    expect(codeLine(code, /void secondMethod/)).toHaveAttribute('aria-current', 'true');
   });
 
   it('selects another case inside a renamed merged file', () => {
@@ -297,8 +314,7 @@ describe('UnitTestsPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'TC-002' }));
 
-    expect(within(screen.getByRole('region', { name: 'Generated test code' }))
-      .getByText(/void secondMethod/).closest('li')).toHaveAttribute('aria-current', 'true');
+    expect(codeLine(screen.getByRole('region', { name: 'Generated test code' }), /void secondMethod/)).toHaveAttribute('aria-current', 'true');
   });
 
   it('keeps opening legacy files with no case code metadata by their exact path', () => {
@@ -312,8 +328,7 @@ describe('UnitTestsPanel', () => {
 
     renderPanel();
 
-    expect(within(screen.getByRole('region', { name: 'Generated test code' }))
-      .getByText(/void firstMethod/)).toBeVisible();
+    expect(codeLine(screen.getByRole('region', { name: 'Generated test code' }), /void firstMethod/)).toBeVisible();
   });
 
   it('does not display a file whose case metadata conflicts with the selected record', () => {
@@ -355,13 +370,12 @@ describe('UnitTestsPanel', () => {
 
     renderPanel();
 
-    expect(screen.getByText(/Thiếu 1 case.*Trùng\/thừa 1 test/)).toBeVisible();
+    expect(screen.getByText(/thiếu 1 case.*trùng\/thừa 1 test/i)).toBeVisible();
     expect(screen.getByRole('button', { name: /Tiếp tục đến Coverage/ })).toBeDisabled();
   });
 
   it('scrolls again when two files use the same method name and line', () => {
-    const scrollIntoView = vi.fn();
-    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    const scroll = spyCodeScroll();
     mocks.cases = [
       { id: 1, testPlanId: 5, caseCode: 'TC-001', description: 'first', status: 'APPROVED' },
       { id: 2, testPlanId: 5, caseCode: 'TC-002', description: 'second', status: 'APPROVED' },
@@ -382,13 +396,12 @@ describe('UnitTestsPanel', () => {
     ];
 
     renderPanel();
-    scrollIntoView.mockClear();
+    scroll.mockClear();
     fireEvent.click(within(screen.getByRole('tree')).getByText('SecondTest.java'));
     fireEvent.click(within(within(screen.getByRole('tree')).getByRole('treeitem', { name: /TC-002 sameMethod/ })).getByText('sameMethod'));
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
-    expect(within(screen.getByRole('region', { name: 'Generated test code' }))
-      .getByText(/class SecondTest/)).toBeVisible();
+    expect(scroll).toHaveBeenCalled();
+    expect(codeLine(screen.getByRole('region', { name: 'Generated test code' }), /class SecondTest/)).toBeVisible();
   });
 
   const twoFilesInFolders = () => {
@@ -414,6 +427,7 @@ describe('UnitTestsPanel', () => {
     renderPanel();
     const tree = within(screen.getByRole('tree'));
 
+    expect(screen.getByText(/File test đã gộp:/)).toHaveTextContent('2');
     expect(tree.getByText('src/test/java/demo/services')).toBeVisible();
     expect(tree.getByText('PricingServiceTest.java')).toBeVisible();
     expect(tree.getByText('priceOne')).toBeVisible();

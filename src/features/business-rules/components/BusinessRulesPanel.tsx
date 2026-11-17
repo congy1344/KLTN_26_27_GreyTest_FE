@@ -1,6 +1,11 @@
+import { SelectMenu } from '../../../shared/components/SelectMenu';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Tag } from '../../../shared/components/Tag';
+import { ErrorState } from '../../../shared/components/ErrorState';
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
+import { Clock,
+  ArrowRight,
   Bot,
   Download,
   Check,
@@ -19,7 +24,7 @@ import { getErrorMessage } from '../../../shared/api/api-client';
 import { ManualEntrySection } from '../../../shared/components/ManualEntrySection';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
-import { LoadingState } from '../../../shared/components/LoadingState';
+import { useTraceability } from '../../traceability/hooks/useTraceability';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { formatSemanticLabel, SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
@@ -41,6 +46,7 @@ import type { BusinessRule, BusinessRuleReview } from '../types';
 import { downloadBusinessRules } from '../utils/business-rule-export';
 import { cleanAiText, formatBusinessRuleReviewNote, splitBusinessRuleText } from '../utils/business-rule-text';
 import { useLanguage } from '../../../shared/i18n/language';
+import { CodeBlock } from '../../../shared/components/CodeBlock';
 import { displaySourcePath } from '../../../shared/utils/source-path';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { belongsToService, projectWorkflowPath } from '../../projects/utils/project-service';
@@ -94,6 +100,8 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
   const [ruleToDelete, setRuleToDelete] = useState<BusinessRule | null>(null);
   const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false);
 
+  const [selectedRuleId, setSelectedRuleId] = useState<number | null>(null);
+  const traceability = useTraceability(projectId, servicePath);
   const plansQuery = useTestPlans(projectId, servicePath);
   const sourceTraceByRule = useMemo(
     () => buildRuleSourceIndex(analysis, rules),
@@ -150,16 +158,6 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
           }),
       }));
   }, [analysis, rules, servicePath, sourceTraceByRule, addedRuleIds, modifiedRuleIds, effectiveAffectedRuleIds, effectiveMethodDiffMap, getMethodDiff]);
-  const fileGroups = useMemo(() => {
-    const groups = new Map<string, { filePath: string; services: typeof serviceGroups }>();
-    serviceGroups.forEach((service) => {
-      const group = groups.get(service.filePath) ?? { filePath: service.filePath, services: [] };
-      group.services.push(service);
-      groups.set(service.filePath, group);
-    });
-    return [...groups.values()];
-  }, [serviceGroups]);
-
   const serviceMethods = useMemo(() => serviceGroups.flatMap((javaClass) =>
     javaClass.methods.map((method) => ({
       id: method.id,
@@ -182,6 +180,21 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
       .filter((rule) => rule.methodId == null || !knownMethodIds.has(rule.methodId))
       .sort((left, right) => left.ruleCode.localeCompare(right.ruleCode, undefined, { numeric: true }));
   }, [rules, knownMethodIds]);
+  const displayClasses = [...serviceGroups, ...(analysis?.classes ?? []).filter((javaClass) => !serviceGroups.some((service) => service.id === javaClass.id))];
+  const ruleGroups = displayClasses.map((javaClass) => {
+    const service = serviceGroups.find((candidate) => candidate.id === javaClass.id);
+    return {
+      ...javaClass,
+      methods: javaClass.methods.map((method) => ({ ...method,
+        rules: service?.methods.find((candidate) => candidate.id === method.id)?.rules ?? rules.filter((rule) => rule.methodId === method.id),
+      })).filter((method) => method.rules.length > 0),
+    };
+  }).filter((javaClass) => javaClass.methods.length > 0);
+  const mappedIds = new Set(ruleGroups.flatMap((javaClass) => javaClass.methods.map((method) => method.id)));
+  const unmappedRules = orphanRules.filter((rule) => rule.methodId == null || !mappedIds.has(rule.methodId));
+  const firstRule = ruleGroups.flatMap((javaClass) => javaClass.methods.flatMap((method) => method.rules))[0] ?? unmappedRules[0];
+  const selectedRule = rules.find((rule) => rule.id === selectedRuleId) ?? firstRule;
+
   const uncoveredDecisionCount = serviceGroups.reduce((total, javaClass) => total
     + javaClass.methods.reduce((methodTotal, method) => {
       const covered = new Set(method.rules
@@ -314,7 +327,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
     setDismissedSuggestionIds((current) => new Set(current).add(ruleId));
   };
 
-  const renderRule = (rule: BusinessRule) => {
+  const renderRule = (rule: BusinessRule, detail = false) => {
     const review = reviewByRuleId.get(rule.id);
     const sourceMismatch = review?.verdict === 'SOURCE_MISMATCH'
       || rule.reviewNote?.startsWith('SOURCE_MISMATCH:');
@@ -344,42 +357,89 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
       sourceChanged || (!isPastRules && rule.isModified)
     );
 
-    const cardClass = isAdded
-      ? 'rounded-default border-2 border-emerald-500/60 bg-emerald-500/[0.04] p-3 shadow-xs transition-colors'
-      : isDeleted
-        ? 'rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 shadow-xs transition-colors'
-        : isModified
-          ? 'rounded-default border-2 border-amber-500/60 bg-amber-500/[0.04] p-3 shadow-xs transition-colors'
-          : 'rounded-default border border-border-default bg-neutral-secondary-soft p-3';
-
-    return (
-      <article key={rule.id} className={cardClass}>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-semibold text-heading">{rule.ruleCode}</span>
-              <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
+    const rows = [...(traceability.data?.rows ?? []), ...(traceability.data?.uncoveredRules ?? [])].filter((row) => row.ruleId === rule.id);
+    const plans = [...new Map(rows.filter((row) => row.planId != null && row.planCode).map((row) => [row.planId, row])).values()];
+    const cases = [...new Map(rows.filter((row) => row.caseId != null && row.caseCode).map((row) => [row.caseId, row])).values()];
+    const tests = [...new Map(rows.filter((row) => row.unitTestId != null).map((row) => [row.unitTestId, row])).values()];
+    const badges = (<span className="flex flex-wrap items-center gap-2">
+              <Tag>
                 {formatSemanticLabel(rule.source, language)}
-              </span>
+              </Tag>
               <SemanticBadge kind="review-status" value={rule.status} />
               {isAdded && (
-                <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                <Tag>
                   {t('+ Mới thêm', '+ Added')}
-                </span>
+                </Tag>
               )}
               {isDeleted && (
-                <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                <Tag>
                   {t('- Đã xóa', '- Deleted')}
-                </span>
+                </Tag>
               )}
               {isModified && (
-                <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                <Tag>
                   {sourceChanged
                     ? t('Code liên quan đã thay đổi', 'Related code changed')
                     : t('Đã chỉnh sửa', 'Edited')}
-                </span>
+                </Tag>
               )}
-            </div>
+            </span>);
+    if (!detail) return (
+      <button key={rule.id} type="button" onClick={() => setSelectedRuleId(rule.id)}
+        className={`flex w-full items-start gap-3.5 border-t border-border-default px-4 py-3.5 text-left text-sm text-heading transition-colors ${selectedRule?.id === rule.id ? 'bg-brand-softer' : 'bg-neutral-primary-soft hover:bg-neutral-secondary-soft'}`}
+        style={selectedRule?.id === rule.id ? { boxShadow: 'inset 3px 0 0 var(--brand)' } : undefined}>
+        <span className="w-14 shrink-0 pt-0.5 font-mono text-xs text-body">{rule.ruleCode}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block leading-relaxed">{cleanAiText(rule.description)}</span>
+          {traceability.data && <span className="mt-2 flex flex-wrap items-center gap-1.5 font-mono text-xs text-body-subtle">
+            {plans.map((row) => <span key={row.planId} className="inline-flex items-center gap-1.5"><span>{row.planCode}</span><ArrowRight size={12} aria-hidden="true" /></span>)}
+            {cases.map((row) => <span key={row.caseId} className="inline-flex items-center gap-1.5"><span>{row.caseCode}</span><ArrowRight size={12} aria-hidden="true" /></span>)}
+            <Tag variant="status" tone={tests.length ? 'success' : 'warning'} icon={tests.length ? Check : Clock}>
+              {tests.length ? t('Có Unit Test', 'Has Unit Test') : t('Chưa có Unit Test', 'No Unit Test yet')}
+            </Tag>
+          </span>}
+          <span className="mt-2 block">{badges}</span>
+        </span>
+      </button>
+    );
+    const branch = method?.branches?.find((candidate) => candidate.branchId === rule.sourceBranchId);
+    const chain = [
+      { key: 'rule', code: rule.ruleCode, text: 'Business Rule' },
+      ...plans.map((row) => ({ key: `plan-${row.planId}`, code: row.planCode, text: row.planTitle })),
+      ...cases.map((row) => ({ key: `case-${row.caseId}`, code: row.caseCode, text: row.caseDescription })),
+      ...tests.map((row) => ({ key: `unit-${row.unitTestId}`, code: row.unitTestName ?? 'Unit Test', text: t('Có Unit Test', 'Has Unit Test') })),
+    ];
+    return (
+      <article key={rule.id} className="p-4">
+        <div className="mb-4 border-b border-border-default pb-4">
+          <p className="font-mono text-xs text-fg-brand-strong">{rule.ruleCode}</p>
+          {method && javaClass && <p className="mt-1 break-all font-mono text-xs text-body-subtle">{javaClass.className}.{method.methodName}</p>}
+          <h2 className="mt-2 font-display text-lg font-semibold leading-snug text-heading">{cleanAiText(rule.description)}</h2>
+        </div>
+        <h3 className="mb-2 text-xs font-semibold text-body-subtle">{t('Chuỗi truy vết', 'Traceability chain')}</h3>
+        <ol className="mb-4">
+          {chain.map((item, index) => <li key={item.key} className="flex items-stretch gap-3">
+            <span className="flex w-3 shrink-0 flex-col items-center">
+              <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-control bg-brand" />
+              {index < chain.length - 1 && <span className="w-px flex-1 bg-border-default-strong" />}
+            </span>
+            <span className="min-w-0 pb-3"><span className="break-all font-mono text-xs text-heading">{item.code}</span>
+              {item.text && <span className="block text-sm text-body">{item.text}</span>}
+            </span>
+          </li>)}
+        </ol>
+        {method?.sourceCode && <div className="mb-4">
+          <h3 className="mb-2 text-xs font-semibold text-body-subtle">{t('Mã nguồn liên quan', 'Related source code')}</h3>
+          <CodeBlock code={method.sourceCode} startLine={method.lineStart}
+            title={javaClass ? `${javaClass.className}.${method.methodName}` : method.methodName}
+            meta={branch ? `${branch.branchId} L${branch.lineStart}-${branch.lineEnd}` : `L${method.lineStart}-${method.lineEnd}`}
+            highlight={branch ? (line) => line >= branch.lineStart && line <= branch.lineEnd : undefined}
+            scrollToHighlight={Boolean(branch)} bodyClassName="max-h-[520px]" />
+        </div>}
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+
             {editing ? (
               <textarea
                 className="form-input min-h-[86px] resize-y"
@@ -387,16 +447,55 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
                 onChange={(event) => setEditDescription(event.target.value)}
               />
             ) : (
-              <p className="text-sm leading-relaxed text-heading">{cleanAiText(rule.description)}</p>
+              null
             )}
             {sourceLineStart != null && sourceLineEnd != null && (
-              <p className="mt-2 font-mono text-[11px] font-semibold text-body-subtle">
+              <p className="mt-2 font-mono text-xs font-semibold text-body-subtle">
                 {t(`Dòng nguồn L${sourceLineStart}-${sourceLineEnd}`, `Source lines L${sourceLineStart}-${sourceLineEnd}`)}
               </p>
             )}
           </div>
 
-          <div className="flex shrink-0 gap-1">
+
+        </div>
+
+        {reviewNote && !review && (
+          <p className="mt-2 text-xs leading-relaxed text-body-subtle">
+            {reviewNote}
+          </p>
+        )}
+
+        {(review || showSuggestion) && (
+          <div className="mt-3 rounded-base border border-border-warning-subtle bg-warning-soft p-3 text-xs text-fg-warning">
+            {review && reviewNote && <p className="font-semibold">{reviewNote}</p>}
+            {showSuggestion && (
+              <div className="mt-2 space-y-2">
+                <p className="leading-relaxed text-heading">{suggestedDescription}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-secondary px-3 py-2 text-xs"
+                    disabled={pending}
+                    onClick={() => handleKeepMine(rule.id)}
+                  >
+                    <Check size={13} />
+                    {t('Giữ của tôi', 'Keep mine')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary px-3 py-2 text-xs"
+                    disabled={pending}
+                    onClick={() => handleUseSuggestion(rule)}
+                  >
+                    <CheckCheck size={13} />
+                    {t('Dùng gợi ý AI', 'Use AI suggestion')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-border-default pt-4">
             {editing ? (
               <>
                 <button
@@ -409,16 +508,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
                 >
                   {updateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary px-3 py-2"
-                  title={t('Hủy', 'Cancel')}
-                  aria-label={t('Hủy', 'Cancel')}
-                  disabled={pending}
-                  onClick={() => setEditingRuleId(null)}
-                >
-                  <X size={14} />
-                </button>
+                <IconButton icon={X} label={t('Hủy', 'Cancel')} title={t('Hủy', 'Cancel')} disabled={pending} onClick={() => setEditingRuleId(null)} />
               </>
             ) : (
               <>
@@ -445,65 +535,27 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
               </>
             )}
           </div>
-        </div>
-
-        {reviewNote && !review && (
-          <p className="mt-2 text-xs leading-relaxed text-body-subtle">
-            {reviewNote}
-          </p>
-        )}
-
-        {(review || showSuggestion) && (
-          <div className="mt-3 rounded-default border border-border-warning-subtle bg-warning-soft p-3 text-xs text-fg-warning">
-            {review && reviewNote && <p className="font-semibold">{reviewNote}</p>}
-            {showSuggestion && (
-              <div className="mt-2 space-y-2">
-                <p className="leading-relaxed text-heading">{suggestedDescription}</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-secondary px-3 py-2 text-xs"
-                    disabled={pending}
-                    onClick={() => handleKeepMine(rule.id)}
-                  >
-                    <Check size={13} />
-                    {t('Giữ của tôi', 'Keep mine')}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-brand px-3 py-2 text-xs"
-                    disabled={pending}
-                    onClick={() => handleUseSuggestion(rule)}
-                  >
-                    <CheckCheck size={13} />
-                    {t('Dùng gợi ý AI', 'Use AI suggestion')}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </article>
     );
   };
 
   return (
     <section className="mt-8 animate-fade-in">
-      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-heading">Business Rules</h3>
+          <h2 className="text-base font-semibold text-heading font-display">Business Rules</h2>
           <p className="mt-1 text-xs text-body-subtle">
             {t('AI rà soát là bước tư vấn tùy chọn. Bạn có thể tự kiểm tra và duyệt trực tiếp.', 'AI review is optional advice. You can verify and approve directly.')}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+        <div className="flex flex-wrap items-center gap-2">
           <button type="button" className="btn btn-secondary"
             disabled={pending || isFetching || analysisQuery.isFetching || !analysis || rules.length === 0}
             onClick={() => analysis && downloadBusinessRules(projectId, servicePath, rules, analysis)}>
             <Download size={14} />
             {t('Tải BR (JSON)', 'Download BRs (JSON)')}
           </button>
-          <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-2">
             {rules.length === 0 ? (
               <button className="btn btn-secondary" disabled={pending} onClick={() => handleGenerate(true)}>
                 {generateMutation.isPending || generationRunning ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
@@ -515,7 +567,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
                 {(uncoveredDecisionCount > 0 || uncoveredPlainMethodCount > 0
                   || generateMutation.isPending || generationRunning) && (
                   <button
-                    className="btn btn-brand"
+                    className="btn btn-secondary"
                     disabled={pending}
                     onClick={() => handleGenerate(true)}
                     title={t(
@@ -573,41 +625,37 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
         </div>
       </div>
 
-      <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+      <div className="space-y-4">
         {generationMessage && (
-          <div className="mb-4 rounded-default border border-border-brand-subtle bg-brand-softer p-3 text-xs font-medium text-fg-brand-strong">
+          <div className="mb-4 rounded-base border border-border-brand-subtle bg-brand-softer p-3 text-xs font-medium text-fg-brand-strong">
             {generationMessage}
           </div>
         )}
         <ManualEntrySection title={t('Thêm Business Rule thủ công', 'Add a Business Rule manually')}>
-        <form onSubmit={handleCreate} className="grid gap-3 md:grid-cols-[1fr_auto]">
-          <div className="space-y-3">
-            <select
-              className="form-input"
+        <form onSubmit={handleCreate} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0 space-y-3">
+            <SelectMenu
               value={methodId}
-              onChange={(event) => {
-                setMethodId(event.target.value);
+              onChange={(selectedValue) => {
+                setMethodId(selectedValue);
                 setSourceBranchId('');
               }}
-            >
-              <option value="">{t('Chọn Service method', 'Select a Service method')}</option>
-              {serviceMethods.map((method) => (
-                <option key={method.id} value={method.id} title={method.filePath}>{method.label}</option>
-              ))}
-            </select>
+              aria-label={t('Chọn Service method', 'Select a Service method')}
+              searchable
+              options={[{ value: "", label: String(t('Chọn Service method', 'Select a Service method')) }, ...serviceMethods.map((method) => (
+                ({ value: String(method.id), label: String(method.label), title: method.filePath })
+              ))]}
+            />
             {selectedDecisions.length > 0 && (
-              <select
-                className="form-input"
+              <SelectMenu
                 value={sourceBranchId}
-                onChange={(event) => setSourceBranchId(event.target.value)}
-              >
-                <option value="">{t('Chọn quyết định source', 'Select a source decision')}</option>
-                {selectedDecisions.map((decision) => (
-                  <option key={decision.decisionId} value={decision.decisionId}>
-                    {decision.decisionId}: {decision.kind.toLowerCase()} ({decision.condition})
-                  </option>
-                ))}
-              </select>
+                onChange={(selectedValue) => setSourceBranchId(selectedValue)}
+                aria-label={t('Chọn quyết định source', 'Select a source decision')}
+                searchable
+                options={[{ value: "", label: String(t('Chọn quyết định source', 'Select a source decision')) }, ...selectedDecisions.map((decision) => (
+                  ({ value: decision.decisionId, label: String(decision.decisionId) + ": " + String(decision.kind.toLowerCase()) + " (" + String(decision.condition) + ")" })
+                ))]}
+              />
             )}
             <textarea
               className="form-input min-h-[112px] resize-y"
@@ -630,18 +678,17 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
         </ManualEntrySection>
 
         {mutationError && <InlineAlert tone="danger">{getErrorMessage(mutationError)}</InlineAlert>}
-        {error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
 
         {reviewResult && (
-          <div className="mb-4 rounded-default border border-border-brand-subtle bg-brand-softer p-3 text-xs font-medium text-fg-brand-strong">
+          <div className="mb-4 rounded-base border border-border-brand-subtle bg-brand-softer p-3 text-xs font-medium text-fg-brand-strong">
             {t(`AI đã rà soát ${reviewResult.reviewedRules.length} BR`, `AI reviewed ${reviewResult.reviewedRules.length} BRs`)}
             {unresolvedSuggestionCount > 0 ? ` Con ${unresolvedSuggestionCount} goi y can chon.` : ''}
           </div>
         )}
 
         {isLoading ? (
-          <LoadingState label={t('Đang tải Business Rules...', 'Loading Business Rules...')} minHeight="min-h-[140px]" />
-        ) : serviceGroups.length === 0 && rules.length === 0 ? (
+          <div className="space-y-4" role="status"><span className="sr-only">{t("Đang tải Business Rules...", "Loading Business Rules...")}</span>{[0, 1, 2].map((key) => <div key={key} className="animate-pulse rounded-base border border-border-default p-4"><div className="mb-4 h-4 w-1/3 bg-neutral-secondary-medium" /><div className="h-16 bg-neutral-secondary-soft" /></div>)}</div>
+        ) : error ? (<ErrorState error={error} title={t('Không tải được Business Rule', 'Unable to load Business Rules')} />) : rules.length === 0 ? (
           <EmptyState
             icon={FileCode2}
             title={t('Chưa có Business Rule', 'No Business Rules yet')}
@@ -649,135 +696,32 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
             minHeight="min-h-[180px]"
           />
         ) : (
-          <div className="space-y-4">
-            {fileGroups.map((fileGroup) => (
-              <details
-                key={fileGroup.filePath}
-                open
-                className="overflow-hidden rounded-default border border-border-default bg-neutral-primary"
-              >
-                <summary className="cursor-pointer px-4 py-3 marker:text-fg-brand-strong">
-                  <div className="ml-2 inline-flex min-w-0 max-w-[calc(100%-1rem)] items-start gap-3 align-top">
-                    <FileCode2 size={16} className="mt-0.5 shrink-0 text-fg-brand-strong" />
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-semibold text-fg-brand-strong">{t('Tệp', 'File')}</span>
-                      <p className="break-all font-mono text-xs font-semibold text-heading" title={fileGroup.filePath}>
-                        {displaySourcePath(fileGroup.filePath)}
-                      </p>
-                    </div>
-                    <span className="ml-auto shrink-0 rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
-                      {fileGroup.services.reduce((total, service) =>
-                        total + service.methods.reduce((serviceTotal, method) => serviceTotal + method.rules.length, 0), 0)} BR
-                    </span>
+          <div className={`grid items-start gap-5 ${selectedRule ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]' : ''}`}>
+            <section aria-label={t('Danh sách Business Rule', 'Business Rule list')} className="min-w-0 space-y-4">
+              {ruleGroups.map((javaClass) => <div key={javaClass.id}>
+                <h3 className="mb-2 break-all font-mono text-xs font-semibold text-body" title={javaClass.filePath}>{javaClass.className}</h3>
+                <div className="space-y-4">{javaClass.methods.map((method) => <div key={method.id} className="overflow-hidden rounded-base border border-border-default">
+                  <div className="flex flex-wrap items-center justify-between gap-2 bg-neutral-secondary-soft px-4 py-2.5">
+                    <p className="break-all font-mono text-xs font-medium text-heading">{javaClass.className}.<span className="text-fg-brand-strong">{method.methodName}</span></p>
+                    <span className="font-mono text-xs text-body-subtle">{method.rules.length} {t('rule', 'rules')}</span>
                   </div>
-                </summary>
-
-                <div className="border-t border-border-default px-3 py-3 sm:px-4">
-                  {fileGroup.services.map((javaClass) => (
-                  <details key={javaClass.id} open>
-                    <summary className="cursor-pointer py-2 marker:text-body-subtle">
-                      <div className="ml-2 inline-flex min-w-0 max-w-[calc(100%-1rem)] items-start gap-3 align-top">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-brand-softer font-mono text-[10px] font-bold text-fg-brand-strong">
-                          S
-                        </span>
-                        <div className="min-w-0">
-                          <span className="text-[10px] font-semibold text-body-subtle">{t('Dịch vụ', 'Service')}</span>
-                          <h4 className="text-sm font-semibold text-heading">{javaClass.className}</h4>
-                          <p className="break-all text-xs text-body-subtle">{javaClass.qualifiedName}</p>
-                        </div>
-                      </div>
-                    </summary>
-
-                    <div className="ml-3 border-l border-border-default pl-3 sm:ml-5 sm:pl-5">
-                      {javaClass.methods.map((method) => {
-                        const methodDiff = getMethodDiff(javaClass.qualifiedName, method.methodName, method.parameters)
-                          || effectiveMethodDiffMap[`${javaClass.qualifiedName}#${method.methodName}`]
-                          || effectiveMethodDiffMap[method.methodName];
-
-                        return (
-                        <details key={method.id} open className="border-b border-border-default last:border-b-0">
-                          <summary className="cursor-pointer py-3 marker:text-body-subtle">
-                            <div className="ml-2 inline-flex min-w-0 max-w-[calc(100%-1rem)] items-start gap-3 align-top">
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-neutral-secondary-medium font-mono text-[10px] font-bold text-body-subtle">
-                                M
-                              </span>
-                              <div className="min-w-0">
-                                <span className="text-[10px] font-semibold text-body-subtle">{t('Phương thức', 'Method')}</span>
-                                <p className="break-words font-mono text-xs font-semibold text-heading flex flex-wrap items-center gap-2">
-                                  <span>
-                                    {method.methodName}({method.parameters.map((parameter) => `${parameter.type} ${parameter.name}`).join(', ')})
-                                  </span>
-                                  {methodDiff === 'ADDED' && (
-                                    <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                                      {t('+ Mới thêm', '+ Added')}
-                                    </span>
-                                  )}
-                                  {methodDiff === 'MODIFIED' && (
-                                    <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-amber-600 dark:text-amber-400">
-                                      {t('Code đã thay đổi', 'Code changed')}
-                                    </span>
-                                  )}
-                                  {methodDiff === 'DELETED' && (
-                                    <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-rose-600 dark:text-rose-400">
-                                      {t('- Đã xóa', '- Deleted')}
-                                    </span>
-                                  )}
-                                </p>
-                                <p className="mt-1 text-[11px] text-body-subtle">
-                                  {method.returnType} | {t(`Dòng ${method.lineStart}-${method.lineEnd}`, `Lines ${method.lineStart}-${method.lineEnd}`)}
-                                </p>
-                              </div>
-                              <span className="ml-auto shrink-0 rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
-                                {t(`${method.rules.length} BR`, `${method.rules.length} BR${method.rules.length === 1 ? '' : 's'}`)}
-                              </span>
-                            </div>
-                          </summary>
-
-                          <div className="ml-3 border-l border-border-brand-subtle pb-4 pl-3 sm:ml-5 sm:pl-5">
-
-                            {method.rules.length === 0 ? (
-                              <div className="rounded-default border border-dashed border-border-default px-3 py-3 text-xs text-body-subtle">
-                                {t('Chưa phát hiện Business Rule có đủ căn cứ từ source của method này.', 'No Business Rule has enough direct evidence in this method source yet.')}
-                              </div>
-                            ) : (
-                              <div className="space-y-2">{method.rules.map(renderRule)}</div>
-                            )}
-                          </div>
-                        </details>
-                      );
-                      })}
-                      {deletedMethods
-                        .filter((dm) => dm.qualifiedClassName === javaClass.qualifiedName || dm.className === javaClass.className)
-                        .map((dm) => (
-                          <div key={dm.methodKey} className="my-2 rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 text-xs">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="font-mono font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2">
-                                <span className="line-through">{dm.signature}</span>
-                                <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold">
-                                  {t('- Đã xóa', '- Deleted')}
-                                </span>
-                              </p>
-                            </div>
-                            <p className="mt-1 text-[11px] text-body-subtle">
-                              {dm.reason || t('Phương thức này đã bị xóa trong phiên bản source code mới nhất.', 'This method was removed in the latest source code.')}
-                            </p>
-                          </div>
-                        ))}
-                    </div>
-                  </details>
-                  ))}
-                </div>
-              </details>
-            ))}
-            {orphanRules.length > 0 && (
-              <section className="rounded-default border border-border-warning-subtle bg-warning-soft p-3">
-                <h4 className="text-xs font-semibold text-fg-warning">
-                  {t('BR chưa liên kết được với Service method', 'BRs not linked to a Service method')}
-                </h4>
-                <div className="mt-2 space-y-2">{orphanRules.map(renderRule)}</div>
-              </section>
-            )}
+                  {method.rules.map((rule) => renderRule(rule))}
+                </div>)}</div>
+              </div>)}
+              {unmappedRules.length > 0 && <div className="overflow-hidden rounded-base border border-border-default">
+                <h3 className="bg-neutral-secondary-soft px-4 py-2.5 text-xs font-semibold text-body">{t('Chưa gắn method', 'Unassigned method')}</h3>
+                {unmappedRules.map((rule) => renderRule(rule))}
+              </div>}
+              {deletedMethods.map((method) => <div key={method.methodKey} className="rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-xs text-fg-danger-strong">
+                <p className="break-all font-mono line-through">{method.signature}</p>
+                <p className="mt-1">{method.reason || t('Phương thức này đã bị xóa trong phiên bản source code mới nhất.', 'This method was removed in the latest source code.')}</p>
+              </div>)}
+            </section>
+            {selectedRule && <aside aria-label="Chi tiết Business Rule" className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+              {renderRule(selectedRule, true)}
+            </aside>}
           </div>
+
         )}
       </div>
       <ConfirmDialog

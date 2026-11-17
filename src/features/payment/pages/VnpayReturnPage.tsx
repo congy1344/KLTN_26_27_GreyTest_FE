@@ -1,6 +1,7 @@
+import { Tag } from '../../../shared/components/Tag';
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { CheckCircle2, XCircle, Loader2, ArrowRight, ShieldCheck, CreditCard } from 'lucide-react';
+import { AlertCircle, CheckCircle2, XCircle, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '../../../shared/components/AppShell';
 import { verifyVnpayCallback } from '../api/payment-api';
@@ -56,14 +57,12 @@ export function VnpayReturnPage() {
   return (
     <AppShell maxWidth="default">
       <div className="flex min-h-[60vh] items-center justify-center py-10 font-sans">
-        <div className="w-full max-w-md rounded-2xl border border-border-default bg-neutral-primary-soft p-6 shadow-xl text-center animate-fade-in relative overflow-hidden">
-          {/* Background decoration */}
-          <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-brand/10 blur-2xl" />
+        <div className="w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-6 text-center animate-fade-in relative overflow-hidden">
 
           {loading ? (
             <div className="py-12 space-y-4">
               <Loader2 size={40} className="mx-auto animate-spin text-brand" />
-              <h2 className="text-base font-bold text-heading">
+              <h2 className="font-semibold text-heading text-lg font-display">
                 {t('Đang xác thực kết quả thanh toán với VNPay...', 'Verifying VNPay payment result...')}
               </h2>
               <p className="text-xs text-body-subtle">
@@ -72,32 +71,32 @@ export function VnpayReturnPage() {
             </div>
           ) : result?.status === 'SUCCESS' ? (
             <div className="py-4 space-y-5">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-base bg-success-soft text-fg-success-strong dark:text-fg-success-strong">
                 <CheckCircle2 size={36} strokeWidth={2.2} />
               </div>
 
               <div>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  <ShieldCheck size={14} /> GIAO DỊCH THÀNH CÔNG
-                </span>
-                <h1 className="mt-2 text-xl font-bold text-heading">
+                <Tag variant="status" tone={'success'} icon={ShieldCheck}>
+                   Giao dịch thành công
+                </Tag>
+                <h1 className="mt-2 font-semibold text-heading text-[28px] font-display">
                   {t('Nâng Cấp Gói Dịch Vụ Thành Công!', 'Subscription Upgraded Successfully!')}
                 </h1>
                 <p className="mt-1 text-xs text-body-subtle">
                   {t('Chúc mừng bạn đã nâng cấp thành công lên gói', 'Congratulations! You upgraded to')}{' '}
-                  <strong className="text-brand font-bold uppercase">{result.tier}</strong>
+                  <strong className="text-brand font-semibold">{result.tier}</strong>
                 </p>
               </div>
 
               {/* Chi tiết đơn hàng */}
-              <div className="rounded-xl border border-border-default bg-neutral-secondary-soft/50 p-4 text-xs space-y-2 text-left">
+              <div className="border-t border-t-border-default p-4 text-xs space-y-2 text-left">
                 <div className="flex justify-between items-center">
                   <span className="text-body-subtle">Gói dịch vụ:</span>
-                  <span className="font-bold text-heading uppercase">{result.tier}</span>
+                  <span className="font-semibold text-heading">{result.tier}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-body-subtle">Số tiền thanh toán:</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(result.amount)}</span>
+                  <span className="font-semibold text-fg-success-strong dark:text-fg-success-strong">{formatCurrency(result.amount)}</span>
                 </div>
                 {result.orderId && (
                   <div className="flex justify-between items-center">
@@ -117,7 +116,7 @@ export function VnpayReturnPage() {
                 <button
                   type="button"
                   onClick={() => navigate('/profile')}
-                  className="btn btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2"
+                  className="btn btn-primary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
                 >
                   {t('Xem hồ sơ & Quota mới', 'View Profile & New Quota')} <ArrowRight size={15} />
                 </button>
@@ -125,15 +124,15 @@ export function VnpayReturnPage() {
             </div>
           ) : (
             <div className="py-4 space-y-5">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-base bg-danger-soft text-fg-danger-strong dark:text-fg-danger-strong">
                 <XCircle size={36} strokeWidth={2.2} />
               </div>
 
               <div>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-3 py-1 text-xs font-bold text-rose-600 dark:text-rose-400">
-                  <CreditCard size={14} /> GIAO DỊCH CHƯA HOÀN TẤT
-                </span>
-                <h1 className="mt-2 text-xl font-bold text-heading">
+                <Tag variant="status" tone={'danger'} icon={AlertCircle}>
+                   Giao dịch chưa hoàn tất
+                </Tag>
+                <h1 className="mt-2 font-semibold text-heading text-[28px] font-display">
                   {t('Thanh Toán Không Thành Công', 'Payment Failed')}
                 </h1>
                 <p className="mt-1 text-xs text-body-subtle leading-relaxed">

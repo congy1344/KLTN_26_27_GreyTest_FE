@@ -59,9 +59,9 @@ describe('AdminHealthPage', () => {
 
     // Core services cards
     expect(screen.getByText('Spring Boot REST API')).toBeInTheDocument();
-    expect(screen.getByText('PostgreSQL Database')).toBeInTheDocument();
+    expect(screen.getByText('PostgreSQL database')).toBeInTheDocument();
     expect(screen.getByText(/Cổng Kết Nối AI/i)).toBeInTheDocument();
-    expect(screen.getByText('JavaParser AST Engine')).toBeInTheDocument();
+    expect(screen.getByText('JavaParser AST engine')).toBeInTheDocument();
 
     // Live heartbeat chart & terminal log
     expect(screen.getByText(/server-access\.log/i)).toBeInTheDocument();

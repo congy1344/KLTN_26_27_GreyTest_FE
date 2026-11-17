@@ -3,8 +3,7 @@ import { ArrowRight, FileText } from 'lucide-react';
 import { AppShell } from '../../../shared/components/AppShell';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { ErrorState } from '../../../shared/components/ErrorState';
-import { ProjectWorkflowTabs } from '../../projects/components/ProjectWorkflowTabs';
-import { ProjectPageHeader } from '../../projects/components/ProjectPageHeader';
+import { ProjectWorkspace } from '../../projects/components/ProjectWorkspace';
 import { ProjectServiceSelector } from '../../projects/components/ProjectServiceSelector';
 import { useCompleteProject, useProject } from '../../projects/hooks/useProjects';
 import { useProjectServiceScope } from '../../projects/hooks/useProjectServiceScope';
@@ -51,21 +50,23 @@ export function TraceabilityPage() {
   }
 
   return (
-    <AppShell maxWidth="wide">
-      <ProjectPageHeader
+    <AppShell maxWidth="bleed">
+      <ProjectWorkspace
         project={project}
         servicePath={serviceScope.servicePath}
-        titlePrefix="Traceability"
+        titlePrefix={t('Truy vết', 'Traceability')}
         subtitle={t('Truy vết từng Business Rule tới Test Plan, Test Case và Unit Test tương ứng.', 'Trace each Business Rule to its Test Plans, Test Cases, and Unit Tests.')}
         backTo={projectWorkflowPath(projectId, 'coverage', serviceScope.servicePath)}
         backLabel="Coverage"
-      />
+        active="traceability"
+        status={status ?? project.status}
+        reachedStatus={serviceScope.selected?.reachedStatus}
+        selector={<ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
+      >
 
-      <ProjectWorkflowTabs projectId={projectId} active="traceability" reachedStatus={serviceScope.selected?.reachedStatus} status={status ?? project.status} servicePath={serviceScope.servicePath} />
-      <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
       <TraceabilityMatrix projectId={projectId} servicePath={serviceScope.servicePath} />
 
-      {canOpenReport(status ?? project.status) && <div className="mt-6 rounded-base border border-border-brand-subtle bg-brand-softer p-4 shadow-sm animate-fade-in">
+      {canOpenReport(status ?? project.status) && <div className="mt-6 rounded-base border border-border-brand-subtle bg-brand-softer p-4 animate-fade-in">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <FileText size={16} className="shrink-0 text-fg-brand-strong" />
@@ -86,6 +87,7 @@ export function TraceabilityPage() {
           </button>
         </div>
       </div>}
+      </ProjectWorkspace>
     </AppShell>
   );
 }

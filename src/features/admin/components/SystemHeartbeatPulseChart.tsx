@@ -1,8 +1,7 @@
-import {
-  Activity, AlertTriangle, ArrowDownCircle, ArrowUpCircle, ArrowUpDown, BarChart3, Check, CheckCircle2,
-  ChevronLeft, ChevronRight, Clock, Copy, Download, Eye, Flame, Info, Lock, Pause, Play,
-  Plus, RefreshCw, Search, Shield, ShieldAlert, ShieldCheck, ShieldOff, Terminal, Trash2, UserX, Wifi, WifiOff, X,
-} from 'lucide-react';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Activity, AlertCircle, AlertTriangle, ArrowDownCircle, ArrowUpCircle, ArrowUpDown, BarChart3, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleDot, Clock, Copy, Download, Eye, Flame, Info, Lock, Pause, Play, Plus, RefreshCw, Search, Shield, ShieldAlert, ShieldCheck, ShieldOff, Terminal, Trash2, UserX, Wifi, WifiOff, X } from 'lucide-react';
+import { Tag, type TagTone } from '../../../shared/components/Tag';
+import { SelectMenu } from '../../../shared/components/SelectMenu';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   blockIp,
@@ -759,7 +758,7 @@ export function SystemHeartbeatPulseChart({
           pointAvgLatency = Math.round(durations.reduce((a, b) => a + b, 0) / durations.length);
         }
         const topLog = logsInBucket[0];
-        sampleLog = `${topLog.method} ${topLog.uri} · ${topLog.status} (${topLog.durationMs}ms)`;
+        sampleLog = `${topLog.method} ${topLog.uri}, ${topLog.status} (${topLog.durationMs}ms)`;
       } else if (matchedPt && matchedPt.totalRequests > 0) {
         totalRequests = matchedPt.totalRequests;
         rps = matchedPt.rps;
@@ -1114,31 +1113,29 @@ export function SystemHeartbeatPulseChart({
   };
 
   const renderConnectionBadge = () => {
-    const styles: Record<MonitoringStreamState, string> = {
-      CONNECTED: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-      CONNECTING: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
-      RECONNECTING: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-      DISCONNECTED: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-      ERROR: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30',
+    const tones: Record<MonitoringStreamState, TagTone> = {
+      CONNECTED: 'success',
+      CONNECTING: 'brand',
+      RECONNECTING: 'warning',
+      DISCONNECTED: 'danger',
+      ERROR: 'danger',
     };
     return (
-      <span
+      <Tag variant="status" tone={tones[streamState]} icon={streamState === 'DISCONNECTED' || streamState === 'ERROR' ? WifiOff : Wifi}
         data-testid="stream-connection-badge"
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold border ${styles[streamState]}`}
       >
-        {streamState === 'DISCONNECTED' || streamState === 'ERROR' ? <WifiOff size={11} /> : <Wifi size={11} />}
         <span>{streamState}</span>
-      </span>
+      </Tag>
     );
   };
 
   const renderStateBadge = (state: MonitoringDataState) => {
-    const map: Record<MonitoringDataState, string> = {
-      AVAILABLE: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20',
-      NO_DATA: 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
-      LOADING: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20',
-      NOT_SUPPORTED: 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700',
-      ERROR: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20',
+    const map: Record<MonitoringDataState, TagTone> = {
+      AVAILABLE: 'success',
+      NO_DATA: 'neutral',
+      LOADING: 'brand',
+      NOT_SUPPORTED: 'neutral',
+      ERROR: 'danger',
     };
     const textVi: Record<MonitoringDataState, string> = {
       AVAILABLE: 'HOẠT ĐỘNG',
@@ -1148,36 +1145,35 @@ export function SystemHeartbeatPulseChart({
       ERROR: 'LỖI',
     };
     return (
-      <span className={`rounded px-1.5 py-0.2 text-[9px] font-mono font-bold border ${map[state]}`}>
+      <Tag variant="status" tone={map[state]} icon={CircleDot}>
         {language === 'vi' ? textVi[state] : state}
-      </span>
+      </Tag>
     );
   };
 
   const hoveredPoint = hoverIndex != null && chartPointsData[hoverIndex] ? chartPointsData[hoverIndex] : null;
 
   return (
-    <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs space-y-5">
+    <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-xs space-y-5">
       {/* HEADER & GLOBAL CONTROLS */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default pb-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-softer text-fg-brand">
+          <span className="flex h-8 w-8 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong">
             <Activity size={18} />
           </span>
           <div>
             <h3 className="text-sm font-bold text-heading flex flex-wrap items-center gap-2">
               <span>
                 {language === 'vi'
-                  ? 'Giám Sát Lưu Lượng Yêu Cầu & Quản Trị Tải Hệ Thống (Anti-DDoS)'
-                  : 'Live Request Stream & System Load Management (Anti-DDoS)'}
+                  ? 'Giám sát lưu lượng yêu cầu & quản trị tải hệ thống (Anti-DDoS)'
+                  : "Live request stream & system load management (anti-DDoS)"}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <Tag variant="status" tone="success" icon={CheckCircle2}>
                 <span>REALTIME</span>
-              </span>
+              </Tag>
               {renderConnectionBadge()}
             </h3>
-            <p className="text-[11px] text-body-subtle">
+            <p className="text-xs text-body-subtle">
               {language === 'vi'
                 ? 'Ghi nhận trực tiếp mọi yêu cầu HTTP từ client tới server Spring Boot, phân tích P95/P99 Latency, Endpoint Analytics và kiểm soát Rate Limiting.'
                 : 'Real-time HTTP traffic observability, P95/P99 latency metrics, endpoint analytics and automated rate limiting controls.'}
@@ -1190,16 +1186,16 @@ export function SystemHeartbeatPulseChart({
           <div
             role="group"
             aria-label="Time window selector"
-            className="flex items-center rounded-lg border border-border-default bg-neutral-primary p-0.5 text-[11px]"
+            className="flex items-center rounded-base border border-border-default bg-neutral-primary p-0.5 text-xs"
           >
             {WINDOWS.map((w) => (
               <button
                 key={w.id}
                 type="button"
                 onClick={() => setSelectedWindow(w.id)}
-                className={`rounded-md px-2 py-1 font-mono text-[10px] font-bold transition-colors cursor-pointer ${
+                className={`btn rounded-control px-2 py-1 font-mono text-xs font-bold transition-colors cursor-pointer ${
                   selectedWindow === w.id
-                    ? 'bg-brand text-white shadow-2xs'
+                    ? 'bg-brand text-on-brand shadow-2xs'
                     : 'text-body-subtle hover:text-heading'
                 }`}
               >
@@ -1208,14 +1204,14 @@ export function SystemHeartbeatPulseChart({
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-lg border border-border-default bg-neutral-primary px-2.5 py-1 text-xs shadow-2xs">
-            <ShieldCheck size={14} className={wafStatus.active ? 'text-emerald-500 shrink-0' : 'text-amber-500 shrink-0'} />
+          <div className="flex items-center gap-1.5 rounded-base border border-border-default bg-neutral-primary px-2.5 py-1 text-xs shadow-2xs">
+            <ShieldCheck size={14} className={wafStatus.active ? 'text-fg-success-strong shrink-0' : 'text-fg-warning shrink-0'} />
             <span className="font-semibold text-heading">
               {wafStatus.active
                 ? (language === 'vi' ? 'Tường lửa WAF: Kích hoạt' : 'WAF Shield: Active')
                 : (language === 'vi' ? 'Tường lửa WAF: Đang tắt' : 'WAF Shield: Disabled')}
             </span>
-            <span className="text-[10px] text-body-subtle border-l border-border-default pl-1.5 ml-0.5 font-mono">
+            <span className="text-xs text-body-subtle border-l border-border-default pl-1.5 ml-0.5 font-mono">
               {wafStatus.rateLimitPerMinute} req/min/IP
             </span>
           </div>
@@ -1226,7 +1222,7 @@ export function SystemHeartbeatPulseChart({
             className="btn btn-secondary px-2.5 py-1 text-xs flex items-center gap-1.5 shadow-2xs hover:border-brand cursor-pointer"
             title={isPaused ? (language === 'vi' ? 'Tiếp tục giám sát luồng' : 'Resume live stream') : (language === 'vi' ? 'Tạm dừng biểu đồ để kiểm tra' : 'Pause stream')}
           >
-            {isPaused ? <Play size={12} className="text-emerald-500" /> : <Pause size={12} className="text-body-subtle" />}
+            {isPaused ? <Play size={12} className="text-fg-success-strong" /> : <Pause size={12} className="text-body-subtle" />}
             <span>{isPaused ? (language === 'vi' ? 'Tiếp tục' : 'Resume') : (language === 'vi' ? 'Tạm dừng' : 'Pause')}</span>
           </button>
 
@@ -1244,7 +1240,7 @@ export function SystemHeartbeatPulseChart({
 
       {/* QUẢN TRỊ PHÒNG THỦ (WAF & RATE LIMITING) - ĐÃ ĐƯA LÊN TRÊN */}
       <div
-        className="rounded-lg border border-border-default-subtle bg-neutral-secondary-soft/50 p-3 text-xs space-y-2"
+        className="rounded-base border border-border-default-subtle bg-neutral-secondary-soft/50 p-3 text-xs space-y-2"
         data-testid="waf-defense-summary-card"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1252,21 +1248,13 @@ export function SystemHeartbeatPulseChart({
             <span className="text-body-subtle font-medium">
               {language === 'vi' ? 'Quản trị phòng thủ (WAF & Rate Limiting)' : 'Defense Administration'}
             </span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                !wafStatus.active
-                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
-                  : wafStatus.underAttackMode
-                    ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30'
-                    : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-              }`}
-            >
+            <Tag variant="status" tone={!wafStatus.active ? "warning" : wafStatus.underAttackMode ? "danger" : "success"} icon={!wafStatus.active ? Clock : wafStatus.underAttackMode ? AlertCircle : CheckCircle2}>
               {!wafStatus.active
-                ? (language === 'vi' ? 'ĐANG TẮT' : 'DISABLED')
+                ? (language === 'vi' ? 'Đang tắt' : 'DISABLED')
                 : wafStatus.underAttackMode
-                  ? (language === 'vi' ? 'THẮT CHẶT KHẨN CẤP' : 'UNDER ATTACK')
+                  ? (language === 'vi' ? 'Thắt chặt khẩn cấp' : 'UNDER ATTACK')
                   : (language === 'vi' ? 'BẢO VỆ TỰ ĐỘNG' : 'AUTO DEFENSE')}
-            </span>
+            </Tag>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1275,7 +1263,7 @@ export function SystemHeartbeatPulseChart({
                 type="button"
                 onClick={() => handleToggleWafActive(true)}
                 disabled={isTogglingWafActive}
-                className="btn btn-brand px-2.5 py-1 text-[11px] flex items-center gap-1 font-bold cursor-pointer"
+                className="btn btn-brand px-2.5 py-1 text-xs flex items-center gap-1 font-bold cursor-pointer"
               >
                 <ShieldCheck size={12} />
                 <span>{language === 'vi' ? 'Kích hoạt lại WAF' : 'Reactivate WAF'}</span>
@@ -1286,13 +1274,13 @@ export function SystemHeartbeatPulseChart({
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-semibold text-heading flex items-center gap-1.5">
-            <ShieldCheck size={14} className={wafStatus.underAttackMode ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'} />
+            <ShieldCheck size={14} className={wafStatus.underAttackMode ? 'text-fg-danger-strong' : 'text-fg-success-strong '} />
             <span>{language === 'vi' ? `Giới hạn: Tối đa ${wafStatus.rateLimitPerMinute} req/phút/IP` : `Rate Limit: Max ${wafStatus.rateLimitPerMinute} req/min/IP`}</span>
           </p>
-          <span className="text-[10px] text-body-subtle">
+          <span className="text-xs text-body-subtle">
             {language === 'vi'
-              ? `Đã chặn +${effectiveRateLimited} yêu cầu vi phạm · ${wafStatus.activeBlockedIpCount} IP cách ly`
-              : `Blocked +${effectiveRateLimited} reqs · ${wafStatus.activeBlockedIpCount} IPs isolated`}
+              ? `Đã chặn +${effectiveRateLimited} yêu cầu vi phạm, ${wafStatus.activeBlockedIpCount} IP cách ly`
+              : `Blocked +${effectiveRateLimited} reqs, ${wafStatus.activeBlockedIpCount} IPs isolated`}
           </span>
         </div>
       </div>
@@ -1300,20 +1288,20 @@ export function SystemHeartbeatPulseChart({
       {/* SECTION A: TRAFFIC OVERVIEW (8 KPI CARDS) */}
       <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 text-xs" data-testid="traffic-overview-kpis">
         {/* KPI 1: Total Requests */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3 text-slate-900 dark:text-slate-100 space-y-1 shadow-2xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Tổng yêu cầu' : 'Total Requests'}
             </span>
             {renderStateBadge(effectiveDataState)}
           </div>
-          <div className="font-mono text-base font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
-            {totalRequestsCount} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">reqs</span>
+          <div className="font-mono text-base font-extrabold text-fg-success-strong tabular-nums">
+            {totalRequestsCount} <span className="text-xs font-normal text-body-subtle">reqs</span>
           </div>
-          <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+          <div className="flex items-center justify-between text-xs text-body-subtle font-mono">
             <span>Win ({selectedWindow}): {windowTotalRequests}</span>
             {overview?.requestsChangePercent != null && (
-              <span className={overview.requestsChangePercent >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}>
+              <span className={overview.requestsChangePercent >= 0 ? 'text-fg-success-strong ' : 'text-fg-warning '}>
                 {overview.requestsChangePercent >= 0 ? '+' : ''}{overview.requestsChangePercent}%
               </span>
             )}
@@ -1321,189 +1309,178 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* KPI 2: Current RPS */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3 text-slate-900 dark:text-slate-100 space-y-1 shadow-2xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Tốc độ hiện tại' : 'Current RPS'}
             </span>
             {renderStateBadge('AVAILABLE')}
           </div>
-          <div className="font-mono text-base font-extrabold text-sky-600 dark:text-sky-400 tabular-nums">
-            {displayRps} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">req/s</span>
+          <div className="font-mono text-base font-extrabold text-fg-brand-strong tabular-nums">
+            {displayRps} <span className="text-xs font-normal text-body-subtle">req/s</span>
           </div>
-          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-            Avg: {(overview?.averageRps ?? 0).toFixed(2)} · Peak: {(overview?.peakRps ?? 0).toFixed(0)} req/s
+          <div className="text-xs text-body-subtle font-mono">
+            Avg: {(overview?.averageRps ?? 0).toFixed(2)}, Peak: {(overview?.peakRps ?? 0).toFixed(0)} req/s
           </div>
         </div>
 
         {/* KPI 3: Average Latency */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3 text-slate-900 dark:text-slate-100 space-y-1 shadow-2xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Độ trễ trung bình' : 'Avg Latency'}
             </span>
             {renderStateBadge(avgLatencyMs != null ? 'AVAILABLE' : 'NO_DATA')}
           </div>
-          <div className="font-mono text-base font-extrabold text-slate-800 dark:text-slate-100 tabular-nums">
+          <div className="font-mono text-base font-extrabold text-heading tabular-nums">
             {avgLatencyMs != null ? (
               <>
-                {avgLatencyMs} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">ms</span>
+                {avgLatencyMs} <span className="text-xs font-normal text-body-subtle">ms</span>
               </>
             ) : (
-              <span className="text-xs text-slate-400 dark:text-slate-500">NO_DATA</span>
+              <span className="text-xs text-body-subtle">NO_DATA</span>
             )}
           </div>
-          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+          <div className="text-xs text-body-subtle font-mono">
             {overview?.p50LatencyMs != null ? `P50: ${overview.p50LatencyMs} ms` : `Window: ${selectedWindow}`}
           </div>
         </div>
 
         {/* KPI 4: P95 Latency */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3 text-slate-900 dark:text-slate-100 space-y-1 shadow-2xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Độ trễ P95' : 'P95 Latency'}
             </span>
             {renderStateBadge(p95LatencyMs != null ? 'AVAILABLE' : 'NO_DATA')}
           </div>
-          <div className="font-mono text-base font-extrabold text-amber-500 dark:text-amber-400 tabular-nums">
+          <div className="font-mono text-base font-extrabold text-fg-warning tabular-nums">
             {p95LatencyMs != null ? (
               <>
-                {p95LatencyMs} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">ms</span>
+                {p95LatencyMs} <span className="text-xs font-normal text-body-subtle">ms</span>
               </>
             ) : (
-              <span className="text-xs text-slate-400 dark:text-slate-500">NO_DATA</span>
+              <span className="text-xs text-body-subtle">NO_DATA</span>
             )}
           </div>
-          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+          <div className="text-xs text-body-subtle font-mono">
             {language === 'vi' ? 'Phân vị 95' : '95th percentile'} ({selectedWindow})
           </div>
         </div>
 
         {/* KPI 5: P99 Latency */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3 text-slate-900 dark:text-slate-100 space-y-1 shadow-2xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Độ trễ P99' : 'P99 Latency'}
             </span>
             {renderStateBadge(p99LatencyMs != null ? 'AVAILABLE' : 'NO_DATA')}
           </div>
-          <div className="font-mono text-base font-extrabold text-orange-500 dark:text-orange-400 tabular-nums">
+          <div className="font-mono text-base font-extrabold text-fg-warning tabular-nums">
             {p99LatencyMs != null ? (
               <>
-                {p99LatencyMs} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">ms</span>
+                {p99LatencyMs} <span className="text-xs font-normal text-body-subtle">ms</span>
               </>
             ) : (
-              <span className="text-xs text-slate-400 dark:text-slate-500">NO_DATA</span>
+              <span className="text-xs text-body-subtle">NO_DATA</span>
             )}
           </div>
-          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+          <div className="text-xs text-body-subtle font-mono">
             {overview?.maxLatencyMs != null ? `Max: ${overview.maxLatencyMs} ms` : `Window: ${selectedWindow}`}
           </div>
         </div>
 
         {/* KPI 6: Error Rate */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3 text-slate-900 dark:text-slate-100 space-y-1 shadow-2xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Tỷ lệ lỗi' : 'Error Rate'}
             </span>
             {renderStateBadge(errorRatePercent != null ? 'AVAILABLE' : 'NO_DATA')}
           </div>
-          <div className={`font-mono text-base font-extrabold tabular-nums ${(errorRatePercent ?? 0) >= 5 ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+          <div className={`font-mono text-base font-extrabold tabular-nums ${(errorRatePercent ?? 0) >= 5 ? 'text-fg-danger-strong ' : 'text-fg-success-strong '}`}>
             {errorRatePercent != null ? (
               <>
-                {errorRatePercent} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">%</span>
+                {errorRatePercent} <span className="text-xs font-normal text-body-subtle">%</span>
               </>
             ) : (
-              <span className="text-xs text-slate-400 dark:text-slate-500">NO_DATA</span>
+              <span className="text-xs text-body-subtle">NO_DATA</span>
             )}
           </div>
-          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-            4xx: {clientErrorRatePercent ?? '—'}% · 5xx: {serverErrorRatePercent ?? '—'}%
+          <div className="text-xs text-body-subtle font-mono">
+            4xx: {clientErrorRatePercent ?? '—'}%, 5xx: {serverErrorRatePercent ?? '—'}%
           </div>
         </div>
 
         {/* KPI 7: Active Connections */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3 text-slate-900 dark:text-slate-100 space-y-1 shadow-2xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Kết nối hoạt động' : 'Active Conn'}
             </span>
             {renderStateBadge('AVAILABLE')}
           </div>
-          <div className="font-mono text-base font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
-            {effectiveActiveConnections} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">conns</span>
+          <div className="font-mono text-base font-extrabold text-fg-success-strong tabular-nums">
+            {effectiveActiveConnections} <span className="text-xs font-normal text-body-subtle">conns</span>
           </div>
-          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-            HTTP: {overview?.activeConnections ?? serverTelemetry?.activeRequests ?? 0} · DB: {serverActiveConnections} · Workers: {serverThreadCount}
+          <div className="text-xs text-body-subtle font-mono">
+            HTTP: {overview?.activeConnections ?? serverTelemetry?.activeRequests ?? 0}, DB: {serverActiveConnections}, Workers: {serverThreadCount}
           </div>
         </div>
 
         {/* KPI 8: Rejected Requests */}
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-3 text-slate-900 dark:text-slate-100 space-y-1 shadow-2xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Bị từ chối (429)' : 'Rejected (429)'}
             </span>
             {renderStateBadge('AVAILABLE')}
           </div>
-          <div className={`font-mono text-base font-extrabold tabular-nums ${effectiveRateLimited > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>
-            {effectiveRateLimited} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">reqs</span>
+          <div className={`font-mono text-base font-extrabold tabular-nums ${effectiveRateLimited > 0 ? 'text-fg-danger-strong ' : 'text-heading '}`}>
+            {effectiveRateLimited} <span className="text-xs font-normal text-body-subtle">reqs</span>
           </div>
-          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+          <div className="text-xs text-body-subtle font-mono">
             {language === 'vi' ? 'IP bị chặn:' : 'Blocked IPs:'} {wafStatus.activeBlockedIpCount}
           </div>
         </div>
       </div>
 
       {/* SECTION B: REAL-TIME TRAFFIC CHART */}
-      <div className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 shadow-sm">
-        <div
-          className="absolute inset-0 opacity-20 pointer-events-none"
-          style={{
-            backgroundImage: `
-              linear-gradient(to right, rgba(16, 185, 129, 0.22) 1px, transparent 1px),
-              linear-gradient(to bottom, rgba(16, 185, 129, 0.22) 1px, transparent 1px),
-              linear-gradient(to right, rgba(16, 185, 129, 0.08) 1px, transparent 1px),
-              linear-gradient(to bottom, rgba(16, 185, 129, 0.08) 1px, transparent 1px)
-            `,
-            backgroundSize: '50px 50px, 50px 50px, 10px 10px, 10px 10px',
-          }}
-        />
+      <div className="relative overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+
 
         {/* Top Bar inside Chart */}
-        <div className="relative z-10 flex flex-wrap items-center justify-between text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mb-2 gap-2">
+        <div className="relative z-10 flex flex-wrap items-center justify-between text-xs font-mono text-fg-success-strong mb-2 gap-2">
           <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-1 font-bold">
-              <span className={`h-2 w-2 rounded-full ${isPaused ? 'bg-amber-400' : streamState === 'DISCONNECTED' ? 'bg-rose-500' : 'bg-emerald-400'}`} />
-              <span>{language === 'vi' ? 'DÒNG HTTP · CỔNG 8080' : 'HTTP STREAM · PORT 8080'}</span>
+              <span className={`h-2 w-2 rounded-full ${isPaused ? 'bg-warning' : streamState === 'DISCONNECTED' ? 'bg-danger' : 'bg-success'}`} />
+              <span>{language === 'vi' ? 'Dòng HTTP, cổng 8080' : 'HTTP STREAM, PORT 8080'}</span>
             </span>
-            <span className="text-slate-500 dark:text-slate-400">{language === 'vi' ? 'GIAO THỨC: REST/JSON' : 'PROTOCOL: REST/JSON'}</span>
-            <span className="text-slate-500 dark:text-slate-400">{language === 'vi' ? 'BỘ ĐỆM: 60s THỜI GIAN THỰC' : 'BUFFER: 60s REALTIME'}</span>
-            <span className="text-slate-500 dark:text-slate-400">{language === 'vi' ? `CỬA SỔ: ${selectedWindow.toUpperCase()}` : `WINDOW: ${selectedWindow.toUpperCase()}`}</span>
+            <span className="text-body-subtle">{language === 'vi' ? 'Giao thức: REST/JSON' : 'PROTOCOL: REST/JSON'}</span>
+            <span className="text-body-subtle">{language === 'vi' ? 'Bộ đệm: 60s thời gian thực' : 'BUFFER: 60s REALTIME'}</span>
+            <span className="text-body-subtle">{language === 'vi' ? `CỬA SỔ: ${selectedWindow.toUpperCase()}` : `WINDOW: ${selectedWindow.toUpperCase()}`}</span>
             {isPaused && (
-              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-300 font-bold border border-amber-500/20">
-                {language === 'vi' ? 'ĐANG TẠM DỪNG' : 'PAUSED'}
-              </span>
+              <Tag variant="status" tone="warning" icon={Clock}>
+                {language === 'vi' ? 'ĐANG Tạm dừng' : 'PAUSED'}
+              </Tag>
             )}
             {streamState === 'DISCONNECTED' && (
-              <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] text-rose-600 dark:text-rose-300 font-bold border border-rose-500/20">
+              <Tag variant="status" tone="danger" icon={AlertCircle}>
                 DISCONNECTED
-              </span>
+              </Tag>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             {/* Series Toggles */}
-            <div className="flex items-center gap-1.5 text-[10px]">
+            <div className="flex items-center gap-1.5 text-xs">
               <button
                 type="button"
                 onClick={() => setVisibleSeries((s) => ({ ...s, success2xx: !s.success2xx }))}
-                className={`rounded px-1.5 py-0.5 border cursor-pointer ${
+                className={`btn rounded-control px-1.5 py-0.5 border cursor-pointer ${
                   visibleSeries.success2xx
-                    ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 font-bold'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'
+                    ? 'border-border-success-subtle bg-success-soft text-fg-success-strong  font-bold'
+                    : 'border-border-default  bg-neutral-secondary-soft  text-body-subtle '
                 }`}
               >
                 {language === 'vi' ? '2xx Thành công' : '2xx Success'} ({overview?.successCount ?? 0})
@@ -1511,10 +1488,10 @@ export function SystemHeartbeatPulseChart({
               <button
                 type="button"
                 onClick={() => setVisibleSeries((s) => ({ ...s, clientError4xx: !s.clientError4xx }))}
-                className={`rounded px-1.5 py-0.5 border cursor-pointer ${
+                className={`btn rounded-control px-1.5 py-0.5 border cursor-pointer ${
                   visibleSeries.clientError4xx
-                    ? 'border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-300 font-bold'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'
+                    ? 'border-border-warning-subtle bg-warning-soft text-fg-warning  font-bold'
+                    : 'border-border-default  bg-neutral-secondary-soft  text-body-subtle '
                 }`}
               >
                 {language === 'vi' ? '4xx Lỗi Client' : '4xx Client'} ({overview?.clientErrorCount ?? 0})
@@ -1522,21 +1499,21 @@ export function SystemHeartbeatPulseChart({
               <button
                 type="button"
                 onClick={() => setVisibleSeries((s) => ({ ...s, serverError5xx: !s.serverError5xx }))}
-                className={`rounded px-1.5 py-0.5 border cursor-pointer ${
+                className={`btn rounded-control px-1.5 py-0.5 border cursor-pointer ${
                   visibleSeries.serverError5xx
-                    ? 'border-rose-500/40 bg-rose-500/15 text-rose-600 dark:text-rose-300 font-bold'
-                    : 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'
+                    ? 'border-border-danger-subtle bg-danger-soft text-fg-danger-strong  font-bold'
+                    : 'border-border-default  bg-neutral-secondary-soft  text-body-subtle '
                 }`}
               >
                 {language === 'vi' ? '5xx Lỗi Server' : '5xx Server'} ({overview?.serverErrorCount ?? 0})
               </button>
             </div>
 
-            <span className="font-bold text-slate-700 dark:text-slate-200">
-              {language === 'vi' ? 'TỔNG YÊU CẦU:' : 'TOTAL REQUESTS:'} <span className="text-emerald-600 dark:text-emerald-400 text-sm font-extrabold">{totalRequestsCount}</span>
+            <span className="font-bold text-heading">
+              {language === 'vi' ? 'Tổng yêu cầu:' : 'TOTAL REQUESTS:'} <span className="text-fg-success-strong text-sm font-extrabold">{totalRequestsCount}</span>
             </span>
-            <span className="font-bold text-slate-700 dark:text-slate-200">
-              RPS: <span className="text-emerald-600 dark:text-emerald-400 text-sm font-extrabold">{displayRps}</span> req/s
+            <span className="font-bold text-heading">
+              RPS: <span className="text-fg-success-strong text-sm font-extrabold">{displayRps}</span> req/s
             </span>
           </div>
         </div>
@@ -1544,7 +1521,7 @@ export function SystemHeartbeatPulseChart({
         {/* SVG Chart Viewport with Y-Axis Labels & Hover Tooltip */}
         <div className="relative z-10 h-32 w-full">
           {/* Y-Axis Labels */}
-          <div className="pointer-events-none absolute left-1 top-1 bottom-4 flex flex-col justify-between text-[9px] font-mono text-slate-400 dark:text-slate-500">
+          <div className="pointer-events-none absolute left-1 top-1 bottom-4 flex flex-col justify-between text-xs font-mono text-body-subtle">
             <span>{maxBucketRps.toFixed(0)} req/s</span>
             <span>{(maxBucketRps / 2).toFixed(0)} req/s</span>
             <span>0 req/s</span>
@@ -1567,10 +1544,6 @@ export function SystemHeartbeatPulseChart({
             onMouseLeave={() => setHoverIndex(null)}
           >
             <defs>
-              <linearGradient id="streamAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity="0.25" />
-                <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
-              </linearGradient>
               <filter id="streamGlow" x="-20%" y="-20%" width="140%" height="140%">
                 <feGaussianBlur stdDeviation="2" result="blur" />
                 <feMerge>
@@ -1586,7 +1559,7 @@ export function SystemHeartbeatPulseChart({
               y1={BASELINE_Y}
               x2="600"
               y2={BASELINE_Y}
-              stroke="rgba(16, 185, 129, 0.25)"
+              style={{ stroke: 'var(--border-default)' }}
               strokeDasharray="4 4"
               strokeWidth="1"
             />
@@ -1614,7 +1587,7 @@ export function SystemHeartbeatPulseChart({
             {/* Area Fill & Primary Live Waveform Polyline */}
             {visibleSeries.success2xx && (
               <>
-                <polygon points={`0,${BASELINE_Y} ${svgPoints} 600,${BASELINE_Y}`} fill="url(#streamAreaGradient)" />
+                <polygon points={`0,${BASELINE_Y} ${svgPoints} 600,${BASELINE_Y}`} fill={strokeColor} fillOpacity={0.1} />
                 <polyline
                   fill="none"
                   stroke={strokeColor}
@@ -1691,7 +1664,7 @@ export function SystemHeartbeatPulseChart({
                   cy={hoveredPoint.y}
                   r="5"
                   fill="#10b981"
-                  stroke="#ffffff"
+                  style={{ stroke: 'var(--neutral-primary-soft)' }}
                   strokeWidth="2"
                   filter="url(#streamGlow)"
                 />
@@ -1702,7 +1675,7 @@ export function SystemHeartbeatPulseChart({
           {/* Hover Tooltip - bám sát vị trí con trỏ chuột trên đường biểu đồ */}
           {hoveredPoint && (
             <div
-              className="pointer-events-none absolute z-30 transition-all duration-75"
+              className="pointer-events-none absolute z-30 transition-colors duration-75"
               style={{
                 left: `${(hoveredPoint.x / 600) * 100}%`,
                 top: hoveredPoint.y < 42 ? '48%' : '4%',
@@ -1714,46 +1687,46 @@ export function SystemHeartbeatPulseChart({
                       : 'translateX(-50%)',
               }}
             >
-              <div className="rounded-lg border border-emerald-500/40 bg-slate-950/95 p-2.5 text-[10px] font-mono text-slate-100 shadow-2xl backdrop-blur-md min-w-[190px] space-y-1">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-1">
-                  <span className="font-bold text-emerald-400 flex items-center gap-1">
+              <div style={{ boxShadow: 'var(--shadow-lg)' }} className="rounded-base border border-border-success-subtle bg-neutral-secondary p-2.5 text-xs font-mono text-body-subtle shadow-lg backdrop-blur-md min-w-[190px] space-y-1">
+                <div className="flex items-center justify-between border-b border-border-default pb-1">
+                  <span className="font-bold text-fg-success-strong flex items-center gap-1">
                     <Clock size={11} />
                     {hoveredPoint.displayTime}
                   </span>
-                  <span className="font-bold text-slate-300">
+                  <span className="font-bold text-body-subtle">
                     {hoveredPoint.rps > 0 ? (
-                      <span className="text-sky-300">{hoveredPoint.rps.toFixed(2)} req/s</span>
+                      <span className="text-fg-brand-strong">{hoveredPoint.rps.toFixed(2)} req/s</span>
                     ) : (
-                      <span className="text-slate-500">0.00 req/s</span>
+                      <span className="text-body-subtle">0.00 req/s</span>
                     )}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-slate-400">{language === 'vi' ? 'Tổng yêu cầu:' : 'Total requests:'}</span>
-                  <span className="font-extrabold text-emerald-300">{hoveredPoint.totalRequests} reqs</span>
+                <div className="flex items-center justify-between text-body-subtle">
+                  <span className="text-body-subtle">{language === 'vi' ? 'Tổng yêu cầu:' : 'Total requests:'}</span>
+                  <span className="font-extrabold text-fg-success-strong">{hoveredPoint.totalRequests} reqs</span>
                 </div>
 
                 <div className="flex items-center justify-between gap-1.5 pt-0.5 font-bold">
-                  <span className="text-emerald-400">2xx: {hoveredPoint.success2xx}</span>
-                  <span className={hoveredPoint.clientError4xx > 0 ? 'text-amber-400' : 'text-slate-600'}>
+                  <span className="text-fg-success-strong">2xx: {hoveredPoint.success2xx}</span>
+                  <span className={hoveredPoint.clientError4xx > 0 ? 'text-fg-warning' : 'text-body'}>
                     4xx: {hoveredPoint.clientError4xx}
                   </span>
-                  <span className={hoveredPoint.serverError5xx > 0 ? 'text-rose-400' : 'text-slate-600'}>
+                  <span className={hoveredPoint.serverError5xx > 0 ? 'text-fg-danger-strong' : 'text-body'}>
                     5xx: {hoveredPoint.serverError5xx}
                   </span>
                 </div>
 
                 {hoveredPoint.avgLatencyMs != null && (
-                  <div className="flex items-center justify-between border-t border-slate-800/80 pt-1 text-slate-400">
+                  <div className="flex items-center justify-between border-t border-border-default pt-1 text-body-subtle">
                     <span>{language === 'vi' ? 'Độ trễ TB:' : 'Avg Latency:'}</span>
-                    <span className="text-amber-300 font-bold">{hoveredPoint.avgLatencyMs} ms</span>
+                    <span className="text-fg-warning font-bold">{hoveredPoint.avgLatencyMs} ms</span>
                   </div>
                 )}
 
                 {hoveredPoint.sampleLog && (
                   <div
-                    className="truncate border-t border-slate-800/80 pt-1 text-[9px] text-emerald-400 max-w-[210px]"
+                    className="truncate border-t border-border-default pt-1 text-xs text-fg-success-strong max-w-[210px]"
                     title={hoveredPoint.sampleLog}
                   >
                     {hoveredPoint.sampleLog}
@@ -1765,7 +1738,7 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* X-Axis Timestamps */}
-        <div className="relative z-10 flex items-center justify-between text-[9px] font-mono text-slate-500 pt-1">
+        <div className="relative z-10 flex items-center justify-between text-xs font-mono text-body-subtle pt-1">
           <span>{timeseries.points[0] ? formatShortTime(timeseries.points[0].timestamp) : '—'}</span>
           <span>
             {timeseries.points[Math.floor(timeseries.points.length / 2)]
@@ -1780,47 +1753,47 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* Live HTTP Request Logger Banner */}
-        <div className="relative z-10 mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 dark:border-slate-800/80 pt-2 text-[11px] font-mono">
-          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-            <span className="text-slate-500 dark:text-slate-400">
-              {language === 'vi' ? 'YÊU CẦU GẦN NHẤT:' : 'LATEST REQUEST:'}
+        <div className="relative z-10 mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border-default pt-2 text-xs font-mono">
+          <div className="flex items-center gap-2 text-heading">
+            <span className="text-body-subtle">
+              {language === 'vi' ? 'Yêu cầu gần nhất:' : 'LATEST REQUEST:'}
             </span>
             {serverLogs[0] ? (
-              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                <span className="rounded bg-emerald-500/20 px-1 py-0.2 text-[10px]">{serverLogs[0].method}</span>
-                <span className="text-slate-800 dark:text-slate-200">{serverLogs[0].uri}</span>
-                <span className={`text-[10px] ${serverLogs[0].status >= 400 ? 'text-red-500 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                  · {serverLogs[0].status} {serverLogs[0].status === 200 ? 'OK' : ''} ({serverLogs[0].durationMs}ms)
+              <span className="flex items-center gap-1.5 text-fg-success-strong font-bold">
+                <Tag variant="status" tone="success" icon={CheckCircle2}>{serverLogs[0].method}</Tag>
+                <span className="text-heading">{serverLogs[0].uri}</span>
+                <span className={`text-xs ${serverLogs[0].status >= 400 ? 'text-fg-danger-strong ' : 'text-fg-success-strong '}`}>
+                 , {serverLogs[0].status} {serverLogs[0].status === 200 ? 'OK' : ''} ({serverLogs[0].durationMs}ms)
                 </span>
               </span>
             ) : lastRequest ? (
-              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                <span className="rounded bg-emerald-500/20 px-1 py-0.2 text-[10px]">{lastRequest.method}</span>
-                <span className="text-slate-800 dark:text-slate-200">{lastRequest.url}</span>
+              <span className="flex items-center gap-1.5 text-fg-success-strong font-bold">
+                <Tag variant="status" tone="success" icon={CheckCircle2}>{lastRequest.method}</Tag>
+                <span className="text-heading">{lastRequest.url}</span>
                 {lastRequest.status && (
-                  <span className={`text-[10px] ${lastRequest.isError ? 'text-red-500 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                    · {lastRequest.status} {lastRequest.status === 200 ? 'OK' : ''} ({lastRequest.durationMs ?? 0}ms)
+                  <span className={`text-xs ${lastRequest.isError ? 'text-fg-danger-strong ' : 'text-fg-success-strong '}`}>
+                   , {lastRequest.status} {lastRequest.status === 200 ? 'OK' : ''} ({lastRequest.durationMs ?? 0}ms)
                   </span>
                 )}
               </span>
             ) : (
-              <span className="text-slate-500 dark:text-slate-400 italic">
+              <span className="text-body-subtle italic">
                 {language === 'vi' ? 'Đang lắng nghe các request từ client và server...' : 'Listening for client and server requests...'}
               </span>
             )}
           </div>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+          <span className="text-xs text-body-subtle">
             {language === 'vi'
-              ? `SSE STREAM + BUCKET (${timeseries.bucketSeconds}s) · TỰ ĐỘNG ĐỒNG BỘ`
-              : `SSE STREAM + BUCKET (${timeseries.bucketSeconds}s) · AUTO SYNC`}
+              ? `SSE STREAM + BUCKET (${timeseries.bucketSeconds}s), TỰ ĐỘNG ĐỒNG BỘ`
+              : `SSE STREAM + BUCKET (${timeseries.bucketSeconds}s), AUTO SYNC`}
           </span>
         </div>
 
         {/* Objective High-RPS Alert Banner */}
         {threatLevel === 'spike' && (
-          <div className="relative z-10 mt-2 flex items-center justify-between rounded-lg border border-red-500/50 bg-red-950/80 px-3 py-2 text-xs text-red-200">
+          <div className="relative z-10 mt-2 flex items-center justify-between rounded-base border border-border-danger-subtle bg-danger-soft px-3 py-2 text-xs text-fg-danger-strong">
             <div className="flex items-center gap-2">
-              <ShieldAlert size={16} className="text-red-400 shrink-0" />
+              <ShieldAlert size={16} className="text-fg-danger-strong shrink-0" />
               <span className="font-bold">
                 {language === 'vi'
                   ? 'CẢNH BÁO: Lưu lượng RPS vượt ngưỡng cao! Bộ giới hạn tần suất (Rate Limiter) đang kiểm soát các IP gửi vượt ngưỡng.'
@@ -1828,7 +1801,7 @@ export function SystemHeartbeatPulseChart({
               </span>
             </div>
             {effectiveRateLimited > 0 && (
-              <span className="font-mono font-bold text-red-300">
+              <span className="font-mono font-bold text-fg-danger-strong">
                 +{effectiveRateLimited} {language === 'vi' ? 'yêu cầu bị chặn (429)' : 'rate-limited (429)'}
               </span>
             )}
@@ -1836,16 +1809,16 @@ export function SystemHeartbeatPulseChart({
         )}
 
         {wafStatus.underAttackMode && threatLevel !== 'spike' && (
-          <div className="relative z-10 mt-2 flex items-center justify-between rounded-lg border border-amber-500/50 bg-amber-950/60 px-3 py-2 text-xs text-amber-200">
+          <div className="relative z-10 mt-2 flex items-center justify-between rounded-base border border-border-warning-subtle bg-warning-soft px-3 py-2 text-xs text-fg-warning">
             <div className="flex items-center gap-2">
-              <ShieldCheck size={16} className="text-amber-400 shrink-0" />
+              <ShieldCheck size={16} className="text-fg-warning shrink-0" />
               <span className="font-semibold">
                 {language === 'vi'
                   ? `CHẾ ĐỘ PHÒNG THỦ KHẨN CẤP ĐANG BẬT: Đang siết chặt Rate Limit (${wafStatus.rateLimitPerMinute} req/phút/IP).`
                   : `EMERGENCY DEFENSE ACTIVE: Enforcing strict rate limit (${wafStatus.rateLimitPerMinute} req/min/IP).`}
               </span>
             </div>
-            <span className="font-mono font-bold text-amber-300">
+            <span className="font-mono font-bold text-fg-warning">
               Max {wafStatus.rateLimitPerMinute} req/min
             </span>
           </div>
@@ -1853,35 +1826,35 @@ export function SystemHeartbeatPulseChart({
       </div>
 
       {actionError && (
-        <div className="rounded-lg bg-danger-soft/40 border border-border-danger p-2 text-xs text-fg-danger-strong flex items-center justify-between">
+        <div className="rounded-base bg-danger-soft/40 border border-border-danger p-2 text-xs text-fg-danger-strong flex items-center justify-between">
           <span>{actionError}</span>
-          <button type="button" onClick={() => setActionError(null)} className="cursor-pointer font-bold px-1.5">&times;</button>
+          <button type="button" onClick={() => setActionError(null)} className="btn btn-ghost rounded-control cursor-pointer font-bold px-1.5">&times;</button>
         </div>
       )}
 
       {/* SECTION C: RECENT REQUESTS TABLE & SERVER-ACCESS.LOG CONSOLE (ĐẶT NGAY BÊN DƯỚI ĐỒ THỊ) */}
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 shadow-sm space-y-3 font-mono">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800/80 pb-3">
+      <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm space-y-3 font-mono">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default pb-3">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <span className="flex h-7 w-7 items-center justify-center rounded-control bg-success-soft text-fg-success-strong border border-border-success-subtle">
               <Terminal size={14} />
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">server-access.log</span>
-                <span className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                  {language === 'vi' ? 'CỔNG HTTP 8080' : 'HTTP PORT 8080'}
-                </span>
-                <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                  <span className={`h-1.5 w-1.5 rounded-full ${isPaused ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                <span className="text-xs font-bold text-heading">server-access.log</span>
+                <Tag>
+                  {language === 'vi' ? 'Cổng HTTP 8080' : 'HTTP PORT 8080'}
+                </Tag>
+                <span className="flex items-center gap-1 text-xs text-fg-success-strong font-bold">
+                  <span className={`h-1.5 w-1.5 rounded-full ${isPaused ? 'bg-warning' : 'bg-success'}`} />
                   <span>
                     {isPaused
-                      ? (language === 'vi' ? 'ĐANG TẠM DỪNG' : 'PAUSED')
-                      : (language === 'vi' ? 'THEO DÕI TRỰC TIẾP' : 'LIVE TAILING')}
+                      ? (language === 'vi' ? 'ĐANG Tạm dừng' : 'PAUSED')
+                      : (language === 'vi' ? 'Theo dõi trực tiếp' : 'LIVE TAILING')}
                   </span>
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-body-subtle">
                 {language === 'vi'
                   ? 'Bảng tra cứu Request gần nhất & Nhật ký truy cập máy chủ (không lưu Authorization, Cookie hoặc mật khẩu).'
                   : 'Recent requests table & live server access log (sensitive headers and tokens are never stored).'}
@@ -1892,7 +1865,7 @@ export function SystemHeartbeatPulseChart({
           {/* Search, Filter & Actions */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <div className="relative">
-              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-body-subtle" />
               <input
                 type="text"
                 aria-label={language === 'vi' ? 'Lọc nhật ký request' : 'Filter request logs'}
@@ -1902,47 +1875,41 @@ export function SystemHeartbeatPulseChart({
                   setLogSearch(e.target.value);
                   setCurrentPage(0);
                 }}
-                className="h-7 w-44 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 pl-7 pr-2 text-[11px] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
+                className="form-input h-7 w-44 rounded-control border border-border-default bg-neutral-secondary-soft pl-7 pr-2 text-xs text-heading placeholder:text-body-subtle focus:border-border-success-subtle focus:outline-none"
               />
             </div>
 
             {/* Method Filter */}
-            <select
-              aria-label={language === 'vi' ? 'Lọc phương thức HTTP' : 'Filter HTTP Method'}
+            <SelectMenu aria-label={language === 'vi' ? 'Lọc phương thức HTTP' : 'Filter HTTP Method'}
               value={methodFilter}
-              onChange={(e) => {
-                setMethodFilter(e.target.value);
+              onChange={(value) => {
+                setMethodFilter(value);
                 setCurrentPage(0);
               }}
-              className="h-7 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 text-[10px] text-slate-800 dark:text-slate-200 focus:border-emerald-500 focus:outline-none cursor-pointer"
-            >
-              <option value="ALL">{language === 'vi' ? 'Phương thức: TẤT CẢ' : 'Method: ALL'}</option>
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="PATCH">PATCH</option>
-              <option value="DELETE">DELETE</option>
-            </select>
+              className="w-full sm:w-auto sm:min-w-[160px]"
+              options={[{ value: "ALL", label: language === 'vi' ? 'Phương thức: Tất cả' : 'Method: ALL' },
+                { value: "GET", label: "GET" },
+                { value: "POST", label: "POST" },
+                { value: "PUT", label: "PUT" },
+                { value: "PATCH", label: "PATCH" },
+                { value: "DELETE", label: "DELETE" }]} />
 
             {/* Status Group Filter */}
-            <select
-              aria-label={language === 'vi' ? 'Lọc trạng thái HTTP' : 'Filter HTTP Status'}
+            <SelectMenu aria-label={language === 'vi' ? 'Lọc trạng thái HTTP' : 'Filter HTTP Status'}
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
+              onChange={(value) => {
+                setStatusFilter(value);
                 setCurrentPage(0);
               }}
-              className="h-7 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 text-[10px] text-slate-800 dark:text-slate-200 focus:border-emerald-500 focus:outline-none cursor-pointer"
-            >
-              <option value="ALL">{language === 'vi' ? 'Trạng thái: TẤT CẢ' : 'Status: ALL'}</option>
-              <option value="2XX">{language === 'vi' ? '2xx Thành công' : '2xx Success'}</option>
-              <option value="4XX">{language === 'vi' ? '4xx Lỗi Client' : '4xx Client Err'}</option>
-              <option value="5XX">{language === 'vi' ? '5xx Lỗi Server' : '5xx Server Err'}</option>
-              <option value="429">{language === 'vi' ? '429 Giới hạn tần suất' : '429 Rate Limit'}</option>
-            </select>
+              className="w-full sm:w-auto sm:min-w-[160px]"
+              options={[{ value: "ALL", label: language === 'vi' ? 'Trạng thái: Tất cả' : 'Status: ALL' },
+                { value: "2XX", label: language === 'vi' ? '2xx Thành công' : '2xx Success', tone: 'success' },
+                { value: "4XX", label: language === 'vi' ? '4xx Lỗi Client' : '4xx Client Err', tone: 'warning' },
+                { value: "5XX", label: language === 'vi' ? '5xx Lỗi Server' : '5xx Server Err', tone: 'danger' },
+                { value: "429", label: language === 'vi' ? '429 Giới hạn tần suất' : '429 Rate Limit', tone: 'warning' }]} />
 
             {/* Quick Filter Tabs */}
-            <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 p-0.5 text-[10px]">
+            <div className="flex items-center rounded-base border border-border-default bg-neutral-secondary-soft p-0.5 text-xs">
               {(['all', '2xx', 'err', 'slow'] as const).map((tab) => (
                 <button
                   key={tab}
@@ -1951,10 +1918,10 @@ export function SystemHeartbeatPulseChart({
                     setLogFilter(tab);
                     setCurrentPage(0);
                   }}
-                  className={`rounded px-2 py-0.5 font-medium transition-colors cursor-pointer ${
+                  className={`btn rounded-control px-2 py-0.5 font-medium transition-colors cursor-pointer ${
                     logFilter === tab
-                      ? 'bg-white dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold border border-slate-200 dark:border-emerald-500/30 shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                      ? 'bg-neutral-primary-soft  text-fg-success-strong  font-bold border border-border-default  shadow-2xs'
+                      : 'text-body  hover:text-heading '
                   }`}
                 >
                   {tab === 'all'
@@ -1971,10 +1938,10 @@ export function SystemHeartbeatPulseChart({
             <button
               type="button"
               onClick={handleToggleAutoScroll}
-              className={`flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-medium transition-colors cursor-pointer ${
+              className={`btn flex h-7 items-center gap-1 rounded-control border px-2 text-xs font-medium transition-colors cursor-pointer ${
                 autoScroll
-                  ? 'border-emerald-500/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 font-bold'
-                  : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'border-border-success-subtle bg-success-soft text-fg-success-strong   font-bold'
+                  : 'border-border-default  bg-neutral-secondary-soft  text-body  hover:bg-neutral-secondary-soft hover:text-heading '
               }`}
               title={
                 autoScroll
@@ -1993,16 +1960,16 @@ export function SystemHeartbeatPulseChart({
             <button
               type="button"
               onClick={handleCopyLogs}
-              className="flex h-7 items-center gap-1 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-2 text-[10px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 cursor-pointer"
+              className="btn btn-secondary rounded-control flex h-7 items-center gap-1 px-2 text-xs font-medium cursor-pointer"
             >
-              {copied ? <Check size={11} className="text-emerald-600 dark:text-emerald-400" /> : <Copy size={11} />}
+              {copied ? <Check size={11} className="text-fg-success-strong" /> : <Copy size={11} />}
               <span>{copied ? (language === 'vi' ? 'Đã chép' : 'Copied') : (language === 'vi' ? 'Sao chép' : 'Copy')}</span>
             </button>
 
             <button
               type="button"
               onClick={handleDownloadLogFile}
-              className="flex h-7 items-center gap-1 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-2 text-[10px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 cursor-pointer"
+              className="btn btn-secondary rounded-control flex h-7 items-center gap-1 px-2 text-xs font-medium cursor-pointer"
             >
               <Download size={11} />
               <span>.log</span>
@@ -2011,42 +1978,36 @@ export function SystemHeartbeatPulseChart({
             <button
               type="button"
               onClick={() => setBlacklistModalOpen(true)}
-              className={`flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-medium transition-colors cursor-pointer ${
+              className={`btn flex h-7 items-center gap-1 rounded-control border px-2 text-xs font-medium transition-colors cursor-pointer ${
                 (wafStatus?.blockedIps ?? []).length > 0
-                  ? 'border-red-500/40 bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20'
-                  : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
+                  ? 'border-border-danger-subtle bg-danger-soft text-fg-danger-strong   hover:bg-danger-soft '
+                  : 'border-border-default  bg-neutral-secondary-soft  text-heading  hover:bg-neutral-secondary-soft hover:text-heading '
               }`}
               title={language === 'vi' ? 'Quản lý danh sách IP bị khóa / Khóa IP thủ công' : 'Manage Blocked IPs'}
             >
-              <UserX size={11} className={(wafStatus?.blockedIps ?? []).length > 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'} />
+              <UserX size={11} className={(wafStatus?.blockedIps ?? []).length > 0 ? 'text-fg-danger-strong ' : 'text-body-subtle '} />
               <span>
                 {language === 'vi' ? 'Ban IP' : 'Ban IP'}
                 {(wafStatus?.blockedIps ?? []).length > 0 && ` (${(wafStatus?.blockedIps ?? []).length})`}
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setServerLogs([])}
-              className="flex h-7 items-center gap-1 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-2 text-[10px] font-medium text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              title={language === 'vi' ? 'Xóa log trên màn hình' : 'Clear display buffer'}
-            >
-              <Trash2 size={11} />
-            </button>
+            <IconButton onClick={() => setServerLogs([])}
+              title={language === 'vi' ? 'Xóa log trên màn hình' : 'Clear display buffer'} label={language === 'vi' ? 'Xóa log trên màn hình' : 'Clear display buffer'} icon={Trash2} className="flex hover:text-fg-danger-strong hover:bg-neutral-secondary-soft hover:bg-danger-soft" />
           </div>
         </div>
 
         {/* Sort & Latency Filter Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500 dark:text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-body-subtle">
           <div className="flex items-center gap-2">
             <span>{language === 'vi' ? 'Sắp xếp:' : 'Sort by:'}</span>
             <button
               type="button"
               onClick={() => toggleSort('timestamp')}
-              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 cursor-pointer ${
+              className={`btn inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 cursor-pointer ${
                 sortField === 'timestamp'
-                  ? 'bg-slate-100 dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-bold border border-slate-200 dark:border-transparent'
-                  : 'hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'bg-neutral-secondary-soft  text-fg-success-strong  font-bold border border-border-default '
+                  : 'hover:text-heading '
               }`}
             >
               <span>{language === 'vi' ? 'Thời gian' : 'Timestamp'}</span>
@@ -2055,10 +2016,10 @@ export function SystemHeartbeatPulseChart({
             <button
               type="button"
               onClick={() => toggleSort('durationMs')}
-              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 cursor-pointer ${
+              className={`btn inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 cursor-pointer ${
                 sortField === 'durationMs'
-                  ? 'bg-slate-100 dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-bold border border-slate-200 dark:border-transparent'
-                  : 'hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'bg-neutral-secondary-soft  text-fg-success-strong  font-bold border border-border-default '
+                  : 'hover:text-heading '
               }`}
             >
               <span>{language === 'vi' ? 'Độ trễ' : 'Latency'}</span>
@@ -2067,10 +2028,10 @@ export function SystemHeartbeatPulseChart({
             <button
               type="button"
               onClick={() => toggleSort('status')}
-              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 cursor-pointer ${
+              className={`btn inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 cursor-pointer ${
                 sortField === 'status'
-                  ? 'bg-slate-100 dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 font-bold border border-slate-200 dark:border-transparent'
-                  : 'hover:text-slate-900 dark:hover:text-slate-200'
+                  ? 'bg-neutral-secondary-soft  text-fg-success-strong  font-bold border border-border-default '
+                  : 'hover:text-heading '
               }`}
             >
               <span>{language === 'vi' ? 'Mã trạng thái' : 'HTTP Status'}</span>
@@ -2089,7 +2050,7 @@ export function SystemHeartbeatPulseChart({
                 setMinLatencyFilter(e.target.value);
                 setCurrentPage(0);
               }}
-              className="h-6 w-20 rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-1.5 text-[10px] text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
+              className="form-input h-6 w-20 rounded-control border border-border-default bg-neutral-secondary-soft px-1.5 text-xs text-heading focus:outline-none focus:border-border-success-subtle"
             />
           </div>
         </div>
@@ -2099,33 +2060,33 @@ export function SystemHeartbeatPulseChart({
           ref={logContainerRef}
           onScroll={handleLogContainerScroll}
           aria-label="Server access log console"
-          className="h-64 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-black/60 p-3 text-[11px] leading-relaxed select-text font-mono space-y-1"
+          className="h-64 overflow-y-auto rounded-base border border-border-default bg-neutral-secondary-soft p-3 text-xs leading-relaxed select-text font-mono space-y-1"
         >
           {paginatedLogs.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-slate-400 dark:text-slate-500 italic">
+            <div className="flex h-full flex-col items-center justify-center text-body-subtle italic">
               <span>{language === 'vi' ? 'Chưa có dòng log nào phù hợp với bộ lọc (NO_DATA).' : 'No log lines matching criteria (NO_DATA).'}</span>
             </div>
           ) : (
             paginatedLogs.map((log) => {
-              const statusColor =
+              const statusTone =
                 log.status >= 500
-                  ? 'text-rose-700 dark:text-red-400 font-bold bg-rose-50 dark:bg-red-950/60 border border-rose-200 dark:border-red-900/40'
+                  ? 'danger'
                   : log.status === 429
-                    ? 'text-rose-700 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/40'
+                    ? 'warning'
                     : log.status >= 400
-                      ? 'text-amber-700 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900/40'
-                      : 'text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900/40';
+                      ? 'warning'
+                      : 'success';
 
               const methodColor =
                 log.method === 'GET'
-                  ? 'text-sky-700 dark:text-sky-400'
+                  ? 'text-fg-brand-strong '
                   : log.method === 'POST'
-                    ? 'text-emerald-700 dark:text-emerald-400'
+                    ? 'text-fg-success-strong '
                     : log.method === 'PUT'
-                      ? 'text-amber-700 dark:text-amber-400'
+                      ? 'text-fg-warning '
                       : log.method === 'DELETE'
-                        ? 'text-rose-700 dark:text-rose-400'
-                        : 'text-purple-700 dark:text-purple-400';
+                        ? 'text-fg-danger-strong '
+                        : 'text-fg-brand-strong ';
 
               const isSlow = log.durationMs >= 300;
 
@@ -2133,52 +2094,46 @@ export function SystemHeartbeatPulseChart({
                 <div
                   key={log.id}
                   onClick={() => setSelectedRequest(log)}
-                  className="flex flex-wrap items-center gap-x-2.5 py-1 border-b border-slate-200/60 dark:border-slate-900/40 hover:bg-slate-200/40 dark:hover:bg-slate-900/60 rounded px-1.5 transition-colors font-mono cursor-pointer"
+                  className="flex flex-wrap items-center gap-x-2.5 py-1 border-b border-border-default hover:bg-neutral-secondary-medium rounded-base px-1.5 transition-colors font-mono cursor-pointer"
                 >
-                  <span className="text-slate-500 dark:text-slate-400 tabular-nums shrink-0">
+                  <span className="text-body-subtle tabular-nums shrink-0">
                     [{formatLogTime(log.timestamp)}]
                   </span>
 
-                  <span className="rounded bg-slate-200/70 dark:bg-slate-900 px-1 text-[9px] text-slate-700 dark:text-slate-400 shrink-0 border border-slate-300/70 dark:border-slate-800">
+                  <Tag className="shrink-0">
                     {log.id}
-                  </span>
+                  </Tag>
 
-                  <span className={`rounded px-1 text-[10px] shrink-0 font-bold ${statusColor}`}>
+                  <Tag variant="status" tone={statusTone} icon={CircleDot} className="shrink-0">
                     {log.status} {getStatusText(log.status)}
-                  </span>
+                  </Tag>
 
                   <span className={`w-12 font-extrabold shrink-0 ${methodColor}`}>
                     {log.method}
                   </span>
 
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 shrink-0 break-all">
+                  <span className="font-semibold text-heading shrink-0 break-all">
                     {log.uri}
                   </span>
 
-                  <span className={`ml-auto text-[10px] shrink-0 ${isSlow ? 'text-amber-700 dark:text-amber-400 font-bold' : 'text-slate-600 dark:text-slate-400'}`}>
+                  <span className={`ml-auto text-xs shrink-0 ${isSlow ? 'text-fg-warning  font-bold' : 'text-body '}`}>
                     {log.durationMs}ms
                   </span>
 
-                  <span className="text-slate-500 dark:text-slate-400 text-[10px] shrink-0">
+                  <span className="text-body-subtle text-xs shrink-0">
                     {log.clientIp}
                   </span>
 
-                  <span className="text-slate-600 dark:text-slate-400 text-[10px] truncate max-w-[130px] shrink-0" title={log.userEmail}>
+                  <span className="text-body text-xs truncate max-w-[130px] shrink-0" title={log.userEmail}>
                     {log.userEmail}
                   </span>
 
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={(e) => {
+                    <IconButton onClick={(e) => {
                         e.stopPropagation();
                         setSelectedRequest(log);
                       }}
-                      className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 shrink-0 p-0.5 cursor-pointer"
-                      title={language === 'vi' ? 'Xem chi tiết request' : 'View request detail'}
-                    >
-                      <Eye size={12} />
-                    </button>
+              title={language === 'vi' ? 'Xem chi tiết request' : 'View request detail'} label={language === 'vi' ? 'Xem chi tiết request' : 'View request detail'} icon={Eye} className="hover:text-fg-success-strong" />
 
                     {blockedIpSet.has(cleanIp(log.clientIp)) ? (
                       <button
@@ -2187,24 +2142,18 @@ export function SystemHeartbeatPulseChart({
                           e.stopPropagation();
                           setConfirmUnblockIpTarget(cleanIp(log.clientIp));
                         }}
-                        className="flex items-center gap-0.5 rounded bg-red-100 dark:bg-red-950/70 border border-red-300 dark:border-red-500/40 px-1 py-0.5 text-[9px] font-bold text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/80 cursor-pointer"
+                        className="btn btn-ghost-danger rounded-control flex items-center gap-0.5 px-1 py-0.5 text-xs font-bold cursor-pointer"
                         title={language === 'vi' ? `IP ${cleanIp(log.clientIp)} đang bị khóa. Bấm để gỡ chặn` : `IP is banned. Click to unban`}
                       >
                         <UserX size={10} />
                         <span>{language === 'vi' ? 'Đã khóa' : 'Banned'}</span>
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
+                      <IconButton onClick={(e) => {
                           e.stopPropagation();
                           setConfirmBlockIpTarget(cleanIp(log.clientIp));
                         }}
-                        className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 shrink-0 p-0.5 cursor-pointer"
-                        title={language === 'vi' ? `Khóa IP ${cleanIp(log.clientIp)} (Ban IP 15 phút)` : `Ban IP ${cleanIp(log.clientIp)}`}
-                      >
-                        <UserX size={12} />
-                      </button>
+              title={language === 'vi' ? `Khóa IP ${cleanIp(log.clientIp)} (Ban IP 15 phút)` : `Ban IP ${cleanIp(log.clientIp)}`} label={language === 'vi' ? `Khóa IP ${cleanIp(log.clientIp)} (Ban IP 15 phút)` : `Ban IP ${cleanIp(log.clientIp)}`} icon={UserX} className="hover:text-fg-danger-strong hover:bg-danger-soft" />
                     )}
                   </div>
                 </div>
@@ -2214,37 +2163,29 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* Pagination & Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 dark:border-slate-800/80 pt-2 text-[10px] text-slate-500 dark:text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-default pt-2 text-xs text-body-subtle">
           <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
             <span>
               {language === 'vi'
-                ? `Đang hiển thị ${paginatedLogs.length}/${filteredLogs.length} dòng log · Định dạng: [THỜI GIAN] [MÃ_REQ] TRẠNG_THÁI PHƯƠNG_THỨC URI ĐỘ_TRỄ IP NGƯỜI_DÙNG`
-                : `Showing ${paginatedLogs.length}/${filteredLogs.length} entries · Format: [TIME] [REQ_ID] STATUS METHOD URI DURATION IP USER`}
+                ? `Đang hiển thị ${paginatedLogs.length}/${filteredLogs.length} dòng log, Định dạng: [THỜI GIAN] [MÃ_REQ] TRẠNG_THÁI PHƯƠNG_THỨC URI ĐỘ_TRỄ IP NGƯỜI_DÙNG`
+                : `Showing ${paginatedLogs.length}/${filteredLogs.length} entries, Format: [TIME] [REQ_ID] STATUS METHOD URI DURATION IP USER`}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={currentPage <= 0}
+            <IconButton disabled={currentPage <= 0}
               onClick={() => {
                 const newPage = Math.max(0, currentPage - 1);
                 if (newPage === 0 && sortDir === 'desc') {
                   setAutoScroll(true);
                 }
                 setCurrentPage(newPage);
-              }}
-              className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-1.5 py-0.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer"
-            >
-              <ChevronLeft size={11} />
-            </button>
+              }} label="Trang trước" icon={ChevronLeft} className="hover:bg-neutral-secondary-soft disabled:opacity-40" />
             <span>
               {currentPage + 1} / {totalPages}
             </span>
-            <button
-              type="button"
-              disabled={currentPage >= totalPages - 1}
+            <IconButton disabled={currentPage >= totalPages - 1}
               onClick={() => {
                 const newPage = Math.min(totalPages - 1, currentPage + 1);
                 if (newPage === totalPages - 1 && sortDir === 'asc') {
@@ -2253,11 +2194,7 @@ export function SystemHeartbeatPulseChart({
                   setAutoScroll(false);
                 }
                 setCurrentPage(newPage);
-              }}
-              className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-1.5 py-0.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer"
-            >
-              <ChevronRight size={11} />
-            </button>
+              }} label="Trang sau" icon={ChevronRight} className="hover:bg-neutral-secondary-soft disabled:opacity-40" />
           </div>
         </div>
       </div>
@@ -2265,15 +2202,15 @@ export function SystemHeartbeatPulseChart({
       {/* SECTION D & E: ENDPOINT ANALYTICS + TRAFFIC ALERTS */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* SECTION D: ENDPOINT ANALYTICS (2 columns on large screens) */}
-        <div className="lg:col-span-2 rounded-xl border border-border-default bg-neutral-primary p-4 space-y-3">
+        <div className="lg:col-span-2 rounded-base border border-border-default bg-neutral-primary p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-default pb-2.5">
             <div className="flex items-center gap-2">
-              <BarChart3 size={16} className="text-fg-brand" />
+              <BarChart3 size={16} className="text-fg-brand-strong" />
               <div>
                 <h4 className="text-xs font-bold text-heading">
-                  {language === 'vi' ? 'Phân Tích Endpoint (Endpoint Analytics)' : 'Endpoint Traffic Analytics'}
+                  {language === 'vi' ? 'Phân tích endpoint (Endpoint Analytics)' : "Endpoint traffic analytics"}
                 </h4>
-                <p className="text-[10px] text-body-subtle">
+                <p className="text-xs text-body-subtle">
                   {language === 'vi'
                     ? `Thống kê theo route template chuẩn hóa trong cửa sổ ${selectedWindow}`
                     : `Aggregated by normalized route template in ${selectedWindow} window`}
@@ -2281,21 +2218,21 @@ export function SystemHeartbeatPulseChart({
               </div>
             </div>
 
-            <div className="flex items-center rounded-md border border-border-default bg-neutral-secondary-soft p-0.5 text-[10px]">
+            <div className="flex items-center rounded-base border border-border-default bg-neutral-secondary-soft p-0.5 text-xs">
               <button
                 type="button"
                 onClick={() => setAnalyticsTab('volume')}
-                className={`rounded px-2 py-0.5 font-semibold cursor-pointer ${
-                  analyticsTab === 'volume' ? 'bg-neutral-primary text-fg-brand shadow-2xs' : 'text-body-subtle'
+                className={`btn rounded-control px-2 py-0.5 font-semibold cursor-pointer ${
+                  analyticsTab === 'volume' ? 'bg-neutral-primary text-fg-brand-strong shadow-2xs' : 'text-body-subtle'
                 }`}
               >
-                {language === 'vi' ? 'Top Lưu lượng' : 'Top Volume'}
+                {language === 'vi' ? 'Top lưu lượng' : 'Top Volume'}
               </button>
               <button
                 type="button"
                 onClick={() => setAnalyticsTab('latency')}
-                className={`rounded px-2 py-0.5 font-semibold cursor-pointer ${
-                  analyticsTab === 'latency' ? 'bg-neutral-primary text-fg-brand shadow-2xs' : 'text-body-subtle'
+                className={`btn rounded-control px-2 py-0.5 font-semibold cursor-pointer ${
+                  analyticsTab === 'latency' ? 'bg-neutral-primary text-fg-brand-strong shadow-2xs' : 'text-body-subtle'
                 }`}
               >
                 {language === 'vi' ? 'Độ trễ cao nhất' : 'Highest Latency'}
@@ -2303,8 +2240,8 @@ export function SystemHeartbeatPulseChart({
               <button
                 type="button"
                 onClick={() => setAnalyticsTab('errors')}
-                className={`rounded px-2 py-0.5 font-semibold cursor-pointer ${
-                  analyticsTab === 'errors' ? 'bg-neutral-primary text-fg-brand shadow-2xs' : 'text-body-subtle'
+                className={`btn rounded-control px-2 py-0.5 font-semibold cursor-pointer ${
+                  analyticsTab === 'errors' ? 'bg-neutral-primary text-fg-brand-strong shadow-2xs' : 'text-body-subtle'
                 }`}
               >
                 {language === 'vi' ? 'Tỷ lệ lỗi cao nhất' : 'Highest Error Rate'}
@@ -2313,17 +2250,17 @@ export function SystemHeartbeatPulseChart({
           </div>
 
           {/* Method & Status Distribution Bars */}
-          <div className="grid gap-2 sm:grid-cols-2 text-[10px]">
-            <div className="rounded-lg border border-border-default-subtle bg-neutral-secondary-soft/40 p-2">
+          <div className="grid gap-2 sm:grid-cols-2 text-xs">
+            <div className="rounded-base border border-border-default-subtle bg-neutral-secondary-soft/40 p-2">
               <span className="font-semibold text-body-subtle block mb-1">
                 {language === 'vi' ? 'Phân bổ theo HTTP Method' : 'Distribution by HTTP Method'}
               </span>
               <div className="flex flex-wrap items-center gap-2 font-mono">
                 {endpointAnalytics && Object.keys(endpointAnalytics.methodDistribution || {}).length > 0 ? (
                   Object.entries(endpointAnalytics.methodDistribution).map(([m, cnt]) => (
-                    <span key={m} className="rounded bg-neutral-primary px-1.5 py-0.5 border border-border-default text-heading font-bold">
+                    <Tag key={m}>
                       {m}: {cnt}
-                    </span>
+                    </Tag>
                   ))
                 ) : (
                   <span className="text-body-subtle italic">NO_DATA</span>
@@ -2331,16 +2268,16 @@ export function SystemHeartbeatPulseChart({
               </div>
             </div>
 
-            <div className="rounded-lg border border-border-default-subtle bg-neutral-secondary-soft/40 p-2">
+            <div className="rounded-base border border-border-default-subtle bg-neutral-secondary-soft/40 p-2">
               <span className="font-semibold text-body-subtle block mb-1">
                 {language === 'vi' ? 'Phân bổ theo HTTP Status' : 'Distribution by Status Code'}
               </span>
               <div className="flex flex-wrap items-center gap-2 font-mono">
                 {endpointAnalytics && Object.keys(endpointAnalytics.statusDistribution || {}).length > 0 ? (
                   Object.entries(endpointAnalytics.statusDistribution).map(([st, cnt]) => (
-                    <span key={st} className="rounded bg-neutral-primary px-1.5 py-0.5 border border-border-default text-heading font-bold">
+                    <Tag key={st}>
                       {st}: {cnt}
-                    </span>
+                    </Tag>
                   ))
                 ) : (
                   <span className="text-body-subtle italic">NO_DATA</span>
@@ -2360,7 +2297,7 @@ export function SystemHeartbeatPulseChart({
 
             if (list.length === 0) {
               return (
-                <div className="rounded-lg border border-dashed border-border-default p-4 text-center text-xs text-body-subtle">
+                <div className="rounded-base border border-dashed border-border-default p-4 text-center text-xs text-body-subtle bg-neutral-primary-soft">
                   {language === 'vi'
                     ? 'Chưa có dữ liệu thống kê endpoint trong cửa sổ thời gian này (NO_DATA).'
                     : 'No endpoint metrics recorded in this time window (NO_DATA).'}
@@ -2369,27 +2306,27 @@ export function SystemHeartbeatPulseChart({
             }
 
             return (
-              <div className="overflow-x-auto rounded-lg border border-border-default text-[11px]">
+              <div className="overflow-x-auto rounded-base border border-border-default text-xs bg-neutral-primary-soft">
                 <table className="w-full border-collapse">
                   <thead>
-                    <tr className="border-b border-border-default bg-neutral-secondary-soft text-left text-[10px] text-body-subtle">
-                      <th className="px-2.5 py-1.5">Method</th>
-                      <th className="px-2.5 py-1.5">Endpoint</th>
-                      <th className="px-2.5 py-1.5 text-right">Requests</th>
-                      <th className="px-2.5 py-1.5 text-right">Avg (ms)</th>
-                      <th className="px-2.5 py-1.5 text-right">P95 (ms)</th>
-                      <th className="px-2.5 py-1.5 text-right">Error Rate</th>
+                    <tr className="border-b border-border-default bg-neutral-secondary-soft text-left text-xs text-body-subtle">
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5">Method</th>
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5">Endpoint</th>
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5 text-right">Requests</th>
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5 text-right">Avg (ms)</th>
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5 text-right">P95 (ms)</th>
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5 text-right">Error rate</th>
                     </tr>
                   </thead>
                   <tbody>
                     {list.map((ep) => (
                       <tr key={`${ep.method}-${ep.endpoint}`} className="border-b border-border-default/50 hover:bg-neutral-secondary-soft/40 font-mono">
-                        <td className="px-2.5 py-1.5 font-bold text-fg-brand">{ep.method}</td>
+                        <td className="px-2.5 py-1.5 font-bold text-fg-brand-strong">{ep.method}</td>
                         <td className="px-2.5 py-1.5 text-heading break-all">{ep.endpoint}</td>
                         <td className="px-2.5 py-1.5 text-right font-bold">{ep.requestCount}</td>
                         <td className="px-2.5 py-1.5 text-right">{ep.avgLatencyMs}ms</td>
-                        <td className="px-2.5 py-1.5 text-right text-amber-600 dark:text-amber-400 font-semibold">{ep.p95LatencyMs}ms</td>
-                        <td className={`px-2.5 py-1.5 text-right font-bold ${ep.errorRatePercent > 0 ? 'text-danger' : 'text-fg-success-strong'}`}>
+                        <td className="px-2.5 py-1.5 text-right text-fg-warning font-semibold">{ep.p95LatencyMs}ms</td>
+                        <td className={`px-2.5 py-1.5 text-right font-bold ${ep.errorRatePercent > 0 ? 'text-fg-danger-strong' : 'text-fg-success-strong'}`}>
                           {ep.errorRatePercent}% ({ep.errorCount})
                         </td>
                       </tr>
@@ -2402,37 +2339,37 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* SECTION E: TRAFFIC ALERTS */}
-        <div className="rounded-xl border border-border-default bg-neutral-primary p-4 space-y-3" data-testid="traffic-alerts-panel">
+        <div className="rounded-base border border-border-default bg-neutral-primary p-4 space-y-3" data-testid="traffic-alerts-panel">
           <div className="flex items-center justify-between border-b border-border-default pb-2.5">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-amber-500" />
+              <AlertTriangle size={16} className="text-fg-warning" />
               <div>
                 <h4 className="text-xs font-bold text-heading">
-                  {language === 'vi' ? 'Cảnh Báo Lưu Lượng (Traffic Alerts)' : 'Traffic Alerts'}
+                  {language === 'vi' ? 'Cảnh báo lưu lượng (Traffic Alerts)' : "Traffic alerts"}
                 </h4>
-                <p className="text-[10px] text-body-subtle">
+                <p className="text-xs text-body-subtle">
                   {language === 'vi' ? 'Phát hiện khách quan theo ngưỡng vận hành' : 'Objective threshold-based alerts'}
                 </p>
               </div>
             </div>
-            <span className="rounded-full bg-neutral-secondary-soft px-2 py-0.5 text-[10px] font-mono font-bold text-heading">
+            <Tag variant="status" tone="neutral" icon={CircleDot}>
               {alerts.length + (streamState === 'DISCONNECTED' ? 1 : 0)}
-            </span>
+            </Tag>
           </div>
 
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {streamState === 'DISCONNECTED' && (
-              <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2.5 text-xs space-y-1">
+              <div className="rounded-base border border-border-danger-subtle bg-danger-soft p-2.5 text-xs space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-mono font-bold text-rose-400">
+                  <Tag variant="status" tone="danger" icon={AlertCircle}>
                     CRITICAL
-                  </span>
-                  <span className="text-[10px] font-mono text-body-subtle">STREAM_DISCONNECTED</span>
+                  </Tag>
+                  <span className="text-xs font-mono text-body-subtle">STREAM_DISCONNECTED</span>
                 </div>
                 <p className="font-bold text-heading">
                   {language === 'vi' ? 'Kết nối giám sát thời gian thực bị gián đoạn' : 'Monitoring stream connection lost'}
                 </p>
-                <p className="text-[11px] text-body-subtle">
+                <p className="text-xs text-body-subtle">
                   {language === 'vi'
                     ? 'Đang tự động kết nối lại với máy chủ mà không tạo dữ liệu nội suy giả.'
                     : 'Attempting automatic reconnection without interpolating synthetic data.'}
@@ -2441,12 +2378,12 @@ export function SystemHeartbeatPulseChart({
             )}
 
             {alerts.length === 0 && streamState !== 'DISCONNECTED' ? (
-              <div className="rounded-lg border border-dashed border-border-default p-4 text-center text-xs text-body-subtle space-y-1">
-                <CheckCircle2 size={18} className="mx-auto text-emerald-500" />
+              <div className="rounded-base border border-dashed border-border-default p-4 text-center text-xs text-body-subtle space-y-1 bg-neutral-primary-soft">
+                <CheckCircle2 size={18} className="mx-auto text-fg-success-strong" />
                 <p className="font-semibold text-heading">
                   {language === 'vi' ? 'Không có cảnh báo bất thường' : 'No active traffic alerts'}
                 </p>
-                <p className="text-[10px]">
+                <p className="text-xs">
                   {language === 'vi'
                     ? 'RPS, Error Rate (4xx/5xx) và P95 Latency đều nằm trong ngưỡng an toàn.'
                     : 'RPS, Error Rate and P95 Latency are all within normal thresholds.'}
@@ -2454,24 +2391,24 @@ export function SystemHeartbeatPulseChart({
               </div>
             ) : (
               alerts.map((alert) => {
-                const badgeStyle =
+                const badgeTone =
                   alert.severity === 'CRITICAL'
-                    ? 'bg-red-500/20 text-red-500 border-red-500/30'
+                    ? 'danger'
                     : alert.severity === 'WARNING'
-                      ? 'bg-amber-500/20 text-amber-500 border-amber-500/30'
-                      : 'bg-sky-500/20 text-sky-500 border-sky-500/30';
+                      ? 'warning'
+                      : 'brand';
                 return (
-                  <div key={alert.id} className="rounded-lg border border-border-default bg-neutral-secondary-soft/40 p-2.5 text-xs space-y-1">
+                  <div key={alert.id} className="rounded-base border border-border-default bg-neutral-secondary-soft/40 p-2.5 text-xs space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className={`rounded px-1.5 py-0.2 text-[9px] font-mono font-bold border ${badgeStyle}`}>
+                      <Tag variant="status" tone={badgeTone} icon={AlertCircle}>
                         {alert.severity}
-                      </span>
-                      <span className="font-mono text-[10px] text-body-subtle">
+                      </Tag>
+                      <span className="font-mono text-xs text-body-subtle">
                         {alert.metricValue} / {alert.thresholdValue}
                       </span>
                     </div>
                     <p className="font-bold text-heading">{alert.title}</p>
-                    <p className="text-[11px] text-body-subtle">{alert.message}</p>
+                    <p className="text-xs text-body-subtle">{alert.message}</p>
                   </div>
                 );
               })
@@ -2481,29 +2418,20 @@ export function SystemHeartbeatPulseChart({
       </div>
 
       {/* REQUEST CONTROL & WAF LAYER 7 SECURITY PANEL */}
-      <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-4 space-y-3">
+      <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default pb-2.5">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <span className="flex h-7 w-7 items-center justify-center rounded-control bg-success-soft text-fg-success-strong border border-border-success-subtle">
               <Shield size={16} />
             </span>
             <div>
               <h4 className="text-xs font-bold text-heading flex items-center gap-2">
-                <span>{language === 'vi' ? 'Biện Pháp Bảo Vệ & Phòng Thủ DDoS / Spam (WAF Layer 7)' : 'DDoS & Anti-Spam Protection (WAF Layer 7)'}</span>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                    !wafStatus.active
-                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
-                      : wafStatus.underAttackMode
-                        ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30'
-                        : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                  }`}
-                >
-                  <span className={`h-1.5 w-1.5 rounded-full ${!wafStatus.active ? 'bg-amber-500' : wafStatus.underAttackMode ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                <span>{language === 'vi' ? 'Biện pháp bảo vệ & phòng thủ DDoS / Spam (WAF Layer 7)' : "DDoS & anti-spam protection (WAF layer 7)"}</span>
+                <Tag variant="status" tone={!wafStatus.active ? "warning" : wafStatus.underAttackMode ? "danger" : "success"} icon={!wafStatus.active ? Clock : wafStatus.underAttackMode ? AlertCircle : CheckCircle2}>
                   <span>{!wafStatus.active ? 'WAF DISABLED' : wafStatus.underAttackMode ? 'UNDER ATTACK ACTIVE' : 'WAF ACTIVE'}</span>
-                </span>
+                </Tag>
               </h4>
-              <p className="text-[10px] text-body-subtle">
+              <p className="text-xs text-body-subtle">
                 {language === 'vi'
                   ? 'Tự động kiểm soát lưu lượng, chặn IP gửi dồn dập (HTTP 429) và ghi nhận Audit Log cho mọi thao tác cấu hình.'
                   : 'Automated traffic control, rate-limiting aggressive IPs (HTTP 429) with full admin audit logging.'}
@@ -2525,7 +2453,7 @@ export function SystemHeartbeatPulseChart({
               }}
               className="btn btn-secondary px-2.5 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer"
             >
-              {wafStatus.active ? <ShieldOff size={13} className="text-amber-500" /> : <ShieldCheck size={13} className="text-emerald-500" />}
+              {wafStatus.active ? <ShieldOff size={13} className="text-fg-warning" /> : <ShieldCheck size={13} className="text-fg-success-strong" />}
               <span>
                 {wafStatus.active
                   ? (language === 'vi' ? 'Tắt Rate Limit' : 'Disable Rate Limit')
@@ -2538,16 +2466,16 @@ export function SystemHeartbeatPulseChart({
               type="button"
               onClick={handleToggleAttackMode}
               disabled={isTogglingAttackMode}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all shadow-sm cursor-pointer ${
+              className={`btn flex items-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-bold transition-colors shadow-sm cursor-pointer ${
                 wafStatus.underAttackMode
-                  ? 'bg-red-600 text-white hover:bg-red-700 border border-red-400'
-                  : 'border border-border-default bg-neutral-primary hover:border-danger hover:text-danger text-heading'
+                  ? 'bg-danger text-on-brand hover:bg-danger border border-border-danger-subtle'
+                  : 'border border-border-default bg-neutral-primary hover:border-danger hover:text-fg-danger-strong text-heading'
               }`}
             >
               <ShieldAlert size={14} />
               <span>
                 {wafStatus.underAttackMode
-                  ? (language === 'vi' ? '🛡️ ĐANG BẬT BẢO VỆ KHẨN CẤP' : '🛡️ UNDER ATTACK ACTIVE')
+                  ? (language === 'vi' ? '🛡️ Đang bật bảo vệ khẩn cấp' : '🛡️ UNDER ATTACK ACTIVE')
                   : (language === 'vi' ? 'Kích hoạt Chế độ Khẩn cấp (Under Attack)' : 'Activate Under Attack Mode')}
               </span>
             </button>
@@ -2556,12 +2484,12 @@ export function SystemHeartbeatPulseChart({
 
         {/* Defense Metrics & Configuration Grid */}
         <div className="grid gap-2.5 sm:grid-cols-4 text-xs">
-          <div className="rounded-lg border border-border-default-subtle bg-neutral-primary p-2.5 space-y-1">
-            <span className="text-[10px] text-body-subtle font-medium">
+          <div className="rounded-base border border-border-default-subtle bg-neutral-primary p-2.5 space-y-1">
+            <span className="text-xs text-body-subtle font-medium">
               {language === 'vi' ? 'Ngưỡng Rate Limiting' : 'Rate Limiting Policy'}
             </span>
             <div className="flex items-center gap-1 font-bold text-heading">
-              <Lock size={13} className="text-fg-brand" />
+              <Lock size={13} className="text-fg-brand-strong" />
               <span>{language === 'vi' ? `${wafStatus.rateLimitPerMinute} req/phút/IP` : `${wafStatus.rateLimitPerMinute} req/min/IP`}</span>
             </div>
             <div className="flex items-center gap-1 pt-0.5">
@@ -2570,10 +2498,10 @@ export function SystemHeartbeatPulseChart({
                   key={lim}
                   type="button"
                   onClick={() => handleChangeRateLimit(lim)}
-                  className={`rounded px-1.5 py-0.5 text-[9px] font-mono cursor-pointer border ${
+                  className={`btn rounded-control px-1.5 py-0.5 text-xs font-mono cursor-pointer border ${
                     wafStatus.rateLimitPerMinute === lim
-                      ? 'bg-brand-soft text-fg-brand font-bold border-brand'
-                      : 'border-border-default hover:border-brand-subtle text-body-subtle'
+                      ? 'bg-brand-soft text-fg-brand-strong font-bold border-brand'
+                      : 'border-border-default hover:border-border-brand-subtle text-body-subtle'
                   }`}
                 >
                   {lim}
@@ -2582,51 +2510,51 @@ export function SystemHeartbeatPulseChart({
             </div>
           </div>
 
-          <div className="rounded-lg border border-border-default-subtle bg-neutral-primary p-2.5 space-y-1">
-            <span className="text-[10px] text-body-subtle font-medium">
-              {language === 'vi' ? 'Phát hiện Tấn công Dồn dập (Burst)' : 'Burst Attack Protection'}
+          <div className="rounded-base border border-border-default-subtle bg-neutral-primary p-2.5 space-y-1">
+            <span className="text-xs text-body-subtle font-medium">
+              {language === 'vi' ? 'Phát hiện tấn công dồn dập (Burst)' : 'Burst Attack Protection'}
             </span>
             <div className="flex items-center gap-1 font-bold text-heading font-mono">
-              <Flame size={13} className="text-amber-500" />
+              <Flame size={13} className="text-fg-warning" />
               <span>&gt; {wafStatus.burstLimitPerSecond} {language === 'vi' ? 'req/giây' : 'req/s'}</span>
             </div>
-            <p className="text-[9px] text-body-subtle">
+            <p className="text-xs text-body-subtle">
               {language === 'vi' ? 'Tự động khóa IP 15 phút nếu gửi vượt ngưỡng' : 'Auto-ban IP 15m if burst exceeded'}
             </p>
           </div>
 
-          <div className="rounded-lg border border-border-default-subtle bg-neutral-primary p-2.5 space-y-1">
-            <span className="text-[10px] text-body-subtle font-medium">
-              {language === 'vi' ? 'Yêu cầu Đã Chặn (HTTP 429)' : 'Blocked Requests (HTTP 429)'}
+          <div className="rounded-base border border-border-default-subtle bg-neutral-primary p-2.5 space-y-1">
+            <span className="text-xs text-body-subtle font-medium">
+              {language === 'vi' ? 'Yêu cầu đã chặn (HTTP 429)' : 'Blocked Requests (HTTP 429)'}
             </span>
-            <div className="flex items-center gap-1 font-bold text-danger font-mono text-sm">
+            <div className="flex items-center gap-1 font-bold text-fg-danger-strong font-mono text-sm">
               <UserX size={13} />
               <span>+{effectiveRateLimited} req</span>
             </div>
-            <p className="text-[9px] text-body-subtle">
+            <p className="text-xs text-body-subtle">
               {language === 'vi' ? 'Đã ngắt tại gateway, bảo vệ tài nguyên DB' : 'Dropped at gateway, protecting DB'}
             </p>
           </div>
 
-          <div className="rounded-lg border border-border-default-subtle bg-neutral-primary p-2.5 space-y-1">
-            <span className="text-[10px] text-body-subtle font-medium">
-              {language === 'vi' ? 'IP Đang Bị Cách Ly' : 'Active Blocked IPs'}
+          <div className="rounded-base border border-border-default-subtle bg-neutral-primary p-2.5 space-y-1">
+            <span className="text-xs text-body-subtle font-medium">
+              {language === 'vi' ? 'IP đang bị cách ly' : 'Active Blocked IPs'}
             </span>
             <div className="flex items-center gap-1 font-bold text-heading font-mono text-sm">
-              <ShieldAlert size={13} className="text-red-500" />
+              <ShieldAlert size={13} className="text-fg-danger-strong" />
               <span>{wafStatus.activeBlockedIpCount} IP</span>
             </div>
-            <p className="text-[9px] text-body-subtle">
+            <p className="text-xs text-body-subtle">
               {language === 'vi' ? 'Tự động mở khóa sau khi hết hạn' : 'Auto-expires when timer finishes'}
             </p>
           </div>
         </div>
 
         {/* Manual IP Blacklist Form & Blocked IP List */}
-        <div className="rounded-lg border border-border-default bg-neutral-primary p-3 space-y-2.5">
+        <div className="rounded-base border border-border-default bg-neutral-primary p-3 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold text-heading flex items-center gap-1.5">
-              <UserX size={13} className="text-red-500" />
+              <UserX size={13} className="text-fg-danger-strong" />
               <span>{language === 'vi' ? 'Danh sách IP bị cách ly / khóa tự động (Automated IP Blacklist)' : 'Isolated IP Blacklist'}</span>
             </span>
 
@@ -2636,19 +2564,19 @@ export function SystemHeartbeatPulseChart({
                 placeholder={language === 'vi' ? 'Địa chỉ IP (VD: 1.2.3.4)' : 'IP address'}
                 value={manualIpToBlock}
                 onChange={(e) => setManualIpToBlock(e.target.value)}
-                className="h-6.5 w-32 rounded border border-border-default bg-neutral-primary px-2 text-[11px] text-heading font-mono focus:border-danger focus:outline-none"
+                className="form-input h-8 w-32 rounded-control border border-border-default bg-neutral-primary px-2 text-xs text-heading font-mono focus:border-danger focus:outline-none"
               />
               <input
                 type="text"
                 placeholder={language === 'vi' ? 'Lý do chặn...' : 'Reason...'}
                 value={manualBlockReason}
                 onChange={(e) => setManualBlockReason(e.target.value)}
-                className="h-6.5 w-36 rounded border border-border-default bg-neutral-primary px-2 text-[11px] text-heading focus:border-danger focus:outline-none"
+                className="form-input h-8 w-36 rounded-control border border-border-default bg-neutral-primary px-2 text-xs text-heading focus:border-danger focus:outline-none"
               />
               <button
                 type="submit"
                 disabled={isBlockingIp || !manualIpToBlock.trim()}
-                className="btn btn-secondary h-6.5 px-2 text-[11px] text-danger border-danger/40 hover:bg-danger/10 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                className="btn btn-ghost-danger h-8 px-2 text-xs flex items-center gap-1 cursor-pointer"
               >
                 <Plus size={11} />
                 <span>{language === 'vi' ? 'Khóa IP' : 'Block IP'}</span>
@@ -2657,35 +2585,35 @@ export function SystemHeartbeatPulseChart({
           </div>
 
           {(wafStatus?.blockedIps ?? []).length === 0 ? (
-            <div className="rounded border border-dashed border-border-default p-2 text-center text-[11px] text-body-subtle italic">
+            <div className="rounded-base border border-dashed border-border-default p-2 text-center text-xs text-body-subtle italic">
               {language === 'vi'
                 ? 'Hệ thống an toàn, chưa có IP nào vi phạm ngưỡng tấn công hoặc bị đưa vào danh sách đen.'
                 : 'System is safe. No IP currently blacklisted.'}
             </div>
           ) : (
-            <div className="overflow-x-auto rounded border border-border-default text-[11px]">
+            <div className="overflow-x-auto rounded-base border border-border-default text-xs">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b border-border-default bg-neutral-secondary-soft text-left text-body-subtle text-[10px]">
-                    <th className="px-2 py-1">IP</th>
-                    <th className="px-2 py-1">{language === 'vi' ? 'Lý do chặn' : 'Reason'}</th>
-                    <th className="px-2 py-1">{language === 'vi' ? 'Thời điểm' : 'Blocked At'}</th>
-                    <th className="px-2 py-1">{language === 'vi' ? 'Vi phạm' : 'Violations'}</th>
-                    <th className="px-2 py-1 text-right">{language === 'vi' ? 'Hành động' : 'Action'}</th>
+                  <tr className="border-b border-border-default bg-neutral-secondary-soft text-left text-body-subtle text-xs">
+                    <th className="font-semibold text-body-subtle text-xs px-2 py-1">IP</th>
+                    <th className="font-semibold text-body-subtle text-xs px-2 py-1">{language === 'vi' ? 'Lý do chặn' : 'Reason'}</th>
+                    <th className="font-semibold text-body-subtle text-xs px-2 py-1">{language === 'vi' ? 'Thời điểm' : "Blocked at"}</th>
+                    <th className="font-semibold text-body-subtle text-xs px-2 py-1">{language === 'vi' ? 'Vi phạm' : 'Violations'}</th>
+                    <th className="font-semibold text-body-subtle text-xs px-2 py-1 text-right">{language === 'vi' ? 'Hành động' : 'Action'}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(wafStatus?.blockedIps ?? []).map((entry) => (
                     <tr key={entry.ip} className="border-b border-border-default/50 hover:bg-neutral-secondary-soft/50 font-mono">
-                      <td className="px-2 py-1 font-bold text-danger">{entry.ip}</td>
+                      <td className="px-2 py-1 font-bold text-fg-danger-strong">{entry.ip}</td>
                       <td className="px-2 py-1 font-sans text-heading">{entry.reason}</td>
                       <td className="px-2 py-1 text-body-subtle">{formatLogTime(entry.blockedAt)}</td>
-                      <td className="px-2 py-1 text-danger font-bold">+{entry.violationCount}</td>
+                      <td className="px-2 py-1 text-fg-danger-strong font-bold">+{entry.violationCount}</td>
                       <td className="px-2 py-1 text-right">
                         <button
                           type="button"
                           onClick={() => handleUnblockIp(entry.ip)}
-                          className="rounded px-2 py-0.5 text-[10px] text-fg-brand hover:bg-brand-soft border border-border-default font-sans cursor-pointer"
+                          className="btn btn-secondary rounded-control px-2 py-0.5 text-xs font-sans cursor-pointer"
                         >
                           {language === 'vi' ? 'Bỏ chặn' : 'Unblock'}
                         </button>
@@ -2701,59 +2629,53 @@ export function SystemHeartbeatPulseChart({
 
       {/* REQUEST DETAIL MODAL (SAFE METADATA ONLY) */}
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-label="Request Detail Modal">
-          <div className="w-full max-w-lg rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 text-xs text-slate-800 dark:text-slate-200 shadow-2xl space-y-3 font-mono">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/80 p-4" role="dialog" aria-label="Request Detail Modal">
+          <div style={{ boxShadow: 'var(--shadow-lg)' }} className="w-full max-w-lg rounded-base border border-border-default bg-neutral-primary-soft p-5 text-xs text-heading shadow-lg space-y-3 font-mono">
+            <div className="flex items-center justify-between border-b border-border-default pb-2.5">
               <div className="flex items-center gap-2">
-                <Info size={15} className="text-emerald-600 dark:text-emerald-400" />
-                <span className="font-bold text-sm text-heading">{language === 'vi' ? 'Chi Tiết Đo Lường Request' : 'Request Telemetry Detail'}</span>
+                <Info size={15} className="text-fg-success-strong" />
+                <span className="font-bold text-sm text-heading">{language === 'vi' ? 'Chi tiết đo lường request' : 'Request Telemetry Detail'}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedRequest(null)}
-                className="rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-              >
-                <X size={14} />
-              </button>
+              <IconButton onClick={() => setSelectedRequest(null)} label="Đóng" icon={X} className="hover:bg-neutral-secondary-soft hover:text-heading" />
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 text-[11px]">
-              <div className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-2">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Request ID / Trace ID</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">{selectedRequest.id}</span>
+            <div className="grid grid-cols-2 gap-2.5 text-xs">
+              <div className="rounded-base border border-border-default bg-neutral-secondary-soft p-2">
+                <span className="text-body-subtle block text-xs">Request ID / Trace ID</span>
+                <span className="font-bold text-fg-success-strong">{selectedRequest.id}</span>
               </div>
-              <div className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-2">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px]">{language === 'vi' ? 'Thời điểm' : 'Timestamp'}</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{selectedRequest.timestamp}</span>
+              <div className="rounded-base border border-border-default bg-neutral-secondary-soft p-2">
+                <span className="text-body-subtle block text-xs">{language === 'vi' ? 'Thời điểm' : 'Timestamp'}</span>
+                <span className="font-bold text-heading">{selectedRequest.timestamp}</span>
               </div>
-              <div className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-2">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px]">{language === 'vi' ? 'Phương thức & Mã' : 'Method & Status'}</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">
-                  {selectedRequest.method} · HTTP {selectedRequest.status} ({getStatusText(selectedRequest.status)})
+              <div className="rounded-base border border-border-default bg-neutral-secondary-soft p-2">
+                <span className="text-body-subtle block text-xs">{language === 'vi' ? 'Phương thức & Mã' : 'Method & Status'}</span>
+                <span className="font-bold text-heading">
+                  {selectedRequest.method}, HTTP {selectedRequest.status} ({getStatusText(selectedRequest.status)})
                 </span>
               </div>
-              <div className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-2">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px]">{language === 'vi' ? 'Độ trễ xử lý' : 'Latency (Duration)'}</span>
-                <span className="font-bold text-amber-600 dark:text-amber-400">{selectedRequest.durationMs} ms</span>
+              <div className="rounded-base border border-border-default bg-neutral-secondary-soft p-2">
+                <span className="text-body-subtle block text-xs">{language === 'vi' ? 'Độ trễ xử lý' : 'Latency (Duration)'}</span>
+                <span className="font-bold text-fg-warning">{selectedRequest.durationMs} ms</span>
               </div>
-              <div className="col-span-2 rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-2">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px]">{language === 'vi' ? 'Đường dẫn gốc (Đã khử nhạy cảm)' : 'Raw Endpoint (Sanitized)'}</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200 break-all">{selectedRequest.uri}</span>
+              <div className="col-span-2 rounded-base border border-border-default bg-neutral-secondary-soft p-2">
+                <span className="text-body-subtle block text-xs">{language === 'vi' ? 'Đường dẫn gốc (Đã khử nhạy cảm)' : 'Raw Endpoint (Sanitized)'}</span>
+                <span className="font-bold text-heading break-all">{selectedRequest.uri}</span>
               </div>
-              <div className="col-span-2 rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-2">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px]">{language === 'vi' ? 'Mẫu Route chuẩn hóa' : 'Normalized Route Template'}</span>
-                <span className="font-bold text-sky-600 dark:text-sky-400 break-all">{selectedRequest.routeTemplate || selectedRequest.uri}</span>
+              <div className="col-span-2 rounded-base border border-border-default bg-neutral-secondary-soft p-2">
+                <span className="text-body-subtle block text-xs">{language === 'vi' ? 'Mẫu Route chuẩn hóa' : 'Normalized Route Template'}</span>
+                <span className="font-bold text-fg-brand-strong break-all">{selectedRequest.routeTemplate || selectedRequest.uri}</span>
               </div>
-              <div className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-2 flex items-center justify-between">
+              <div className="rounded-base border border-border-default bg-neutral-secondary-soft p-2 flex items-center justify-between">
                 <div>
-                  <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Client IP</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{selectedRequest.clientIp}</span>
+                  <span className="text-body-subtle block text-xs">Client IP</span>
+                  <span className="font-bold text-heading">{selectedRequest.clientIp}</span>
                 </div>
                 {blockedIpSet.has(cleanIp(selectedRequest.clientIp)) ? (
                   <button
                     type="button"
                     onClick={() => setConfirmUnblockIpTarget(cleanIp(selectedRequest.clientIp))}
-                    className="flex items-center gap-1 rounded bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 px-2 py-1 text-[10px] font-bold text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/80 cursor-pointer"
+                    className="btn btn-ghost-danger rounded-control flex items-center gap-1 px-2 py-1 text-xs font-bold cursor-pointer"
                   >
                     <UserX size={11} />
                     <span>{language === 'vi' ? 'Đã khóa (Gỡ chặn)' : 'Banned (Unblock)'}</span>
@@ -2762,22 +2684,22 @@ export function SystemHeartbeatPulseChart({
                   <button
                     type="button"
                     onClick={() => setConfirmBlockIpTarget(cleanIp(selectedRequest.clientIp))}
-                    className="flex items-center gap-1 rounded bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/40 px-2 py-1 text-[10px] font-bold text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/30 cursor-pointer"
+                    className="btn btn-ghost-danger rounded-control flex items-center gap-1 px-2 py-1 text-xs font-bold cursor-pointer"
                   >
                     <UserX size={11} />
                     <span>{language === 'vi' ? 'Khóa IP này (Ban IP)' : 'Ban this IP'}</span>
                   </button>
                 )}
               </div>
-              <div className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-2">
-                <span className="text-slate-500 dark:text-slate-400 block text-[10px]">{language === 'vi' ? 'Phân loại & Người dùng' : 'Classification & Principal'}</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{selectedRequest.requestType || 'USER_API'} · {selectedRequest.userEmail}</span>
+              <div className="rounded-base border border-border-default bg-neutral-secondary-soft p-2">
+                <span className="text-body-subtle block text-xs">{language === 'vi' ? 'Phân loại & Người dùng' : 'Classification & Principal'}</span>
+                <span className="font-bold text-heading">{selectedRequest.requestType || 'USER_API'}, {selectedRequest.userEmail}</span>
               </div>
             </div>
 
-            <div className="rounded border border-emerald-500/20 bg-emerald-50 dark:bg-emerald-950/30 p-2 text-[10px] text-emerald-800 dark:text-emerald-300 font-sans">
+            <div className="rounded-base border border-border-success-subtle bg-success-soft p-2 text-xs text-fg-success-strong font-sans">
               {language === 'vi'
-                ? 'Chính sách Bảo mật: Hệ thống không lưu trữ và không hiển thị Authorization header, Cookie, mật khẩu, API key hoặc nội dung body nhạy cảm.'
+                ? 'Chính sách bảo mật: Hệ thống không lưu trữ và không hiển thị Authorization header, Cookie, mật khẩu, API key hoặc nội dung body nhạy cảm.'
                 : 'Security Policy: Authorization headers, Cookies, passwords, API keys and sensitive request bodies are never logged or displayed.'}
             </div>
           </div>
@@ -2803,48 +2725,36 @@ export function SystemHeartbeatPulseChart({
       {/* MODAL QUẢN LÝ DANH SÁCH BAN IP / BLACKLIST */}
       {blacklistModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/80 p-4"
           role="dialog"
           aria-label="IP Blacklist Modal"
         >
-          <div className="w-full max-w-xl rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 text-xs text-slate-800 dark:text-slate-200 shadow-2xl space-y-3 font-mono max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+          <div style={{ boxShadow: 'var(--shadow-lg)' }} className="w-full max-w-xl rounded-base border border-border-default bg-neutral-primary-soft p-5 text-xs text-heading shadow-lg space-y-3 font-mono max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border-default pb-2.5">
               <div className="flex items-center gap-2">
-                <UserX size={16} className="text-red-500 dark:text-red-400" />
+                <UserX size={16} className="text-fg-danger-strong" />
                 <span className="font-bold text-sm text-heading">
-                  {language === 'vi' ? 'Quản Lý Danh Sách Khóa IP (IP Blacklist & Ban)' : 'IP Blacklist & Ban Management'}
+                  {language === 'vi' ? 'Quản lý danh sách khóa IP (IP Blacklist & Ban)' : 'IP Blacklist & Ban Management'}
                 </span>
-                <span className="rounded-full bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-500/30 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-400">
+                <Tag variant="status" tone="danger" icon={AlertCircle}>
                   {(wafStatus?.blockedIps ?? []).length} IP
-                </span>
+                </Tag>
               </div>
-              <button
-                type="button"
-                onClick={() => setBlacklistModalOpen(false)}
-                className="rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-              >
-                <X size={14} />
-              </button>
+              <IconButton onClick={() => setBlacklistModalOpen(false)} label="Đóng" icon={X} className="hover:bg-neutral-secondary-soft hover:text-heading" />
             </div>
 
             {/* Thông báo lỗi trong modal (nếu có) */}
             {actionError && (
-              <div className="flex items-center justify-between rounded-lg bg-red-50 dark:bg-red-950/70 border border-red-200 dark:border-red-500/40 p-2 text-xs text-red-700 dark:text-red-300">
+              <div className="flex items-center justify-between rounded-base bg-danger-soft border border-border-danger-subtle p-2 text-xs text-fg-danger-strong">
                 <span>{actionError}</span>
-                <button
-                  type="button"
-                  onClick={() => setActionError(null)}
-                  className="rounded p-0.5 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 cursor-pointer"
-                >
-                  <X size={12} />
-                </button>
+                <IconButton onClick={() => setActionError(null)} label="Đóng" icon={X} className="hover:text-fg-danger-strong" />
               </div>
             )}
 
             {/* Form Khóa IP nhanh */}
-            <form onSubmit={handleManualBlockIp} className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-2.5">
+            <form onSubmit={handleManualBlockIp} className="flex flex-wrap items-center gap-2 rounded-base border border-border-default bg-neutral-secondary-soft p-2.5">
               <div className="flex-1 min-w-[140px]">
-                <span className="text-[10px] text-slate-600 dark:text-slate-400 block mb-1">
+                <span className="text-xs text-body block mb-1">
                   {language === 'vi' ? 'Địa chỉ IP cần khóa:' : 'IP address to ban:'}
                 </span>
                 <input
@@ -2852,11 +2762,11 @@ export function SystemHeartbeatPulseChart({
                   placeholder={language === 'vi' ? 'VD: 172.20.0.1' : 'e.g. 172.20.0.1'}
                   value={manualIpToBlock}
                   onChange={(e) => setManualIpToBlock(e.target.value)}
-                  className="h-7 w-full rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 text-[11px] text-slate-800 dark:text-slate-100 font-mono focus:border-red-500 focus:outline-none"
+                  className="form-input h-7 w-full rounded-control border border-border-default bg-neutral-primary-soft px-2 text-xs text-heading font-mono focus:border-border-danger-subtle focus:outline-none"
                 />
               </div>
               <div className="flex-1 min-w-[160px]">
-                <span className="text-[10px] text-slate-600 dark:text-slate-400 block mb-1">
+                <span className="text-xs text-body block mb-1">
                   {language === 'vi' ? 'Lý do khóa:' : 'Ban reason:'}
                 </span>
                 <input
@@ -2864,14 +2774,14 @@ export function SystemHeartbeatPulseChart({
                   placeholder={language === 'vi' ? 'Lý do (mặc định 15 phút)...' : 'Reason (default 15m)...'}
                   value={manualBlockReason}
                   onChange={(e) => setManualBlockReason(e.target.value)}
-                  className="h-7 w-full rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 text-[11px] text-slate-800 dark:text-slate-100 focus:border-red-500 focus:outline-none"
+                  className="form-input h-7 w-full rounded-control border border-border-default bg-neutral-primary-soft px-2 text-xs text-heading focus:border-border-danger-subtle focus:outline-none"
                 />
               </div>
               <div className="self-end">
                 <button
                   type="submit"
                   disabled={isBlockingIp || !manualIpToBlock.trim()}
-                  className="btn h-7 px-3 text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 cursor-pointer flex items-center gap-1"
+                  className="btn btn-ghost-danger px-3 text-xs font-semibold cursor-pointer flex items-center gap-1"
                 >
                   <UserX size={12} />
                   <span>{language === 'vi' ? 'Khóa IP' : 'Block IP'}</span>
@@ -2881,33 +2791,33 @@ export function SystemHeartbeatPulseChart({
 
             {/* Bảng IP đang bị khóa */}
             {(wafStatus?.blockedIps ?? []).length === 0 ? (
-              <div className="rounded border border-dashed border-slate-200 dark:border-slate-800 p-4 text-center text-slate-400 dark:text-slate-500 italic">
+              <div className="rounded-base border border-dashed border-border-default p-4 text-center text-body-subtle italic">
                 {language === 'vi' ? 'Hiện chưa có IP nào bị đưa vào danh sách đen.' : 'No IPs currently blacklisted.'}
               </div>
             ) : (
-              <div className="rounded border border-slate-200 dark:border-slate-800 overflow-hidden">
-                <table className="w-full border-collapse text-[11px]">
+              <div className="rounded-base border border-border-default overflow-hidden">
+                <table className="w-full border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-left text-slate-600 dark:text-slate-400 text-[10px]">
-                      <th className="px-2.5 py-1.5">IP</th>
-                      <th className="px-2.5 py-1.5">{language === 'vi' ? 'Lý do' : 'Reason'}</th>
-                      <th className="px-2.5 py-1.5">{language === 'vi' ? 'Thời điểm' : 'Blocked At'}</th>
-                      <th className="px-2.5 py-1.5">{language === 'vi' ? 'Vi phạm' : 'Violations'}</th>
-                      <th className="px-2.5 py-1.5 text-right">{language === 'vi' ? 'Hành động' : 'Action'}</th>
+                    <tr className="border-b border-border-default bg-neutral-secondary-soft text-left text-body text-xs">
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5">IP</th>
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5">{language === 'vi' ? 'Lý do' : 'Reason'}</th>
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5">{language === 'vi' ? 'Thời điểm' : "Blocked at"}</th>
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5">{language === 'vi' ? 'Vi phạm' : 'Violations'}</th>
+                      <th className="font-semibold text-body-subtle text-xs px-2.5 py-1.5 text-right">{language === 'vi' ? 'Hành động' : 'Action'}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(wafStatus?.blockedIps ?? []).map((entry) => (
-                      <tr key={entry.ip} className="border-b border-slate-200/60 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-900/50 font-mono">
-                        <td className="px-2.5 py-1.5 font-bold text-red-600 dark:text-red-400">{entry.ip}</td>
-                        <td className="px-2.5 py-1.5 text-slate-800 dark:text-slate-300 font-sans">{entry.reason}</td>
-                        <td className="px-2.5 py-1.5 text-slate-500 dark:text-slate-400">{formatLogTime(entry.blockedAt)}</td>
-                        <td className="px-2.5 py-1.5 text-red-600 dark:text-red-400 font-bold">+{entry.violationCount}</td>
+                      <tr key={entry.ip} className="border-b border-border-default hover:bg-neutral-secondary-soft font-mono">
+                        <td className="px-2.5 py-1.5 font-bold text-fg-danger-strong">{entry.ip}</td>
+                        <td className="px-2.5 py-1.5 text-heading font-sans">{entry.reason}</td>
+                        <td className="px-2.5 py-1.5 text-body-subtle">{formatLogTime(entry.blockedAt)}</td>
+                        <td className="px-2.5 py-1.5 text-fg-danger-strong font-bold">+{entry.violationCount}</td>
                         <td className="px-2.5 py-1.5 text-right">
                           <button
                             type="button"
                             onClick={() => handleUnblockIp(entry.ip)}
-                            className="rounded px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-500/30 cursor-pointer"
+                            className="btn btn-secondary rounded-control px-2 py-0.5 text-xs font-bold cursor-pointer"
                           >
                             {language === 'vi' ? 'Bỏ chặn' : 'Unblock'}
                           </button>

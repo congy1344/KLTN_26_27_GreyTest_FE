@@ -2,8 +2,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '../../../shared/components/AppShell';
 import { SkeletonLoader } from '../../../shared/components/SkeletonLoader';
 import { ErrorState } from '../../../shared/components/ErrorState';
-import { ProjectWorkflowTabs } from '../../projects/components/ProjectWorkflowTabs';
-import { ProjectPageHeader } from '../../projects/components/ProjectPageHeader';
+import { ProjectWorkspace } from '../../projects/components/ProjectWorkspace';
 import { useProject } from '../../projects/hooks/useProjects';
 import { canOpenTestCases } from '../../projects/utils/project-workflow';
 import { TestCasesPanel } from '../components/TestCasesPanel';
@@ -42,22 +41,25 @@ export function TestCasesPage() {
   }
 
   return (
-    <AppShell maxWidth="wide">
-      <ProjectPageHeader
+    <AppShell maxWidth="bleed">
+      <ProjectWorkspace
         project={project}
         servicePath={serviceScope.servicePath}
         titlePrefix="Test Case"
         subtitle={t('Chuẩn bị test data từ các Test Plan đã duyệt.', 'Prepare test data from approved Test Plans.')}
         backTo={projectWorkflowPath(projectId, 'test-plans', serviceScope.servicePath)}
         backLabel="Test Plan"
-      />
+        active="test-cases"
+        status={status ?? project.status}
+        reachedStatus={serviceScope.selected?.reachedStatus}
+        selector={<ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />}
+      >
       {serviceScope.selected && status && (
         <>
-          <ProjectWorkflowTabs projectId={projectId} active="test-cases" reachedStatus={serviceScope.selected?.reachedStatus} status={status} servicePath={serviceScope.servicePath} />
-          <ProjectServiceSelector services={serviceScope.services} servicePath={serviceScope.servicePath} onChange={serviceScope.select} />
           <TestCasesPanel key={serviceScope.servicePath ?? 'default'} projectId={projectId} projectStatus={status} servicePath={serviceScope.servicePath} />
         </>
       )}
+      </ProjectWorkspace>
     </AppShell>
   );
 }

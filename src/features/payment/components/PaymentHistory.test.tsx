@@ -99,7 +99,7 @@ describe('PaymentHistory', () => {
     fireEvent.click(invoiceBtn);
     expect(screen.getByText('HÓA ĐƠN DỊCH VỤ ĐIỆN TỬ')).toBeInTheDocument();
     expect(screen.getByText('INV-GT_PAID')).toBeInTheDocument();
-    expect(screen.getByText('ĐÃ THANH TOÁN')).toBeInTheDocument();
+    expect(screen.getByText('Đã thanh toán')).toBeInTheDocument();
 
     // Close invoice modal
     const closeBtn = screen.getByTitle('Đóng');

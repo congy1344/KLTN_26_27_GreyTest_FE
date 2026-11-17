@@ -36,9 +36,16 @@ describe('ProjectPageHeader', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Test Plan · Hospital Management' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Test Plan: Hospital Management' })).toBeVisible();
     expect(screen.getByText('Test plan description')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Cập nhật source' })).toBeVisible();
+  });
+
+  it('shows the failed status pill inside the workspace header', () => {
+    render(<MemoryRouter><ProjectPageHeader project={mockProject()} subtitle="Subtitle"
+      backTo="/projects" backLabel="Back" compact status="FAILED" failedStep={3} /></MemoryRouter>);
+    expect(screen.getByText('Thất bại')).toHaveAttribute('data-tone', 'failed');
+    expect(screen.queryByText('Hoàn thành')).not.toBeInTheDocument();
   });
 
   it('opens source update modal when clicking source update button', () => {

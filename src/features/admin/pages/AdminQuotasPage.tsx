@@ -1,7 +1,7 @@
-import {
-  AlertTriangle, ArrowLeft, BarChart3, Calendar, CheckCircle2,
-  Package, PauseCircle, Pencil, PlayCircle, Plus, Save, Trash2, Users, X, Zap,
-} from 'lucide-react';
+import { SelectMenu } from '../../../shared/components/SelectMenu';
+import { IconButton } from '../../../shared/components/IconButton';
+import { AlertTriangle, ArrowLeft, BarChart3, Calendar, CheckCircle2, CircleDot, Package, PauseCircle, Pencil, PlayCircle, Plus, Save, Trash2, Users, X } from 'lucide-react';
+import { Tag } from '../../../shared/components/Tag';
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getErrorMessage } from '../../../shared/api/api-client';
@@ -190,17 +190,17 @@ export function AdminQuotasPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-fg-brand">
-              {language === 'vi' ? 'Quản lý Gói & Hạn Ngạch' : 'Tier & Quota Management'}
+            <span className="text-xs font-semibold text-body-subtle">
+              {language === 'vi' ? 'Quản lý gói & hạn ngạch' : 'Tier & Quota Management'}
             </span>
           </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-heading sm:text-3xl">
-            {language === 'vi' ? 'Quản Lý Hạn Ngạch & Gói Dịch Vụ Tier' : 'Tier Packages & Usage Policies'}
+          <h1 className="mt-1 text-2xl font-bold text-heading sm:text-3xl">
+            {language === 'vi' ? 'Quản lý hạn ngạch & gói dịch vụ Tier' : "Tier packages & usage policies"}
           </h1>
         </div>
 
-        <div className="flex items-center gap-2 rounded-lg border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs text-body shadow-xs">
-          <Calendar size={13} className="text-fg-brand" />
+        <div className="flex items-center gap-2 rounded-base border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs text-body shadow-xs">
+          <Calendar size={13} className="text-fg-brand-strong" />
           <span>
             {language === 'vi'
               ? 'Chu kỳ làm mới hạn ngạch: Hàng tuần (theo ngày đăng ký)'
@@ -215,25 +215,17 @@ export function AdminQuotasPage() {
           {packages.map((pkg) => (
             <div
               key={pkg.code}
-              className={`rounded-xl border p-5 shadow-xs transition-all ${
+              className={`rounded-base border p-5 shadow-xs transition-colors ${
                 pkg.active
                   ? 'border-border-default bg-neutral-primary-soft'
-                  : 'border-dashed border-border-default-subtle bg-neutral-secondary-soft/40 opacity-70'
+                  : 'border-dashed border-border-default-subtle bg-neutral-secondary-soft/40'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 font-sans text-[11px] font-bold ${
-                    pkg.code === 'PRO'
-                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
-                      : pkg.code === 'PLUS'
-                      ? 'bg-brand-softer text-fg-brand-strong'
-                      : 'bg-neutral-secondary text-body-subtle'
-                  }`}
-                >
+                <Tag variant="status" tone={pkg.code === 'PRO' ? "brand" : pkg.code === 'PLUS' ? "brand" : "neutral"} icon={CircleDot}>
                   {pkg.code} TIER
-                </span>
-                <span className="flex items-center gap-1 text-[11px] font-bold text-fg-brand">
+                </Tag>
+                <span className="flex items-center gap-1 text-xs font-bold text-fg-brand-strong">
                   <Package size={14} />
                   <span>{formatCurrency(pkg.price)}</span>
                 </span>
@@ -244,14 +236,14 @@ export function AdminQuotasPage() {
               </h3>
               <p className="mt-1 text-xs text-body-subtle">{pkg.description || pkg.name}</p>
 
-              <div className="mt-4 border-t border-border-default-subtle pt-3 text-[11px] text-body-subtle space-y-1">
+              <div className="mt-4 border-t border-border-default-subtle pt-3 text-xs text-body-subtle space-y-1">
                 <div className="flex justify-between">
                   <span>{language === 'vi' ? 'Độ song song' : 'Concurrency'}:</span>
                   <strong className="text-heading">{pkg.batchConcurrency} batch đồng thời</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>{language === 'vi' ? 'Người dùng đang dùng' : 'Active users'}:</span>
-                  <span className="font-sans tabular-nums font-bold text-fg-brand">{pkg.activeUsersCount ?? 0} tài khoản</span>
+                  <span className="font-sans tabular-nums font-bold text-fg-brand-strong">{pkg.activeUsersCount ?? 0} tài khoản</span>
                 </div>
               </div>
             </div>
@@ -260,11 +252,11 @@ export function AdminQuotasPage() {
 
         {/* Module 2: Quota Alerts & Top Consumers */}
         <section className="grid gap-6 lg:grid-cols-[1fr_2fr]">
-          <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
+          <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
             <div className="flex items-center gap-2 border-b border-border-default pb-3">
               <AlertTriangle size={16} className="text-fg-warning" />
               <h3 className="text-sm font-bold text-heading">
-                {language === 'vi' ? 'Cảnh Báo Vượt Hạn Ngạch' : 'Quota Warning Alerts'}
+                {language === 'vi' ? 'Cảnh báo vượt hạn ngạch' : "Quota warning alerts"}
               </h3>
             </div>
             <div className="mt-4">
@@ -284,12 +276,12 @@ export function AdminQuotasPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
+          <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
             <div className="flex items-center justify-between border-b border-border-default pb-3">
               <div className="flex items-center gap-2">
-                <BarChart3 size={16} className="text-fg-brand" />
+                <BarChart3 size={16} className="text-fg-brand-strong" />
                 <h3 className="text-sm font-bold text-heading">
-                  {language === 'vi' ? 'Bảng Xếp Hạng Tiêu Thụ LLM (30 Ngày)' : 'Top LLM Consumers (Last 30 Days)'}
+                  {language === 'vi' ? 'Bảng xếp hạng tiêu thụ LLM (30 ngày)' : "Top LLM consumers (last 30 days)"}
                 </h3>
               </div>
               <span className="text-xs text-body-subtle">
@@ -300,7 +292,7 @@ export function AdminQuotasPage() {
               {(top.data ?? []).map((u, idx) => (
                 <div key={u.userId} className="flex items-center justify-between py-2 text-xs">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-softer font-sans tabular-nums text-[11px] font-bold text-fg-brand">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-softer font-sans tabular-nums text-xs font-bold text-fg-brand-strong">
                       {idx + 1}
                     </span>
                     <span className="font-medium text-heading">{u.email}</span>
@@ -318,13 +310,13 @@ export function AdminQuotasPage() {
         </section>
 
         {/* Module 3: Tier Package Management Table (Full CRUD) */}
-        <section className="rounded-xl border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
+        <section className="rounded-base border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
           <div className="border-b border-border-default p-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <Package size={17} className="text-fg-brand" />
+                <Package size={17} className="text-fg-brand-strong" />
                 <h2 className="text-base font-bold text-heading">
-                  {language === 'vi' ? 'Quản Lý Danh Mục Gói Dịch Vụ & Hạn Mức Tier' : 'Tier Package Management & Policies'}
+                  {language === 'vi' ? 'Quản lý danh mục gói dịch vụ & hạn mức Tier' : "Tier package management & policies"}
                 </h2>
               </div>
               <p className="mt-0.5 text-xs text-body-subtle">
@@ -336,7 +328,7 @@ export function AdminQuotasPage() {
 
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1 font-sans tabular-nums text-xs text-body-subtle">
-                <CheckCircle2 size={13} className="text-fg-brand" />
+                <CheckCircle2 size={13} className="text-fg-brand-strong" />
                 {packages.length} {language === 'vi' ? 'gói cấu hình' : 'tiers'}
               </span>
               <button
@@ -345,7 +337,7 @@ export function AdminQuotasPage() {
                 className="btn btn-brand px-3 py-1.5 text-xs flex items-center gap-1.5"
               >
                 <Plus size={14} />
-                <span>{language === 'vi' ? 'Thêm Gói Mới' : 'Add New Tier'}</span>
+                <span>{language === 'vi' ? 'Thêm gói mới' : 'Add New Tier'}</span>
               </button>
             </div>
           </div>
@@ -353,22 +345,22 @@ export function AdminQuotasPage() {
           {formError && !modalPackage && (
             <div className="border-b border-border-danger-subtle bg-danger-soft p-3 text-xs text-fg-danger-strong flex items-center justify-between">
               <span>{formError}</span>
-              <button type="button" onClick={() => setFormError(null)} className="font-bold underline ml-2">Đóng</button>
+              <button type="button" onClick={() => setFormError(null)} className="btn btn-ghost rounded-control font-bold underline ml-2">Đóng</button>
             </div>
           )}
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-border-default bg-neutral-secondary-soft font-bold uppercase text-body-subtle">
+              <thead className="text-xs border-b border-border-default bg-neutral-secondary-soft font-semibold text-body-subtle">
                 <tr>
-                  <th className="p-3.5">{language === 'vi' ? 'Mã & Tên Gói' : 'Code & Tier Name'}</th>
-                  <th className="p-3.5">{language === 'vi' ? 'Giá Cước' : 'Price'}</th>
-                  <th className="p-3.5">{language === 'vi' ? 'Hạn Mức Quota' : 'Quota Limit'}</th>
-                  <th className="p-3.5">{language === 'vi' ? 'Độ Song Song' : 'Concurrency'}</th>
-                  <th className="p-3.5 min-w-[200px]">{language === 'vi' ? 'Tính Năng Nổi Bật' : 'Key Features'}</th>
-                  <th className="p-3.5">{language === 'vi' ? 'User Đang Dùng' : 'Subscribers'}</th>
-                  <th className="p-3.5">{language === 'vi' ? 'Trạng Thái' : 'Status'}</th>
-                  <th className="p-3.5 text-right">{language === 'vi' ? 'Thao Tác' : 'Actions'}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'Mã & tên gói' : "Code & tier name"}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'Giá cước' : 'Price'}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'Hạn mức quota' : "Quota limit"}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'Độ song song' : 'Concurrency'}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3.5 min-w-[200px]">{language === 'vi' ? 'Tính năng nổi bật' : "Key features"}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'User đang dùng' : 'Subscribers'}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3.5 text-right">{language === 'vi' ? 'Thao tác' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-default">
@@ -378,26 +370,18 @@ export function AdminQuotasPage() {
                     <tr key={pkg.code} className="hover:bg-neutral-secondary-soft/50 transition-colors">
                       <td className="p-3.5 border-r border-border-default-subtle">
                         <div className="flex items-center gap-2">
-                          <span
-                            className={`rounded-full border px-2.5 py-0.5 font-sans text-[11px] font-bold ${
-                              pkg.code === 'PRO'
-                                ? 'border-purple-300 bg-purple-100 text-purple-700 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300'
-                                : pkg.code === 'PLUS'
-                                ? 'border-indigo-300 bg-brand-softer text-fg-brand-strong dark:border-indigo-800'
-                                : 'border-border-default bg-neutral-secondary text-body-subtle'
-                            }`}
-                          >
+                          <Tag variant="status" tone={pkg.code === 'PRO' ? "brand" : pkg.code === 'PLUS' ? "brand" : "neutral"} icon={CircleDot}>
                             {pkg.code}
-                          </span>
+                          </Tag>
                           {isSystem && (
-                            <span className="rounded-md border border-border-default bg-neutral-secondary px-1.5 py-0.5 text-[9px] font-bold uppercase text-body-subtle">
+                            <Tag>
                               Hệ thống
-                            </span>
+                            </Tag>
                           )}
                         </div>
                         <p className="mt-1 font-semibold text-heading text-xs">{pkg.name}</p>
                         {pkg.description && (
-                          <p className="mt-1 text-[11px] text-body-subtle leading-relaxed" title={pkg.description}>
+                          <p className="mt-1 text-xs text-body-subtle leading-relaxed" title={pkg.description}>
                             {pkg.description}
                           </p>
                         )}
@@ -407,7 +391,7 @@ export function AdminQuotasPage() {
                         <span className="font-sans tabular-nums font-bold text-heading">
                           {formatCurrency(pkg.price)}
                         </span>
-                        <p className="text-[10px] text-body-subtle uppercase">
+                        <p className="text-xs text-body-subtle">
                           / {pkg.cycle || 'MONTHLY'}
                         </p>
                       </td>
@@ -416,7 +400,7 @@ export function AdminQuotasPage() {
                         <span className="font-sans tabular-nums font-bold text-heading">
                           {pkg.quotaLimit.toLocaleString()}
                         </span>
-                        <p className="text-[10px] text-body-subtle">
+                        <p className="text-xs text-body-subtle">
                           requests / {pkg.cycle?.toLowerCase()}
                         </p>
                       </td>
@@ -425,19 +409,15 @@ export function AdminQuotasPage() {
                         <span className="font-sans tabular-nums font-bold text-heading">
                           {pkg.batchConcurrency}
                         </span>
-                        <span className="text-[11px] text-body-subtle ml-1">batch</span>
+                        <span className="text-xs text-body-subtle ml-1">batch</span>
                       </td>
 
                       <td className="p-3.5 border-r border-border-default-subtle">
                         <div className="flex flex-wrap gap-1 max-w-xs">
                           {(pkg.features || []).map((feat, i) => (
-                            <span
-                              key={i}
-                              className="inline-flex items-center gap-1 rounded-md border border-border-default bg-neutral-secondary-soft px-2 py-0.5 text-[10.5px] text-heading font-medium"
-                            >
-                              <Zap size={10} className="text-fg-brand shrink-0" />
+                            <Tag key={i}>
                               <span>{feat}</span>
-                            </span>
+                            </Tag>
                           ))}
                         </div>
                       </td>
@@ -445,7 +425,7 @@ export function AdminQuotasPage() {
                       <td className="p-3.5 border-r border-border-default-subtle whitespace-nowrap min-w-[120px]">
                         <Link
                           to={`/admin/users?tier=${pkg.code}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-neutral-primary-soft px-2.5 py-1 font-sans tabular-nums text-xs font-bold text-fg-brand hover:bg-brand-softer hover:border-brand-subtle transition-colors shadow-2xs whitespace-nowrap"
+                          className="inline-flex items-center gap-1.5 rounded-base border border-border-default bg-neutral-primary-soft px-2.5 py-1 font-sans tabular-nums text-xs font-bold text-fg-brand-strong hover:bg-brand-softer hover:border-border-brand-subtle transition-colors shadow-2xs whitespace-nowrap"
                           title={language === 'vi' ? 'Xem danh sách tài khoản thuộc gói này' : 'View users in this tier'}
                         >
                           <Users size={13} className="shrink-0" />
@@ -457,17 +437,9 @@ export function AdminQuotasPage() {
                         <button
                           type="button"
                           onClick={() => setStatusToggleTarget(pkg)}
-                          className={`group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold whitespace-nowrap transition-all duration-150 cursor-pointer hover:shadow-xs ${
-                            pkg.active
-                              ? 'border-border-success-subtle bg-success-soft text-fg-success-strong hover:bg-success-soft/80'
-                              : 'border-border-default bg-neutral-secondary text-body-subtle hover:bg-neutral-secondary/80'
-                          }`}
+                          className="btn btn-ghost rounded-control p-0"
                           title={language === 'vi' ? 'Nhấp để đổi trạng thái sang Tạm dừng / Kích hoạt' : 'Click to toggle package status'}
-                        >
-                          <span className={`h-2 w-2 rounded-full shrink-0 transition-transform group-hover:scale-125 ${pkg.active ? 'bg-success' : 'bg-neutral-400'}`} />
-                          <span>{pkg.active ? (language === 'vi' ? 'KÍCH HOẠT' : 'ACTIVE') : (language === 'vi' ? 'TẠM DỪNG' : 'INACTIVE')}</span>
-                          <span className="text-[9px] opacity-60 underline ml-0.5">({language === 'vi' ? 'Đổi' : 'Change'})</span>
-                        </button>
+                        ><Tag variant="status" tone={pkg.active ? 'success' : 'neutral'} icon={CircleDot}><span>{pkg.active ? (language === 'vi' ? 'Kích hoạt' : 'ACTIVE') : (language === 'vi' ? 'Tạm dừng' : 'INACTIVE')}</span></Tag><span className="text-xs text-body-subtle underline ml-0.5">({language === 'vi' ? 'Đổi' : 'Change'})</span></button>
                       </td>
 
                       <td className="p-3.5 text-right">
@@ -475,14 +447,14 @@ export function AdminQuotasPage() {
                           <button
                             type="button"
                             onClick={() => setStatusToggleTarget(pkg)}
-                            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold shadow-2xs transition-colors ${
+                            className={`btn inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-xs font-semibold shadow-2xs transition-colors ${
                               pkg.active
-                                ? 'border-amber-500/50 bg-amber-500/5 text-amber-700 hover:bg-amber-500/15 dark:border-amber-500/40 dark:text-amber-400'
-                                : 'border-emerald-500/50 bg-emerald-500/5 text-emerald-700 hover:bg-emerald-500/15 dark:border-emerald-500/40 dark:text-emerald-400'
+                                ? 'border-border-warning-subtle bg-warning-soft text-fg-warning hover:bg-warning-soft  '
+                                : 'border-border-success-subtle bg-success-soft text-fg-success-strong hover:bg-success-soft  '
                             }`}
                             title={pkg.active ? (language === 'vi' ? 'Tạm dừng gói dịch vụ này' : 'Pause package') : (language === 'vi' ? 'Kích hoạt lại gói' : 'Activate package')}
                           >
-                            {pkg.active ? <PauseCircle size={13} className="text-amber-600 dark:text-amber-400" /> : <PlayCircle size={13} className="text-emerald-600 dark:text-emerald-400" />}
+                            {pkg.active ? <PauseCircle size={13} className="text-fg-warning" /> : <PlayCircle size={13} className="text-fg-success-strong" />}
                             <span>{pkg.active ? (language === 'vi' ? 'Tạm dừng' : 'Pause') : (language === 'vi' ? 'Kích hoạt' : 'Activate')}</span>
                           </button>
 
@@ -498,7 +470,7 @@ export function AdminQuotasPage() {
 
                           <button
                             type="button"
-                            className="btn btn-secondary px-2.5 py-1 text-xs text-danger hover:bg-danger-soft"
+                            className="btn btn-secondary px-2.5 py-1 text-xs text-fg-danger-strong hover:bg-danger-soft"
                             onClick={() => setDeleteTarget(pkg)}
                             title={language === 'vi' ? 'Xóa hoặc tạm dừng gói dịch vụ' : 'Delete or deactivate tier package'}
                           >
@@ -522,34 +494,27 @@ export function AdminQuotasPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/75 px-4 backdrop-blur-sm"
           onMouseDown={(e) => e.target === e.currentTarget && setModalPackage(null)}
         >
-          <form
+          <form style={{ boxShadow: 'var(--shadow-lg)' }}
             onSubmit={handleSavePackage}
-            className="w-full max-w-lg rounded-xl border border-border-default bg-neutral-primary-soft p-6 shadow-xl space-y-4"
+            className="w-full max-w-lg rounded-base border border-border-default bg-neutral-primary-soft p-6 shadow-lg space-y-4"
           >
             <div className="flex items-start justify-between gap-3 border-b border-border-default pb-3">
               <div>
-                <div className="flex items-center gap-2 text-fg-brand">
+                <div className="flex items-center gap-2 text-fg-brand-strong">
                   <Package size={18} />
-                  <span className="text-xs font-bold uppercase tracking-wide">
-                    {modalPackage.isNew ? 'Thêm Gói Dịch Vụ Mới' : `Chỉnh Sửa Gói ${modalPackage.code}`}
+                  <span className="text-xs font-bold">
+                    {modalPackage.isNew ? 'Thêm gói dịch vụ mới' : `Chỉnh Sửa Gói ${modalPackage.code}`}
                   </span>
                 </div>
                 <h2 className="mt-1 text-base font-bold text-heading">
                   {modalPackage.isNew ? 'Thiết lập thông số gói và hạn mức' : modalPackage.name}
                 </h2>
               </div>
-              <button
-                type="button"
-                aria-label="Đóng"
-                className="btn btn-secondary p-1.5"
-                onClick={() => setModalPackage(null)}
-              >
-                <X size={15} />
-              </button>
+              <IconButton onClick={() => setModalPackage(null)} label="Đóng" icon={X} />
             </div>
 
             {formError && (
-              <p role="alert" className="rounded-lg bg-danger-soft p-2.5 text-xs text-fg-danger-strong border border-border-danger-subtle">
+              <p role="alert" className="rounded-base bg-danger-soft p-2.5 text-xs text-fg-danger-strong border border-border-danger-subtle">
                 {formError}
               </p>
             )}
@@ -562,7 +527,7 @@ export function AdminQuotasPage() {
                   required
                   disabled={!modalPackage.isNew}
                   placeholder="VD: VIP_ENTERPRISE"
-                  className="form-input font-sans tabular-nums uppercase"
+                  className="form-input font-sans tabular-nums"
                   value={modalPackage.code}
                   onChange={(e) => setModalPackage({ ...modalPackage, code: e.target.value.toUpperCase() })}
                 />
@@ -594,15 +559,12 @@ export function AdminQuotasPage() {
 
               <label className="block">
                 <span className="mb-1 block font-semibold text-heading">Chu kỳ gia hạn</span>
-                <select
-                  className="form-input"
+                <SelectMenu
                   value={modalPackage.cycle}
-                  onChange={(e) => setModalPackage({ ...modalPackage, cycle: e.target.value })}
-                >
-                  <option value="MONTHLY">Hàng tháng (MONTHLY)</option>
-                  <option value="WEEKLY">Hàng tuần (WEEKLY)</option>
-                  <option value="YEARLY">Hàng năm (YEARLY)</option>
-                </select>
+                  onChange={(selectedValue) => setModalPackage({ ...modalPackage, cycle: selectedValue })}
+                  aria-label={'Chu kỳ gia hạn'}
+                  options={[{ value: String("MONTHLY"), label: "Hàng tháng (MONTHLY)" }, { value: String("WEEKLY"), label: "Hàng tuần (WEEKLY)" }, { value: String("YEARLY"), label: "Hàng năm (YEARLY)" }]}
+                />
               </label>
 
               <label className="block">
@@ -633,14 +595,12 @@ export function AdminQuotasPage() {
 
               <label className="block">
                 <span className="mb-1 block font-semibold text-heading">Trạng thái gói</span>
-                <select
-                  className="form-input"
+                <SelectMenu
                   value={modalPackage.active ? 'ACTIVE' : 'INACTIVE'}
-                  onChange={(e) => setModalPackage({ ...modalPackage, active: e.target.value === 'ACTIVE' })}
-                >
-                  <option value="ACTIVE">● Kích hoạt (Sẵn sàng cung cấp)</option>
-                  <option value="INACTIVE">○ Tạm dừng (Ẩn khỏi hệ thống)</option>
-                </select>
+                  onChange={(selectedValue) => setModalPackage({ ...modalPackage, active: selectedValue === 'ACTIVE' })}
+                  aria-label={'Trạng thái gói'}
+                  options={[{ value: String("ACTIVE"), label: "● Kích hoạt (Sẵn sàng cung cấp)" }, { value: String("INACTIVE"), label: "○ Tạm dừng (Ẩn khỏi hệ thống)" }]}
+                />
               </label>
             </div>
 
@@ -682,7 +642,7 @@ export function AdminQuotasPage() {
                 disabled={packageMutations.create.isPending || packageMutations.update.isPending}
               >
                 <Save size={14} />
-                <span>Lưu Gói Dịch Vụ</span>
+                <span>Lưu gói dịch vụ</span>
               </button>
             </div>
           </form>
@@ -724,7 +684,7 @@ export function AdminQuotasPage() {
           deleteTarget
             ? SYSTEM_TIER_CODES.has(deleteTarget.code)
               ? (language === 'vi'
-                  ? `Bạn có chắc muốn tạm dừng gói hệ thống "${deleteTarget.name}" (${deleteTarget.code})? Gói này sẽ chuyển sang trạng thái TẠM DỪNG và không hiển thị trên trang đăng ký/nâng cấp của người dùng.`
+                  ? `Bạn có chắc muốn tạm dừng gói hệ thống "${deleteTarget.name}" (${deleteTarget.code})? Gói này sẽ chuyển sang trạng thái Tạm dừng và không hiển thị trên trang đăng ký/nâng cấp của người dùng.`
                   : `Are you sure you want to deactivate system tier "${deleteTarget.name}" (${deleteTarget.code})?`)
               : (language === 'vi'
                   ? `Bạn có chắc muốn xóa gói "${deleteTarget.name}" (${deleteTarget.code})? Hành động này sẽ loại bỏ gói khỏi danh mục.`
@@ -753,7 +713,7 @@ export function AdminQuotasPage() {
           statusToggleTarget
             ? statusToggleTarget.active
               ? (language === 'vi'
-                  ? `Bạn có chắc muốn tạm dừng gói "${statusToggleTarget.name}" (${statusToggleTarget.code})? Gói này sẽ chuyển sang trạng thái TẠM DỪNG và không hiển thị trên trang đăng ký/nâng cấp của người dùng.`
+                  ? `Bạn có chắc muốn tạm dừng gói "${statusToggleTarget.name}" (${statusToggleTarget.code})? Gói này sẽ chuyển sang trạng thái Tạm dừng và không hiển thị trên trang đăng ký/nâng cấp của người dùng.`
                   : `Are you sure you want to deactivate package "${statusToggleTarget.name}" (${statusToggleTarget.code})?`)
               : (language === 'vi'
                   ? `Bạn có chắc muốn kích hoạt lại gói "${statusToggleTarget.name}" (${statusToggleTarget.code})? Gói này sẽ hiển thị công khai để người dùng có thể lựa chọn đăng ký hoặc nâng cấp.`

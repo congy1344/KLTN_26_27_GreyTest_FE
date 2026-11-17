@@ -1,11 +1,14 @@
+import { SelectMenu } from '../../../shared/components/SelectMenu';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Tag } from '../../../shared/components/Tag';
+import { ErrorState } from '../../../shared/components/ErrorState';
 import { FormEvent, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Bot, CheckCircle2, ClipboardCheck, Database, FileText, ListFilter, Loader2, Pencil, Play, PlusCircle, RotateCcw, Save, Trash2, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bot, CheckCircle2, FileText, ListFilter, Loader2, Pencil, Play, PlusCircle, RotateCcw, Save, Trash2, X } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
-import { MetricCard } from '../../../shared/components/MetricCard';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ManualEntrySection } from '../../../shared/components/ManualEntrySection';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
@@ -225,14 +228,14 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
   };
 
   return (
-    <section className="mt-8 animate-fade-in">
+    <section className="animate-fade-in">
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Test Cases</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh từ Test Plan đã duyệt và lưu trực tiếp về backend.', 'AI generates Test Cases from approved Test Plans and persists them in the backend.')}</p></div>
+        <div className="min-w-0 flex-1"><p className="text-sm text-body-subtle">{t('Chọn Test Plan đã duyệt để sinh, kiểm tra và duyệt Test Case.', 'Choose an approved Test Plan to generate, review and approve Test Cases.')}</p></div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
           {coveredPlanCount > 0 && missingPlanCount > 0 ? (
             <>
               <button
-                className="btn btn-brand"
+                className="btn btn-secondary"
                 disabled={busy || missingPlanCount === 0}
                 onClick={() => handleGenerate(true)}
                 title={t(
@@ -300,28 +303,37 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
         </div>
       </div>
       {(plans.data ?? []).length > 0 && eligiblePlans.length === 0 && (
-        <p className="mb-3 text-xs text-fg-warning">{t('Hãy duyệt Test Plan trước khi sinh Test Case.', 'Approve Test Plans before generating Test Cases.')}</p>
+        <InlineAlert tone="warning" dismissible={false}>
+          {t('Hãy duyệt Test Plan trước khi sinh Test Case.', 'Approve Test Plans before generating Test Cases.')}{' '}
+          <Link className="rounded-control font-semibold underline underline-offset-2" to={projectWorkflowPath(projectId, 'test-plans', servicePath)}>{t('Duyệt Test Plan', 'Review Test Plans')}</Link>
+        </InlineAlert>
       )}
-      <div className="grid gap-3 md:grid-cols-3">
-        <MetricCard icon={ClipboardCheck} label={t('Test Plan đã duyệt', 'Approved Plans')} value={approvedPlans.length} />
-        <MetricCard icon={FileText} label={t('Test Case pending', 'Pending Cases')} value={pending} />
-        <MetricCard icon={Database} label={t('Test Case đã duyệt', 'Approved Cases')} value={approved} />
-      </div>
-
-      <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 pb-0 shadow-sm">
+      <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 pb-0">
         <ManualEntrySection title={t('Thêm Test Case thủ công', 'Add a Test Case manually')}>
         <form onSubmit={handleCreate} className="grid gap-3">
           <div className="grid gap-3 md:grid-cols-3">
-            <select className="form-input" aria-label={t('Chọn Test Plan', 'Select Test Plan')} value={formPlanId} onChange={(e) => setFormPlanId(e.target.value)} disabled={busy || eligiblePlans.length === 0}>
-              <option value="">{t('Chọn Test Plan', 'Select Test Plan')}</option>
-              {eligiblePlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.planCode} - {plan.title}</option>)}
-            </select>
-            <select className="form-input" aria-label="Test type" value={formType} onChange={(e) => setFormType(e.target.value as TestType)} disabled={busy}>
-              {TEST_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-            </select>
-            <select className="form-input" aria-label="Priority" value={formPriority} onChange={(e) => setFormPriority(e.target.value as Priority)} disabled={busy}>
-              {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <SelectMenu
+              aria-label={t('Chọn Test Plan', 'Select Test Plan')}
+              value={formPlanId}
+              onChange={(selectedValue) => setFormPlanId(selectedValue)}
+              disabled={busy || eligiblePlans.length === 0}
+              searchable
+              options={[{ value: "", label: String(t('Chọn Test Plan', 'Select Test Plan')) }, ...eligiblePlans.map((plan) => ({ value: String(plan.id), label: String(plan.planCode) + " - " + String(plan.title) }))]}
+            />
+            <SelectMenu
+              aria-label="Test type"
+              value={formType}
+              onChange={(selectedValue) => setFormType(selectedValue as TestType)}
+              disabled={busy}
+              options={[...TEST_TYPES.map((type) => ({ value: type, label: String(type) }))]}
+            />
+            <SelectMenu
+              aria-label="Priority"
+              value={formPriority}
+              onChange={(selectedValue) => setFormPriority(selectedValue as Priority)}
+              disabled={busy}
+              options={[...PRIORITIES.map((p) => ({ value: p, label: String(p) }))]}
+            />
           </div>
           <input className="form-input" placeholder={t('Mô tả scenario', 'Scenario description')} value={formDescription} onChange={(e) => setFormDescription(e.target.value)} disabled={busy} />
           <div className="grid gap-3 md:grid-cols-2">
@@ -338,17 +350,27 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
         </ManualEntrySection>
       </div>
 
-      <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
-        {error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
+      <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4">
+        {error && !cases.error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
         <div className="flex items-center gap-3"><ListFilter size={16} className="text-fg-brand-strong" /><span className="text-sm font-semibold text-heading">{t('Lọc danh sách theo Test Plan', 'Filter list by Test Plan')}</span></div>
-        <select aria-label={t('Lọc Test Plan', 'Filter by Test Plan')} className="form-input mt-4" value={planId} onChange={(e) => setPlanId(e.target.value)} disabled={plans.isLoading}>
-          <option value="">{t('Tất cả Test Plan đã duyệt', 'All approved Test Plans')}</option>
-          {approvedPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.planCode} - {plan.title}</option>)}
-        </select>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-body">
+          <Tag className="font-mono tabular-nums">{t('Test Plan đã duyệt', 'Approved Plans')}: <span className="font-mono tabular-nums">{approvedPlans.length}</span></Tag>
+          <Tag className="font-mono tabular-nums">{t('Test Case chờ duyệt', 'Pending Cases')}: <span className="font-mono tabular-nums">{pending}</span></Tag>
+          <Tag className="font-mono tabular-nums">{t('Test Case đã duyệt', 'Approved Cases')}: <span className="font-mono tabular-nums">{approved}</span></Tag>
+        </div>
+        <SelectMenu
+          aria-label={t('Lọc Test Plan', 'Filter by Test Plan')}
+          className="mt-4"
+          value={planId}
+          onChange={(selectedValue) => setPlanId(selectedValue)}
+          disabled={plans.isLoading}
+          searchable
+          options={[{ value: "", label: String(t('Tất cả Test Plan đã duyệt', 'All approved Test Plans')) }, ...approvedPlans.map((plan) => ({ value: String(plan.id), label: String(plan.planCode) + " - " + String(plan.title) }))]}
+        />
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft shadow-sm">
-        {cases.isLoading ? <LoadingState label={t('Đang tải Test Case...', 'Loading Test Cases...')} minHeight="min-h-[160px]" /> : visible.length === 0 ? <EmptyState icon={FileText} title={t('Chưa có Test Case', 'No Test Cases yet')} hint={t('Bấm "AI sinh Case" hoặc thêm thủ công ở form phía trên.', 'Select "Generate with AI" or add one manually using the form above.')} minHeight="min-h-[200px]" /> : visible.map((item) => {
+      <div className="mt-4 overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft">
+        {cases.isLoading ? <LoadingState label={t('Đang tải Test Case...', 'Loading Test Cases...')} minHeight="min-h-[160px]" /> : cases.error ? <ErrorState error={cases.error} title={t('Không tải được Test Case', 'Unable to load Test Cases')} /> : visible.length === 0 ? <EmptyState icon={FileText} title={t('Chưa có Test Case', 'No Test Cases yet')} hint={t('Bấm "AI sinh Case" hoặc thêm thủ công ở form phía trên.', 'Select "Generate with AI" or add one manually using the form above.')} minHeight="min-h-[200px]" /> : visible.map((item) => {
           const editing = editingId === item.id;
           const sourcePlan = (plans.data ?? []).find((plan) => plan.id === item.testPlanId);
           const coveredRules = (sourcePlan?.coveredRuleIds?.length
@@ -376,13 +398,13 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
             || (!isPastCases && item.isModified)
           );
 
-          const cardClass = hasAdded
-            ? 'rounded-default border-2 border-emerald-500/60 bg-emerald-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
+          const cardClass = `border-b border-border-default p-4 last:border-b-0 transition-colors ${hasAdded
+            ? 'border-l-4 border-l-success bg-success/[0.04]'
             : hasDeleted
-              ? 'rounded-default border-2 border-rose-500/60 bg-rose-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
+              ? 'border-l-4 border-l-danger bg-danger/[0.04]'
               : hasModified
-                ? 'rounded-default border-2 border-amber-500/60 bg-amber-500/[0.04] p-3 my-1.5 shadow-xs transition-colors'
-                : 'border-t border-border-default px-3 py-3 transition-colors first:border-t-0 hover:bg-neutral-secondary-soft/40';
+                ? 'border-l-4 border-l-warning bg-warning/[0.04]'
+                : 'hover:bg-neutral-secondary-soft'}`;
 
           return (
             <article key={item.id} className={cardClass}>
@@ -393,33 +415,33 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
                   {sourcePlan ? ` -> ${sourcePlan.planCode}` : ''}
                 </span>
                 <SemanticBadge kind="test-type" value={item.testType} />
-                <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">{formatSemanticLabel(item.priority, language)}</span>
+                <Tag>{formatSemanticLabel(item.priority, language)}</Tag>
                 {hasAdded && (
-                  <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  <Tag>
                     {t('+ Mới thêm', '+ Added')}
-                  </span>
+                  </Tag>
                 )}
                 {hasDeleted && (
-                  <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                  <Tag>
                     {t('- Đã xóa', '- Deleted')}
-                  </span>
+                  </Tag>
                 )}
                 {hasModified && (
-                  <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                  <Tag>
                     {t('Có thay đổi liên quan', 'Related changes')}
-                  </span>
+                  </Tag>
                 )}
                 {item.isModified && !isPastCases && !hasModified && (
-                  <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-fg-warning">
+                  <Tag>
                     {t('Đã sửa', 'Modified')}
-                  </span>
+                  </Tag>
                 )}
                 <SemanticBadge kind="review-status" value={item.status} label={item.status === 'PENDING_REVIEW' ? t('Bản nháp', 'Draft') : undefined} />
-                <span className="ml-auto flex gap-1">
+                <span className="ml-auto flex gap-1 font-mono">
                   {editing ? (
                     <>
                       <button type="button" className="btn btn-secondary px-3 py-2" aria-label={t(`Lưu ${item.caseCode}`, `Save ${item.caseCode}`)} disabled={busy || !editDescription.trim() || !editPreconditions.trim() || !editExpected.trim()} onClick={() => handleSaveEdit(item)}><Save size={14} /></button>
-                      <button type="button" className="btn btn-secondary px-3 py-2" aria-label={t(`Hủy ${item.caseCode}`, `Cancel ${item.caseCode}`)} disabled={busy} onClick={() => setEditingId(null)}><X size={14} /></button>
+                      <IconButton icon={X} label={t(`Hủy ${item.caseCode}`, `Cancel ${item.caseCode}`)} disabled={busy} onClick={() => setEditingId(null)} />
                     </>
                   ) : (
                     <>
@@ -437,12 +459,18 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
                     <textarea className="form-input min-h-[64px] resize-y" value={editExpected} onChange={(e) => setEditExpected(e.target.value)} />
                   </div>
                   <div className="grid gap-2 md:grid-cols-2">
-                    <select className="form-input" value={editType} onChange={(e) => setEditType(e.target.value as TestType)}>
-                      {TEST_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                    <select className="form-input" value={editPriority} onChange={(e) => setEditPriority(e.target.value as Priority)}>
-                      {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                    <SelectMenu
+                      value={editType}
+                      onChange={(selectedValue) => setEditType(selectedValue as TestType)}
+                      aria-label={'Test type'}
+                      options={[...TEST_TYPES.map((type) => ({ value: type, label: String(type) }))]}
+                    />
+                    <SelectMenu
+                      value={editPriority}
+                      onChange={(selectedValue) => setEditPriority(selectedValue as Priority)}
+                      aria-label={'Priority'}
+                      options={[...PRIORITIES.map((p) => ({ value: p, label: String(p) }))]}
+                    />
                   </div>
                 </div>
               ) : (

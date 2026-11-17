@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { SelectMenu } from '../../../shared/components/SelectMenu';
+import { Tag } from '../../../shared/components/Tag';
+import { ErrorState } from '../../../shared/components/ErrorState';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Bot, CheckCircle2, Copy, Download, FileCode2, Loader2, ListFilter, Play, RotateCcw, Search, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Bot, Download, FileCode2, Loader2, ListFilter, Play, RotateCcw, Search } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { InlineAlert } from '../../../shared/components/InlineAlert';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
-import { MetricCard } from '../../../shared/components/MetricCard';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
 import { useTestCases } from '../../test-cases/hooks/useTestCases';
 import { useTestPlans } from '../../test-plans/hooks/useTestPlans';
@@ -18,6 +20,7 @@ import { downloadUnitTestsZip } from '../api/unit-test-api';
 import { useGenerateUnitTests, useUnitTestFiles, useUnitTests } from '../hooks/useUnitTests';
 import type { UnitTest, UnitTestFile } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
+import { CodeBlock } from '../../../shared/components/CodeBlock';
 import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { displaySourcePath } from '../../../shared/utils/source-path';
@@ -115,12 +118,6 @@ export function UnitTestsPanel({
     return ids.size;
   }, [activeUpdate, approvedCaseById]);
   const unexpectedCount = Math.max(0, (tests.data ?? []).length - coveredCount);
-  const coverageHint = approvedCases.length === 0
-    ? t('Chưa có Test Case được duyệt', 'No approved Test Cases')
-    : [
-      missingCount > 0 ? t(`Thiếu ${missingCount} case`, `${missingCount} cases missing`) : '',
-      unexpectedCount > 0 ? t(`Trùng/thừa ${unexpectedCount} test`, `${unexpectedCount} duplicate/extra tests`) : '',
-    ].filter(Boolean).join(' · ') || t('Đã khớp đủ 1:1', 'Exact 1:1 match');
   const coverageWarning = [
     missingCount > 0 ? t(`thiếu ${missingCount} case`, `${missingCount} cases missing`) : '',
     unexpectedCount > 0 ? t(`trùng/thừa ${unexpectedCount} test`, `${unexpectedCount} duplicate/extra tests`) : '',
@@ -294,14 +291,14 @@ export function UnitTestsPanel({
   };
 
   return (
-    <section className="mt-8 animate-fade-in">
+    <section className="animate-fade-in">
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-heading">Unit Tests</h3><p className="mt-1 text-xs text-body-subtle">{t('AI sinh JUnit/Mockito từ Test Case đã duyệt và lưu về backend.', 'AI generates JUnit/Mockito tests from approved Test Cases and persists them in the backend.')}</p></div>
+        <div className="min-w-0 flex-1"><p className="text-sm text-body-subtle">{t('Duyệt Test Case rồi sinh và tải file JUnit/Mockito.', 'Approve Test Cases, then generate and download JUnit/Mockito files.')}</p></div>
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
           {coveredCount > 0 && missingCount > 0 && pendingDraftCaseCount === 0 ? (
             <>
               <button
-                className="btn btn-brand"
+                className="btn btn-secondary"
                 disabled={generate.isPending || generationRunning || missingCount === 0}
                 onClick={() => handleGenerate(true)}
                 title={t(`Tiếp tục sinh cho ${missingCount} Test Case chưa có unit test`, `Continue generating for ${missingCount} remaining Test Cases`)}
@@ -326,7 +323,7 @@ export function UnitTestsPanel({
             </>
           ) : (
             <button
-              className={coveredCount > 0 && missingCount === 0 ? "btn btn-secondary" : "btn btn-brand"}
+              className={coveredCount > 0 && missingCount === 0 ? "btn btn-secondary" : "btn btn-secondary"}
               disabled={generate.isPending || generationRunning || eligibleCases.length === 0 || pendingDraftCaseCount > 0}
               onClick={() => {
                 if (coveredCount > 0 || (tests.data ?? []).length > 0) {
@@ -373,16 +370,18 @@ export function UnitTestsPanel({
         )}</InlineAlert>
       )}
       {(cases.data ?? []).length > 0 && eligibleCases.length === 0 && (
-        <p className="mb-3 text-xs text-fg-warning">{t('Hãy duyệt Test Case trước khi sinh Unit Test.', 'Approve Test Cases before generating Unit Tests.')}</p>
+        <InlineAlert tone="warning" dismissible={false}>{t('Hãy duyệt Test Case trước khi sinh Unit Test.', 'Approve Test Cases before generating Unit Tests.')}</InlineAlert>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={CheckCircle2} label={t('Test Case đã duyệt', 'Approved Cases')} value={approvedCases.length} />
-        <MetricCard icon={FileCode2} label={t('Test file', 'Test Files')} value={(files.data ?? []).length} />
-        <MetricCard icon={ShieldCheck} label={t('Unit test đã sinh', 'Generated Tests')} value={(tests.data ?? []).length} />
-        <MetricCard icon={ShieldCheck} label={t('Case đã có test', 'Cases Covered')} value={`${coveredCount}/${approvedCases.length}`} tone={coverageReady ? 'brand' : 'neutral'} hint={coverageHint} />
-      </div>
-      <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
-        {error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
+      {(approvedCases.length > 0 || (tests.data ?? []).length > 0) && (
+        <InlineAlert tone={coverageReady ? 'success' : 'warning'} dismissible={false}>
+          <span className="font-mono">{coveredCount}/{approvedCases.length}</span>{' '}
+          {coverageReady
+            ? t('Test Case đã khớp đủ 1:1: mỗi Test Case được duyệt có đúng một Unit Test.', 'Test Cases match 1:1: every approved Test Case has exactly one Unit Test.')
+            : t(`Test Case đã có test. Chưa nên sang Coverage: ${coverageWarning || 'chưa có Test Case được duyệt'}.`, `Test Cases covered. Not ready for Coverage: ${coverageWarning || 'no approved Test Cases'}.`)}
+        </InlineAlert>
+      )}
+      <div className="mt-4 rounded-base border border-border-default bg-neutral-primary-soft p-4">
+        {error && !tests.error && <InlineAlert tone="danger">{getErrorMessage(error)}</InlineAlert>}
         {downloadError && <InlineAlert tone="danger">{downloadError}</InlineAlert>}
         {skippedCases.length > 0 && (
           <InlineAlert tone="warning">
@@ -392,14 +391,12 @@ export function UnitTestsPanel({
             )}
           </InlineAlert>
         )}
-        {(tests.data ?? []).length > 0 && (coverageReady
-          ? <InlineAlert key="coverage-ready" tone="success" autoDismissMs={5000}>{t('Đã kiểm chứng đủ: mỗi Test Case được duyệt có đúng một Unit Test.', 'Verified: every approved Test Case has exactly one Unit Test.')}</InlineAlert>
-          : <InlineAlert key={coverageWarning} tone="warning" autoDismissMs={5000}>{t(`Chưa nên sang Coverage: ${coverageWarning}.`, `Not ready for Coverage: ${coverageWarning}.`)}</InlineAlert>)}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-3">
             <ListFilter size={16} className="mt-0.5 shrink-0 text-fg-brand-strong" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-heading">{t('Tìm và đối chiếu Unit Test', 'Find and verify Unit Tests')}</p>
+              {(files.data ?? []).length > 0 && <p className="mt-1 text-xs text-body-subtle">{t('File test đã gộp', 'Merged test files')}: <span className="font-mono">{files.data?.length}</span></p>}
               <p className="mt-0.5 text-xs leading-relaxed text-body-subtle">{t('ZIP kèm công cụ tạo jacoco.xml. Giải nén đè vào thư mục module Maven hoặc Gradle (chứa pom.xml/build.gradle) để file test vào đúng src/test/java.', 'ZIP includes a jacoco.xml runner. Extract directly into a Maven or Gradle module root so tests land in src/test/java.')}</p>
             </div>
           </div>
@@ -415,25 +412,28 @@ export function UnitTestsPanel({
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-body-subtle" />
             <input aria-label={t('Tìm Unit Test', 'Search Unit Tests')} className="form-input pl-9" value={query} onChange={(event) => { setQuery(event.target.value); setActiveId(null); setUserSelectedMethod(false); }} placeholder={t('Tìm TC-001, UserServiceTest, method...', 'Search TC-001, UserServiceTest, method...')} />
           </label>
-          <select aria-label={t('Lọc Test Case', 'Filter by Test Case')} className="form-input" value={caseId} onChange={(event) => { setCaseId(event.target.value); setActiveId(null); setUserSelectedMethod(false); }}>
-            <option value="">{t('Tất cả Test Case đã duyệt', 'All approved Test Cases')}</option>
-            {approvedCases.map((item) => <option key={item.id} value={item.id}>{item.caseCode} - {item.description}</option>)}
-          </select>
+          <SelectMenu
+            aria-label={t('Lọc Test Case', 'Filter by Test Case')}
+            value={caseId}
+            onChange={(selectedValue) => { setCaseId(selectedValue); setActiveId(null); setUserSelectedMethod(false); }}
+            searchable
+            options={[{ value: "", label: String(t('Tất cả Test Case đã duyệt', 'All approved Test Cases')) }, ...approvedCases.map((item) => ({ value: String(item.id), label: String(item.caseCode) + " - " + String(item.description) }))]}
+          />
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-stretch">
-        <div className="flex flex-col justify-between rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] xl:items-start">
+        <div className="flex flex-col justify-between rounded-base border border-border-default bg-neutral-primary-soft p-4">
           <div>
             <div className="flex items-center justify-between border-b border-border-default pb-3">
             <div className="flex items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-body-subtle">{t('Danh sách method', 'Method index')}</p>
-              <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-xs font-semibold text-heading">{visible.length}</span>
+              <p className="text-xs font-semibold text-body-subtle">{t('Danh sách method', 'Method index')}</p>
+              <Tag className="font-mono tabular-nums">{visible.length}</Tag>
             </div>
           </div>
           <div className="mt-3 max-h-[720px] overflow-auto">
           {tests.isLoading ? (
             <LoadingState label={t('Đang tải Unit Test...', 'Loading Unit Tests...')} minHeight="min-h-[160px]" />
-          ) : visible.length === 0 ? (
+          ) : tests.error ? (<ErrorState error={tests.error} title={t('Không tải được Unit Test', 'Unable to load Unit Tests')} />) : visible.length === 0 ? (
             <EmptyState icon={FileCode2} title={t('Chưa có Unit Test', 'No Unit Tests yet')} hint={t('Duyệt Test Case rồi bấm "AI sinh Unit Test".', 'Approve Test Cases, then select "Generate with AI".')} minHeight="min-h-[200px]" />
           ) : (
             <UnitTestTree
@@ -478,38 +478,38 @@ export function UnitTestsPanel({
             );
 
             const diffBorder = hasAdded
-              ? 'border-l-4 border-l-emerald-500 bg-emerald-500/[0.04]'
+              ? 'border-l-4 border-l-success bg-success/[0.04]'
               : hasDeleted
-                ? 'border-l-4 border-l-rose-500 bg-rose-500/[0.04]'
+                ? 'border-l-4 border-l-danger bg-danger/[0.04]'
                 : hasModified
-                  ? 'border-l-4 border-l-amber-500 bg-amber-500/[0.04]'
+                  ? 'border-l-4 border-l-warning bg-warning/[0.04]'
                   : '';
 
             return (
-            <span className={`block rounded-sm px-2 py-1.5 text-left ${diffBorder}`}>
+            <span className={`block rounded-control px-2 py-1.5 text-left ${diffBorder}`}>
               <span className="flex items-center gap-2">
-                <span className="rounded-full bg-brand-softer px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong">{testCase?.caseCode ?? `#${item.testCaseId}`}</span>
+                <Tag>{testCase?.caseCode ?? `#${item.testCaseId}`}</Tag>
                 {hasAdded && (
-                  <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                  <Tag>
                     {t('+ Mới thêm', '+ Added')}
-                  </span>
+                  </Tag>
                 )}
                 {hasDeleted && (
-                  <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-rose-600 dark:text-rose-400">
+                  <Tag>
                     {t('- Đã xóa', '- Deleted')}
-                  </span>
+                  </Tag>
                 )}
                 {hasModified && (
-                  <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                  <Tag>
                     {t('Có thay đổi liên quan', 'Related changes')}
-                  </span>
+                  </Tag>
                 )}
                 {!hideGenerationIndicators && item.generationType && (
-                  <span className="ml-auto text-[10px] font-semibold uppercase text-body-subtle">{formatSemanticLabel(item.generationType, language)}</span>
+                  <Tag className="ml-auto">{formatSemanticLabel(item.generationType, language)}</Tag>
                 )}
               </span>
               <span className="mt-2 block break-all font-mono text-xs font-semibold text-heading">{item.testMethodName}</span>
-              {testCase?.description && <span className="mt-1 block line-clamp-2 text-[11px] leading-relaxed text-body-subtle">{testCase.description}</span>}
+              {testCase?.description && <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-body-subtle">{testCase.description}</span>}
             </span>
           );}}
             />
@@ -517,7 +517,7 @@ export function UnitTestsPanel({
             </div>
           </div>
         </div>
-        <div className="flex min-w-0 flex-col rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm">
+        <div className="flex min-w-0 flex-col rounded-base border border-border-default bg-neutral-primary-soft p-4">
           {!active ? (
             <div className="flex min-h-[360px] flex-1 items-center justify-center text-sm text-body-subtle">{t('Chọn method để xem file test.', 'Select a method to view its test file.')}</div>
           ) : files.isLoading || (files.isFetching && !activeFile) ? (
@@ -526,7 +526,7 @@ export function UnitTestsPanel({
             <div className="flex flex-1 min-h-0 flex-col space-y-3">
               <div className="shrink-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body-subtle">{t('Traceability đang kiểm chứng', 'Traceability under review')}</p>
+                  <p className="text-xs font-semibold text-body-subtle">{t('Traceability đang kiểm chứng', 'Traceability under review')}</p>
                   {(() => {
                     const activeCase = active ? approvedCaseById.get(active.testCaseId) : null;
                     const activePlan = activeCase ? (plans.data ?? []).find((p) => p.id === activeCase.testPlanId) : null;
@@ -557,23 +557,23 @@ export function UnitTestsPanel({
                     );
                     if (hasAdded) {
                       return (
-                        <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <Tag>
                           {t('+ Mới thêm', '+ Added')}
-                        </span>
+                        </Tag>
                       );
                     }
                     if (hasDeleted) {
                       return (
-                        <span className="inline-flex items-center rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                        <Tag>
                           {t('- Đã xóa', '- Deleted')}
-                        </span>
+                        </Tag>
                       );
                     }
                     if (hasModified) {
                       return (
-                        <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                        <Tag>
                           {t('Có thay đổi liên quan', 'Related changes')}
-                        </span>
+                        </Tag>
                       );
                     }
                     return null;
@@ -640,34 +640,13 @@ function UnitTestFileView({
   autoScroll?: boolean;
   onSelectCaseCode?: (code: string) => void;
 }) {
-  const [copied, setCopied] = useState(false);
-  const highlightedLineRef = useRef<HTMLLIElement>(null);
   const { t } = useLanguage();
 
-  // Tự ẩn trạng thái "Đã copy" sau 2 giây
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
-  const codeLines = file.sourceCode.split('\n');
   const highlightedLine = useMemo(() => {
     const escapedMethod = highlightMethod.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const declaration = new RegExp(`\\bvoid\\s+${escapedMethod}\\s*\\(`).exec(file.sourceCode);
     return declaration ? file.sourceCode.slice(0, declaration.index).split('\n').length - 1 : -1;
   }, [file.sourceCode, highlightMethod]);
-
-  useEffect(() => {
-    if (!autoScroll) return;
-    highlightedLineRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' });
-  }, [file.filePath, highlightedLine, highlightMethod, autoScroll]);
-
-  const copy = async () => {
-    if (!navigator.clipboard) return;
-    await navigator.clipboard.writeText(file.sourceCode);
-    setCopied(true);
-  };
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
@@ -678,15 +657,15 @@ function UnitTestFileView({
             {displaySourcePath(file.filePath)}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-neutral-secondary-medium px-2 py-0.5 text-[11px] font-semibold text-body-subtle">
+            <Tag className="font-mono tabular-nums">
               {t(`${file.testCount} @Test method`, `${file.testCount} @Test methods`)}
-            </span>
+            </Tag>
             {file.caseCodes.map((code) => (
               <button
                 key={code}
                 type="button"
                 onClick={() => onSelectCaseCode?.(code)}
-                className="rounded-full bg-brand-softer hover:bg-brand-soft px-2 py-0.5 text-[11px] font-semibold text-fg-brand-strong transition-colors cursor-pointer"
+                className="rounded-control bg-brand-softer hover:bg-brand-soft px-2 py-0.5 text-xs font-semibold text-fg-brand-strong transition-colors cursor-pointer"
                 title={t(`Chuyển tới method của ${code}`, `Jump to ${code} method`)}
               >
                 {code}
@@ -694,29 +673,14 @@ function UnitTestFileView({
             ))}
           </div>
         </div>
-        <button className="btn btn-secondary px-3 py-2" onClick={copy}><Copy size={14} />{copied ? t('Đã copy', 'Copied') : 'Copy'}</button>
       </div>
-      <div className="shrink-0 mb-2 flex items-center gap-2 text-[11px] text-body-subtle">
-        <span className="h-2 w-2 rounded-full bg-brand-strong" />
-        {t(`Dòng màu xanh là method của case đang chọn: ${highlightMethod}`, `The highlighted line is the selected case method: ${highlightMethod}`)}
+      <div className="shrink-0 mb-2 flex items-center gap-2 text-xs text-body-subtle">
+
+        {t(`Dòng tô nổi là method của case đang chọn: ${highlightMethod}`, `The highlighted line is the selected case method: ${highlightMethod}`)}
       </div>
-      <div className="relative flex-1 min-h-[420px] xl:min-h-0">
-        <div aria-label="Generated test code" role="region" tabIndex={0} className="absolute inset-0 overflow-auto rounded-default border border-border-default bg-neutral-primary p-3 font-mono text-xs leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
-          <ol className="min-w-max">
-            {codeLines.map((line, index) => (
-              <li
-                key={`${index}-${line}`}
-                aria-current={index === highlightedLine ? 'true' : undefined}
-                ref={index === highlightedLine ? highlightedLineRef : undefined}
-                className={`grid grid-cols-[3rem_minmax(0,1fr)] rounded-sm px-2 ${index === highlightedLine ? 'bg-brand-softer text-heading' : 'text-body'}`}
-              >
-                <span aria-hidden="true" className="select-none border-r border-border-default pr-3 text-right tabular-nums text-body-subtle">{index + 1}</span>
-                <code className="whitespace-pre pl-4">{line || ' '}</code>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </div>
+      <CodeBlock code={file.sourceCode} title={displaySourcePath(file.filePath)} ariaLabel="Generated test code"
+        highlight={(line) => line - 1 === highlightedLine} scrollToHighlight={autoScroll}
+        bodyClassName="h-[calc(100vh-240px)] min-h-[420px]" />
     </div>
   );
 }

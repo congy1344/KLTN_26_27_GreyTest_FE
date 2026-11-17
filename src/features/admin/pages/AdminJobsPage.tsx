@@ -1,7 +1,5 @@
-import {
-  AlertCircle, ArrowLeft, CheckCircle2,
-  Clock, History, Layers, RefreshCw, RotateCcw, XCircle,
-} from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, CircleDot, Clock, History, Layers, RefreshCw, RotateCcw, XCircle } from 'lucide-react';
+import { Tag } from '../../../shared/components/Tag';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -45,55 +43,50 @@ function stageLabel(stage: GenerationProgressStage | string, language: 'vi' | 'e
 function statusBadge(status: GenerationProgressStatus | string, language: 'vi' | 'en') {
   if (status === 'RUNNING') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-softer px-2.5 py-0.5 text-[11px] font-bold text-fg-brand-strong">
-        <span className="h-1.5 w-1.5 rounded-full bg-brand animate-pulse" />
+      <Tag variant="status" tone="brand" icon={CircleDot}>
         {language === 'vi' ? 'Đang chạy' : 'Running'}
-      </span>
+      </Tag>
     );
   }
   if (status === 'QUEUED') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-0.5 text-[11px] font-bold text-fg-warning">
-        <Clock size={11} />
+      <Tag variant="status" tone="warning" icon={Clock}>
         {language === 'vi' ? 'Chờ trong hàng đợi' : 'Queued'}
-      </span>
+      </Tag>
     );
   }
   if (status === 'PAUSED') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-secondary px-2.5 py-0.5 text-[11px] font-bold text-body">
+      <Tag variant="status" tone="neutral" icon={Clock}>
         {language === 'vi' ? 'Tạm dừng' : 'Paused'}
-      </span>
+      </Tag>
     );
   }
   if (status === 'COMPLETED') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-0.5 text-[11px] font-bold text-fg-success-strong">
-        <CheckCircle2 size={11} />
+      <Tag variant="status" tone="success" icon={CheckCircle2}>
         {language === 'vi' ? 'Hoàn tất' : 'Completed'}
-      </span>
+      </Tag>
     );
   }
   if (status === 'FAILED') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-danger-soft px-2.5 py-0.5 text-[11px] font-bold text-fg-danger-strong">
-        <AlertCircle size={11} />
+      <Tag variant="status" tone="danger" icon={AlertCircle}>
         {language === 'vi' ? 'Thất bại' : 'Failed'}
-      </span>
+      </Tag>
     );
   }
   if (status === 'CANCELLED') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-secondary px-2.5 py-0.5 text-[11px] font-bold text-body-subtle">
-        <XCircle size={11} />
+      <Tag variant="status" tone="neutral" icon={XCircle}>
         {language === 'vi' ? 'Đã hủy' : 'Cancelled'}
-      </span>
+      </Tag>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full bg-neutral-secondary-soft px-2.5 py-0.5 text-[11px] font-bold text-body-subtle">
+    <Tag variant="status" tone="neutral" icon={CircleDot}>
       {status}
-    </span>
+    </Tag>
   );
 }
 
@@ -150,15 +143,15 @@ export function AdminJobsPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-fg-brand">
+            <span className="text-xs font-semibold text-body-subtle">
               AI Job Orchestration
             </span>
-            <span className="rounded-md bg-brand-softer px-2 py-0.5 text-[10px] font-sans font-bold text-fg-brand-strong">
+            <Tag variant="status" tone="brand" icon={CircleDot}>
               Active Queue & History
-            </span>
+            </Tag>
           </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-heading sm:text-3xl">
-            {language === 'vi' ? 'Hàng Đợi & Tiến Trình Sinh Test' : 'Test Generation Jobs Monitor'}
+          <h1 className="mt-1 text-2xl font-bold text-heading sm:text-3xl">
+            {language === 'vi' ? 'Hàng đợi & tiến trình sinh test' : "Test generation jobs monitor"}
           </h1>
           <p className="mt-1 text-xs text-body-subtle">
             {language === 'vi'
@@ -169,28 +162,28 @@ export function AdminJobsPage() {
 
         <div className="flex items-center gap-2">
           {/* View mode toggle */}
-          <div className="flex items-center rounded-lg border border-border-default bg-neutral-primary p-0.5 text-xs shadow-2xs">
+          <div className="flex items-center rounded-base border border-border-default bg-neutral-primary p-0.5 text-xs shadow-2xs">
             <button
               type="button"
               onClick={() => setViewMode('ACTIVE')}
-              className={`rounded-md px-3 py-1.5 font-semibold transition-all flex items-center gap-1.5 ${
+              className={`btn rounded-control px-3 py-1.5 font-semibold transition-colors flex items-center gap-1.5 ${
                 viewMode === 'ACTIVE'
-                  ? 'bg-brand text-white shadow-2xs'
+                  ? 'bg-brand text-on-brand shadow-2xs'
                   : 'text-body-subtle hover:text-heading'
               }`}
             >
               <Layers size={13} />
               <span>{language === 'vi' ? 'Hàng đợi đang chạy' : 'Active Queue'}</span>
-              <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.2 text-[10px] tabular-nums font-bold">
+              <Tag className="ml-1">
                 {jobs.length}
-              </span>
+              </Tag>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('HISTORY')}
-              className={`rounded-md px-3 py-1.5 font-semibold transition-all flex items-center gap-1.5 ${
+              className={`btn rounded-control px-3 py-1.5 font-semibold transition-colors flex items-center gap-1.5 ${
                 viewMode === 'HISTORY'
-                  ? 'bg-brand text-white shadow-2xs'
+                  ? 'bg-brand text-on-brand shadow-2xs'
                   : 'text-body-subtle hover:text-heading'
               }`}
             >
@@ -202,7 +195,7 @@ export function AdminJobsPage() {
           <button
             type="button"
             onClick={() => (viewMode === 'ACTIVE' ? activeQuery.refetch() : historyQuery.refetch())}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs font-semibold text-body hover:bg-neutral-secondary-soft shadow-xs"
+            className="btn btn-secondary rounded-control inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
           >
             <RefreshCw
               size={13}
@@ -222,9 +215,9 @@ export function AdminJobsPage() {
               key={tab.key}
               type="button"
               onClick={() => handleTabChange(tab.stage)}
-              className={`rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition-all shadow-2xs ${
+              className={`btn rounded-control border px-3.5 py-1.5 text-xs font-semibold transition-colors shadow-2xs ${
                 isSelected
-                  ? 'border-brand bg-brand text-white shadow-xs font-bold'
+                  ? 'border-brand bg-brand text-on-brand shadow-xs font-bold'
                   : 'border-border-default bg-neutral-primary-soft text-heading hover:border-brand hover:bg-neutral-secondary-soft'
               }`}
             >
@@ -238,13 +231,13 @@ export function AdminJobsPage() {
         <>
           {/* Summary KPI Bar */}
           <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 text-xs">
-            <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-3">
+            <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3">
               <span className="text-body-subtle">{language === 'vi' ? 'Tác vụ đang chạy' : 'Active Jobs'}</span>
               <p className="mt-1 font-sans tabular-nums text-lg font-bold text-heading">
                 {jobs.length}
               </p>
             </div>
-            <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-3">
+            <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3">
               <span className="text-body-subtle">{language === 'vi' ? 'Trạng thái hàng đợi' : 'Queue State'}</span>
               <p className="mt-1 font-sans text-sm font-bold text-heading">
                 {jobs.length > 0
@@ -252,13 +245,13 @@ export function AdminJobsPage() {
                   : (language === 'vi' ? 'Rảnh / Sẵn sàng' : 'Idle / Ready')}
               </p>
             </div>
-            <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-3">
+            <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3">
               <span className="text-body-subtle">{language === 'vi' ? 'Bộ lọc giai đoạn' : 'Stage Scope'}</span>
               <p className="mt-1 text-xs font-semibold text-heading truncate">
                 {GENERATION_STAGES.find((s) => s.key === currentTab)?.[language === 'vi' ? 'labelVi' : 'labelEn']}
               </p>
             </div>
-            <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-3">
+            <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3">
               <span className="text-body-subtle">{language === 'vi' ? 'Đồng bộ thời gian thực' : 'Real-time Sync'}</span>
               <p className="mt-1 font-sans tabular-nums text-xs font-semibold text-body">
                 5s polling
@@ -267,7 +260,7 @@ export function AdminJobsPage() {
           </div>
 
           {/* Active Jobs Table */}
-          <div className="rounded-xl border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
+          <div className="rounded-base border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
             {activeQuery.isLoading ? (
               <div className="p-8">
                 <LoadingState label={language === 'vi' ? 'Đang kiểm tra hàng đợi tác vụ...' : 'Checking queue status...'} />
@@ -275,16 +268,16 @@ export function AdminJobsPage() {
             ) : jobs.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-border-default bg-neutral-secondary-soft font-bold uppercase text-body-subtle">
+                  <thead className="text-xs border-b border-border-default bg-neutral-secondary-soft font-semibold text-body-subtle">
                     <tr>
-                      <th className="p-3">{language === 'vi' ? 'Dự án' : 'Project'}</th>
-                      <th className="p-3">{language === 'vi' ? 'Người thực hiện' : 'User'}</th>
-                      <th className="p-3">{language === 'vi' ? 'Giai đoạn' : 'Stage'}</th>
-                      <th className="p-3">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
-                      <th className="p-3 min-w-[200px]">{language === 'vi' ? 'Tiến độ xử lý' : 'Progress'}</th>
-                      <th className="p-3">{language === 'vi' ? 'Chi tiết bước hiện tại' : 'Current Step'}</th>
-                      <th className="p-3">{language === 'vi' ? 'Cập nhật' : 'Updated'}</th>
-                      <th className="p-3 text-right">{language === 'vi' ? 'Thao tác' : 'Action'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Dự án' : 'Project'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Người thực hiện' : 'User'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Giai đoạn' : 'Stage'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3 min-w-[200px]">{language === 'vi' ? 'Tiến độ xử lý' : 'Progress'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Chi tiết bước hiện tại' : "Current step"}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Cập nhật' : 'Updated'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3 text-right">{language === 'vi' ? 'Thao tác' : 'Action'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-default-subtle">
@@ -292,30 +285,30 @@ export function AdminJobsPage() {
                       <tr key={`${job.projectId}-${job.stage}`} className="hover:bg-neutral-secondary-soft/50 transition-colors">
                         <td className="p-3">
                           <span className="font-semibold text-heading">{job.projectName}</span>
-                          <span className="block text-[11px] font-sans tabular-nums text-body-subtle">Project #{job.projectId}</span>
+                          <span className="block text-xs font-sans tabular-nums text-body-subtle">Project #{job.projectId}</span>
                         </td>
                         <td className="p-3 max-w-[180px] truncate" title={job.userEmail}>
                           <span className="font-medium text-heading">{job.userEmail}</span>
                         </td>
                         <td className="p-3">
-                          <span className="rounded-md bg-brand-softer px-2 py-0.5 font-sans text-[11px] font-bold text-fg-brand-strong whitespace-nowrap">
+                          <Tag variant="status" tone="brand" icon={CircleDot} className="whitespace-nowrap">
                             {stageLabel(job.stage, language)}
-                          </span>
+                          </Tag>
                         </td>
                         <td className="p-3">
                           {statusBadge(job.status, language)}
                         </td>
                         <td className="p-3">
                           <div className="space-y-1">
-                            <div className="flex items-center justify-between text-[11px]">
+                            <div className="flex items-center justify-between text-xs">
                               <span className="font-sans tabular-nums font-bold text-heading">{job.percent}%</span>
                               <span className="text-body-subtle">
                                 {language === 'vi' ? 'Bước' : 'Step'} {job.completedSteps}/{job.totalSteps}
                               </span>
                             </div>
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-secondary">
+                            <div className="h-1.5 w-full overflow-hidden rounded-control bg-neutral-secondary">
                               <div
-                                className="h-full rounded-full bg-brand transition-all duration-300"
+                                className="h-full rounded-full bg-brand"
                                 style={{ width: `${Math.min(job.percent, 100)}%` }}
                               />
                             </div>
@@ -326,7 +319,7 @@ export function AdminJobsPage() {
                             {job.message || '—'}
                           </p>
                         </td>
-                        <td className="p-3 whitespace-nowrap text-body-subtle font-sans tabular-nums text-[11px]">
+                        <td className="p-3 whitespace-nowrap text-body-subtle font-sans tabular-nums text-xs">
                           {job.updatedAt ? new Date(job.updatedAt).toLocaleTimeString('vi-VN') : '—'}
                         </td>
                         <td className="p-3 text-right">
@@ -363,7 +356,7 @@ export function AdminJobsPage() {
         </>
       ) : (
         /* History View */
-        <div className="rounded-xl border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
           {historyQuery.isLoading ? (
             <div className="p-8">
               <LoadingState label={language === 'vi' ? 'Đang tải lịch sử thực thi...' : 'Loading job execution history...'} />
@@ -372,15 +365,15 @@ export function AdminJobsPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-border-default bg-neutral-secondary-soft font-bold uppercase text-body-subtle">
+                  <thead className="text-xs border-b border-border-default bg-neutral-secondary-soft font-semibold text-body-subtle">
                     <tr>
-                      <th className="p-3">{language === 'vi' ? 'Dự án' : 'Project'}</th>
-                      <th className="p-3">{language === 'vi' ? 'Người thực hiện' : 'User'}</th>
-                      <th className="p-3">{language === 'vi' ? 'Giai đoạn' : 'Stage'}</th>
-                      <th className="p-3">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
-                      <th className="p-3">{language === 'vi' ? 'Thời gian' : 'Timestamp'}</th>
-                      <th className="p-3 min-w-[240px]">{language === 'vi' ? 'Chi tiết' : 'Details'}</th>
-                      <th className="p-3 text-right">{language === 'vi' ? 'Thao tác' : 'Action'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Dự án' : 'Project'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Người thực hiện' : 'User'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Giai đoạn' : 'Stage'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Thời gian' : 'Timestamp'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3 min-w-[240px]">{language === 'vi' ? 'Chi tiết' : 'Details'}</th>
+                      <th className="font-semibold text-body-subtle text-xs p-3 text-right">{language === 'vi' ? 'Thao tác' : 'Action'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-default-subtle">
@@ -392,7 +385,7 @@ export function AdminJobsPage() {
                           <td className="p-3">
                             <span className="font-semibold text-heading">{item.projectName}</span>
                             {item.projectId && (
-                              <span className="block text-[11px] font-sans tabular-nums text-body-subtle">
+                              <span className="block text-xs font-sans tabular-nums text-body-subtle">
                                 Project #{item.projectId}
                               </span>
                             )}
@@ -401,16 +394,16 @@ export function AdminJobsPage() {
                             <span className="font-medium text-heading">{item.userEmail}</span>
                           </td>
                           <td className="p-3">
-                            <span className="rounded-md bg-brand-softer px-2 py-0.5 font-sans text-[11px] font-bold text-fg-brand-strong whitespace-nowrap">
+                            <Tag variant="status" tone="brand" icon={CircleDot} className="whitespace-nowrap">
                               {stageLabel(itemStage, language)}
-                            </span>
+                            </Tag>
                           </td>
                           <td className="p-3">
                             {statusBadge(item.status, language)}
                           </td>
-                          <td className="p-3 whitespace-nowrap text-body-subtle font-sans tabular-nums text-[11px]">
+                          <td className="p-3 whitespace-nowrap text-body-subtle font-sans tabular-nums text-xs">
                             <div>{new Date(item.createdAt).toLocaleDateString('vi-VN')}</div>
-                            <div className="text-[10px] text-body-subtle">
+                            <div className="text-xs text-body-subtle">
                               {new Date(item.createdAt).toLocaleTimeString('vi-VN')}
                             </div>
                           </td>
@@ -424,7 +417,7 @@ export function AdminJobsPage() {
                               <button
                                 type="button"
                                 disabled={retryMutation.isPending}
-                                className="btn btn-secondary border border-border-default px-2.5 py-1 text-xs inline-flex items-center gap-1 shadow-2xs hover:bg-brand-softer hover:text-fg-brand hover:border-brand-subtle"
+                                className="btn btn-secondary border border-border-default px-2.5 py-1 text-xs inline-flex items-center gap-1 shadow-2xs hover:bg-brand-softer hover:text-fg-brand-strong hover:border-border-brand-subtle"
                                 onClick={() => setRetryTarget({ ...item, stage: itemStage })}
                                 title={language === 'vi' ? 'Chạy lại tác vụ này' : 'Retry this job'}
                               >

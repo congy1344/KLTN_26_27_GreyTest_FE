@@ -1,8 +1,7 @@
-import {
-  ArrowLeft, CheckCircle2, Clock, MessageSquare,
-  MessageSquareText, Pencil, Plus,
-  Save, Search, Trash2, X,
-} from 'lucide-react';
+import { IconButton } from '../../../shared/components/IconButton';
+import { ArrowLeft, CheckCircle2, CircleDot, Clock, MessageSquare, MessageSquareText, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react';
+import { Tag, type TagTone } from '../../../shared/components/Tag';
+import { SelectMenu } from '../../../shared/components/SelectMenu';
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getErrorMessage } from '../../../shared/api/api-client';
@@ -13,64 +12,59 @@ import { useFeedbackMutations, useFeedbackStats, useFeedbacks } from '../hooks/u
 import { useLanguage } from '../../../shared/i18n/language';
 import type { FeedbackCategory, FeedbackStatus, UserFeedback } from '../types';
 
-const CATEGORY_MAP: Record<string, { labelVi: string; labelEn: string; color: string }> = {
+const CATEGORY_MAP: Record<string, { labelVi: string; labelEn: string; tone: TagTone }> = {
   BUG_GENERATION: {
     labelVi: 'Lỗi sinh test',
     labelEn: 'Generation Bug',
-    color: 'bg-danger-soft text-fg-danger-strong border-border-danger-subtle',
+    tone: 'neutral',
   },
   COVERAGE_TESTPLAN: {
     labelVi: 'Độ phủ & Test Plan',
     labelEn: 'Coverage & Test Plan',
-    color: 'bg-brand-softer text-fg-brand-strong border-border-brand-subtle',
+    tone: 'neutral',
   },
   ACCOUNT_QUOTA: {
     labelVi: 'Quota & Tài khoản',
     labelEn: 'Quota & Account',
-    color: 'bg-warning-soft text-fg-warning border-border-warning-subtle',
+    tone: 'neutral',
   },
   FEATURE_REQUEST: {
     labelVi: 'Đề xuất tính năng',
     labelEn: 'Feature Request',
-    color: 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+    tone: 'neutral',
   },
   OTHER: {
     labelVi: 'Khác',
     labelEn: 'Other',
-    color: 'bg-neutral-secondary text-body-subtle border-border-default',
+    tone: 'neutral',
   },
 };
 
-const STATUS_MAP: Record<FeedbackStatus, { labelVi: string; labelEn: string; badgeClass: string; dotClass: string }> = {
+const STATUS_MAP: Record<FeedbackStatus, { labelVi: string; labelEn: string; tone: TagTone }> = {
   NEW: {
     labelVi: 'Mới tiếp nhận',
     labelEn: 'New',
-    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
-    dotClass: 'bg-blue-500',
+    tone: 'warning',
   },
   IN_PROGRESS: {
     labelVi: 'Đang xử lý',
     labelEn: 'In Progress',
-    badgeClass: 'bg-warning-soft text-fg-warning border-border-warning-subtle',
-    dotClass: 'bg-amber-500 animate-pulse',
+    tone: 'brand',
   },
   RESOLVED: {
     labelVi: 'Đã giải quyết',
     labelEn: 'Resolved',
-    badgeClass: 'bg-success-soft text-fg-success-strong border-border-success-subtle',
-    dotClass: 'bg-success',
+    tone: 'success',
   },
   REJECTED: {
     labelVi: 'Từ chối',
     labelEn: 'Rejected',
-    badgeClass: 'bg-danger-soft text-fg-danger-strong border-border-danger-subtle',
-    dotClass: 'bg-danger',
+    tone: 'danger',
   },
   CLOSED: {
     labelVi: 'Đã đóng',
     labelEn: 'Closed',
-    badgeClass: 'bg-neutral-secondary text-body-subtle border-border-default',
-    dotClass: 'bg-neutral-400',
+    tone: 'neutral',
   },
 };
 
@@ -208,15 +202,15 @@ export function AdminFeedbackPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-fg-brand">
+            <span className="text-xs font-semibold text-body-subtle">
               User Experience & Support
             </span>
-            <span className="rounded-md bg-brand-softer px-2 py-0.5 text-[10px] font-sans font-bold text-fg-brand-strong">
+            <Tag variant="status" tone="brand" icon={CircleDot}>
               FeedbackGateway
-            </span>
+            </Tag>
           </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-heading sm:text-3xl">
-            {language === 'vi' ? 'Quản Lý Phản Hồi & Ý Kiến Người Dùng' : 'User Feedback & Support Desk'}
+          <h1 className="mt-1 text-2xl font-bold text-heading sm:text-3xl">
+            {language === 'vi' ? 'Quản lý phản hồi & ý kiến người dùng' : "User feedback & support desk"}
           </h1>
           <p className="mt-1 text-xs text-body-subtle">
             {language === 'vi'
@@ -234,63 +228,63 @@ export function AdminFeedbackPage() {
           className="btn btn-brand px-3.5 py-2 text-xs flex items-center gap-1.5 shadow-2xs"
         >
           <Plus size={14} />
-          <span>{language === 'vi' ? 'Tạo Phản Hồi Thử Nghiệm' : 'Submit Feedback'}</span>
+          <span>{language === 'vi' ? 'Tạo phản hồi thử nghiệm' : 'Submit Feedback'}</span>
         </button>
       </div>
 
       {/* 3 Summary Metric Cards */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Tổng phản hồi' : 'Total Feedbacks'}
             </span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-softer text-fg-brand">
+            <span className="flex h-8 w-8 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong">
               <MessageSquare size={16} />
             </span>
           </div>
           <p className="mt-2 font-sans tabular-nums text-2xl font-bold text-heading">{stats.total}</p>
-          <span className="text-[11px] text-body-subtle">Được ghi nhận từ người dùng</span>
+          <span className="text-xs text-body-subtle">Được ghi nhận từ người dùng</span>
         </div>
 
-        <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Đang chờ xử lý' : 'Pending & In Progress'}
             </span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning-soft text-fg-warning">
+            <span className="flex h-8 w-8 items-center justify-center rounded-control bg-warning-soft text-fg-warning">
               <Clock size={16} />
             </span>
           </div>
           <p className="mt-2 font-sans tabular-nums text-2xl font-bold text-fg-warning">{stats.pending}</p>
-          <span className="text-[11px] text-body-subtle">Cần quản trị viên kiểm tra</span>
+          <span className="text-xs text-body-subtle">Cần quản trị viên kiểm tra</span>
         </div>
 
-        <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
+        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Đã giải quyết' : 'Resolved'}
             </span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-success-soft text-fg-success-strong">
+            <span className="flex h-8 w-8 items-center justify-center rounded-control bg-success-soft text-fg-success-strong">
               <CheckCircle2 size={16} />
             </span>
           </div>
           <p className="mt-2 font-sans tabular-nums text-2xl font-bold text-fg-success-strong">{stats.resolved}</p>
-          <span className="text-[11px] text-body-subtle">Đã khắc phục và phản hồi</span>
+          <span className="text-xs text-body-subtle">Đã khắc phục và phản hồi</span>
         </div>
       </div>
 
       {actionError && (
-        <div className="mb-4 rounded-lg border border-border-danger-subtle bg-danger-soft p-3 text-xs text-fg-danger-strong flex items-center justify-between">
+        <div className="mb-4 rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-xs text-fg-danger-strong flex items-center justify-between">
           <span>{actionError}</span>
-          <button type="button" onClick={() => setActionError(null)} className="font-bold underline ml-2">
+          <button type="button" onClick={() => setActionError(null)} className="btn btn-ghost rounded-control font-bold underline ml-2">
             Đóng
           </button>
         </div>
       )}
 
       {/* Main Feedback Table Container */}
-      <div className="rounded-xl border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
+      <div className="rounded-base border border-border-default bg-neutral-primary-soft">
         {/* Filter and Search Bar */}
         <div className="border-b border-border-default p-4 flex flex-wrap items-center justify-between gap-3 bg-neutral-primary-soft">
           <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
@@ -299,39 +293,33 @@ export function AdminFeedbackPage() {
               <input
                 type="text"
                 placeholder={language === 'vi' ? 'Tìm theo email, tiêu đề, nội dung...' : 'Search feedbacks...'}
-                className="h-10 w-full rounded-lg border border-border-default bg-neutral-primary pl-9 pr-3 text-xs text-heading placeholder:text-body-subtle shadow-2xs focus:border-brand focus:outline-none leading-normal"
+                className="form-input h-10 w-full rounded-control border border-border-default bg-neutral-primary pl-9 pr-3 text-xs text-heading placeholder:text-body-subtle shadow-2xs focus:border-brand focus:outline-none leading-normal"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
 
-            <select
-              aria-label="Lọc trạng thái"
-              className="h-10 min-h-[40px] rounded-lg border border-border-default-medium bg-neutral-primary px-3 py-2 text-xs font-sans text-heading shadow-2xs focus:border-brand focus:outline-none w-auto min-w-[140px] cursor-pointer"
+            <SelectMenu aria-label="Lọc trạng thái"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">{language === 'vi' ? 'Mọi trạng thái' : 'All Status'}</option>
-              <option value="NEW">Mới tiếp nhận</option>
-              <option value="IN_PROGRESS">Đang xử lý</option>
-              <option value="RESOLVED">Đã giải quyết</option>
-              <option value="REJECTED">{language === 'vi' ? 'Từ chối' : 'Rejected'}</option>
-              <option value="CLOSED">Đã đóng</option>
-            </select>
+              onChange={(value) => setStatusFilter(value)}
+              className="w-full sm:w-auto sm:min-w-[160px]"
+              options={[{ value: "", label: language === 'vi' ? 'Mọi trạng thái' : 'All Status' },
+                { value: "NEW", label: "Mới tiếp nhận", tone: 'warning' },
+                { value: "IN_PROGRESS", label: "Đang xử lý", tone: 'brand' },
+                { value: "RESOLVED", label: "Đã giải quyết", tone: 'success' },
+                { value: "REJECTED", label: language === 'vi' ? 'Từ chối' : 'Rejected', tone: 'danger' },
+                { value: "CLOSED", label: "Đã đóng", tone: 'neutral' }]} />
 
-            <select
-              aria-label="Lọc danh mục"
-              className="h-10 min-h-[40px] rounded-lg border border-border-default-medium bg-neutral-primary px-3 py-2 text-xs font-sans text-heading shadow-2xs focus:border-brand focus:outline-none w-auto min-w-[160px] cursor-pointer"
+            <SelectMenu aria-label="Lọc danh mục"
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="">{language === 'vi' ? 'Mọi danh mục' : 'All Categories'}</option>
-              <option value="BUG_GENERATION">Lỗi sinh test</option>
-              <option value="COVERAGE_TESTPLAN">Độ phủ & Test Plan</option>
-              <option value="ACCOUNT_QUOTA">Quota & Tài khoản</option>
-              <option value="FEATURE_REQUEST">Đề xuất tính năng</option>
-              <option value="OTHER">Khác</option>
-            </select>
+              onChange={(value) => setCategoryFilter(value)}
+              className="w-full sm:w-auto sm:min-w-[160px]"
+              options={[{ value: "", label: language === 'vi' ? 'Mọi danh mục' : 'All Categories' },
+                { value: "BUG_GENERATION", label: "Lỗi sinh test" },
+                { value: "COVERAGE_TESTPLAN", label: "Độ phủ & Test Plan" },
+                { value: "ACCOUNT_QUOTA", label: "Quota & Tài khoản" },
+                { value: "FEATURE_REQUEST", label: "Đề xuất tính năng" },
+                { value: "OTHER", label: "Khác" }]} />
 
             {(statusFilter || categoryFilter || searchTerm) && (
               <button
@@ -349,7 +337,7 @@ export function AdminFeedbackPage() {
           </div>
 
           <span className="flex items-center gap-1 font-sans tabular-nums text-xs text-body-subtle">
-            <CheckCircle2 size={13} className="text-fg-brand" />
+            <CheckCircle2 size={13} className="text-fg-brand-strong" />
             {displayedFeedbacks.length} {language === 'vi' ? 'phản hồi' : 'entries'}
           </span>
         </div>
@@ -357,15 +345,15 @@ export function AdminFeedbackPage() {
         {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-border-default bg-neutral-secondary-soft font-bold uppercase text-body-subtle">
+            <thead className="text-xs border-b border-border-default bg-neutral-secondary-soft font-semibold text-body-subtle">
               <tr>
-                <th className="p-3.5">{language === 'vi' ? 'Người Gửi' : 'Sender'}</th>
-                <th className="p-3.5 min-w-[240px]">{language === 'vi' ? 'Nội Dung Phản Hồi' : 'Feedback Content'}</th>
-                <th className="p-3.5">{language === 'vi' ? 'Phân Loại' : 'Category'}</th>
-                <th className="p-3.5">{language === 'vi' ? 'Thời Gian' : 'Submitted At'}</th>
-                <th className="p-3.5">{language === 'vi' ? 'Trạng Thái' : 'Status'}</th>
-                <th className="p-3.5">{language === 'vi' ? 'Ghi Chú Admin' : 'Admin Response'}</th>
-                <th className="p-3.5 text-right">{language === 'vi' ? 'Thao Tác' : 'Actions'}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'Người gửi' : 'Sender'}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5 min-w-[240px]">{language === 'vi' ? 'Nội dung phản hồi' : "Feedback content"}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'Phân loại' : 'Category'}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'Thời gian' : "Submitted at"}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5">{language === 'vi' ? 'Ghi chú admin' : "Admin response"}</th>
+                <th className="font-semibold text-body-subtle text-xs p-3.5 text-right">{language === 'vi' ? 'Thao tác' : 'Actions'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-default-subtle">
@@ -377,54 +365,51 @@ export function AdminFeedbackPage() {
                   <tr key={fb.id} className="hover:bg-neutral-secondary-soft/50 transition-colors">
                     <td className="p-3.5">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-softer font-sans text-xs font-bold text-fg-brand">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-softer font-sans text-xs font-bold text-fg-brand-strong">
                           {(fb.userName || fb.userEmail).charAt(0).toUpperCase()}
                         </span>
                         <div>
                           <p className="font-semibold text-heading text-xs">{fb.userName || 'Người dùng'}</p>
-                          <p className="text-[11px] text-body-subtle">{fb.userEmail}</p>
+                          <p className="text-xs text-body-subtle">{fb.userEmail}</p>
                         </div>
                       </div>
                     </td>
 
                     <td className="p-3.5">
                       <p className="font-bold text-heading text-xs">{fb.title}</p>
-                      <p className="mt-0.5 text-body-subtle text-[11px] line-clamp-2 max-w-sm" title={fb.content}>
+                      <p className="mt-0.5 text-body-subtle text-xs line-clamp-2 max-w-sm" title={fb.content}>
                         {fb.content}
                       </p>
                       {fb.projectName && (
-                        <span className="mt-1 inline-block rounded-md bg-neutral-secondary px-1.5 py-0.5 text-[10px] text-body-subtle font-sans">
+                        <Tag className="mt-1">
                           {fb.projectName}
-                        </span>
+                        </Tag>
                       )}
                     </td>
 
                     <td className="p-3.5">
-                      <span className={`inline-block rounded-md border px-2 py-0.5 text-[10.5px] font-bold ${cat.color}`}>
+                      <Tag variant="status" tone={cat.tone} icon={MessageSquare}>
                         {language === 'vi' ? cat.labelVi : cat.labelEn}
-                      </span>
+                      </Tag>
                     </td>
 
-                    <td className="p-3.5 text-body-subtle whitespace-nowrap text-[11px]">
+                    <td className="p-3.5 text-body-subtle whitespace-nowrap text-xs">
                       {new Date(fb.createdAt).toLocaleString('vi-VN')}
                     </td>
 
                     <td className="p-3.5 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${status.badgeClass}`}
-                      >
-                        <span className={`h-1.5 w-1.5 rounded-full ${status.dotClass}`} />
+                      <Tag variant="status" tone={status.tone} icon={fb.status === 'RESOLVED' ? CheckCircle2 : Clock}>
                         <span>{language === 'vi' ? status.labelVi : status.labelEn}</span>
-                      </span>
+                      </Tag>
                     </td>
 
                     <td className="p-3.5 max-w-[200px]">
                       {fb.adminNote ? (
-                        <p className="text-[11px] text-heading italic line-clamp-2" title={fb.adminNote}>
+                        <p className="text-xs text-heading italic line-clamp-2" title={fb.adminNote}>
                           "{fb.adminNote}"
                         </p>
                       ) : (
-                        <span className="text-[10px] text-body-subtle italic">Chưa có phản hồi</span>
+                        <span className="text-xs text-body-subtle italic">Chưa có phản hồi</span>
                       )}
                     </td>
 
@@ -439,14 +424,8 @@ export function AdminFeedbackPage() {
                           <Pencil size={12} />
                           <span>{language === 'vi' ? 'Xử lý' : 'Triage'}</span>
                         </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary px-2 py-1 text-xs text-danger hover:bg-danger-soft"
-                          onClick={() => setDeleteTarget(fb)}
-                          title="Xóa phản hồi"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <IconButton onClick={() => setDeleteTarget(fb)}
+              title="Xóa phản hồi" label="Xóa phản hồi" icon={Trash2} className="hover:bg-danger-soft hover:text-fg-danger-strong" />
                       </div>
                     </td>
                   </tr>
@@ -473,28 +452,22 @@ export function AdminFeedbackPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/75 px-4 backdrop-blur-sm"
           onMouseDown={(e) => e.target === e.currentTarget && setSelectedFeedback(null)}
         >
-          <form
+          <form style={{ boxShadow: 'var(--shadow-lg)' }}
             onSubmit={handleSaveStatus}
-            className="w-full max-w-md rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xl space-y-4"
+            className="w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-lg space-y-4"
           >
             <div className="flex items-start justify-between border-b border-border-default pb-3">
               <div>
-                <div className="flex items-center gap-2 text-fg-brand">
+                <div className="flex items-center gap-2 text-fg-brand-strong">
                   <MessageSquareText size={17} />
-                  <span className="text-xs font-bold uppercase tracking-wide">Xử Lý Phản Hồi</span>
+                  <span className="text-xs font-bold">Xử lý phản hồi</span>
                 </div>
                 <h2 className="mt-1 text-sm font-bold text-heading line-clamp-1">{selectedFeedback.title}</h2>
               </div>
-              <button
-                type="button"
-                className="btn btn-secondary p-1"
-                onClick={() => setSelectedFeedback(null)}
-              >
-                <X size={14} />
-              </button>
+              <IconButton onClick={() => setSelectedFeedback(null)} label="Đóng" icon={X} />
             </div>
 
-            <div className="rounded-lg border border-border-default-subtle bg-neutral-secondary-soft/50 p-3 text-xs space-y-1.5">
+            <div className="rounded-base border border-border-default-subtle bg-neutral-secondary-soft/50 p-3 text-xs space-y-1.5">
               <div className="text-body-subtle">
                 <span>Người gửi: <strong>{selectedFeedback.userEmail}</strong></span>
               </div>
@@ -504,17 +477,12 @@ export function AdminFeedbackPage() {
             <div className="space-y-3 text-xs">
               <label className="block">
                 <span className="mb-1 block font-semibold text-heading">Cập nhật trạng thái</span>
-                <select
-                  className="form-input"
+                <SelectMenu
                   value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value as FeedbackStatus)}
-                >
-                  <option value="NEW">Mới tiếp nhận (NEW)</option>
-                  <option value="IN_PROGRESS">Đang xử lý (IN_PROGRESS)</option>
-                  <option value="RESOLVED">Đã giải quyết (RESOLVED)</option>
-                  <option value="REJECTED">Từ chối (REJECTED)</option>
-                  <option value="CLOSED">Đã đóng (CLOSED)</option>
-                </select>
+                  onChange={(selectedValue) => setEditStatus(selectedValue as FeedbackStatus)}
+                  aria-label={'Cập nhật trạng thái'}
+                  options={[{ value: String("NEW"), label: "Mới tiếp nhận (NEW)" }, { value: String("IN_PROGRESS"), label: "Đang xử lý (IN_PROGRESS)" }, { value: String("RESOLVED"), label: "Đã giải quyết (RESOLVED)" }, { value: String("REJECTED"), label: "Từ chối (REJECTED)" }, { value: String("CLOSED"), label: "Đã đóng (CLOSED)" }]}
+                />
               </label>
 
               <label className="block">
@@ -532,7 +500,7 @@ export function AdminFeedbackPage() {
             </div>
 
             {actionError && (
-              <p role="alert" className="text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-lg">
+              <p role="alert" className="text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-base">
                 {actionError}
               </p>
             )}
@@ -551,7 +519,7 @@ export function AdminFeedbackPage() {
                 disabled={mutations.updateStatus.isPending}
               >
                 <Save size={13} />
-                <span>Lưu Trạng Thái</span>
+                <span>Lưu trạng thái</span>
               </button>
             </div>
           </form>
@@ -564,41 +532,30 @@ export function AdminFeedbackPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/75 px-4 backdrop-blur-sm"
           onMouseDown={(e) => e.target === e.currentTarget && setCreateModalOpen(false)}
         >
-          <form
+          <form style={{ boxShadow: 'var(--shadow-lg)' }}
             onSubmit={handleCreateFeedback}
-            className="w-full max-w-md rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xl space-y-3.5"
+            className="w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-lg space-y-3.5"
           >
             <div className="flex items-start justify-between border-b border-border-default pb-3">
               <div>
-                <div className="flex items-center gap-2 text-fg-brand">
+                <div className="flex items-center gap-2 text-fg-brand-strong">
                   <Plus size={17} />
-                  <span className="text-xs font-bold uppercase tracking-wide">Tạo Phản Hồi Thử Nghiệm</span>
+                  <span className="text-xs font-bold">Tạo phản hồi thử nghiệm</span>
                 </div>
                 <h2 className="mt-1 text-sm font-bold text-heading">Gửi ý kiến hoặc báo cáo lỗi</h2>
               </div>
-              <button
-                type="button"
-                className="btn btn-secondary p-1"
-                onClick={() => setCreateModalOpen(false)}
-              >
-                <X size={14} />
-              </button>
+              <IconButton onClick={() => setCreateModalOpen(false)} label="Đóng" icon={X} />
             </div>
 
             <div className="space-y-3 text-xs">
               <label className="block">
                 <span className="mb-1 block font-semibold text-heading">Danh mục</span>
-                <select
-                  className="form-input"
+                <SelectMenu
                   value={createCategory}
-                  onChange={(e) => setCreateCategory(e.target.value as FeedbackCategory)}
-                >
-                  <option value="BUG_GENERATION">Lỗi sinh test</option>
-                  <option value="COVERAGE_TESTPLAN">Độ phủ & Test Plan</option>
-                  <option value="ACCOUNT_QUOTA">Quota & Tài khoản</option>
-                  <option value="FEATURE_REQUEST">Đề xuất tính năng</option>
-                  <option value="OTHER">Khác</option>
-                </select>
+                  onChange={(selectedValue) => setCreateCategory(selectedValue as FeedbackCategory)}
+                  aria-label={'Danh mục'}
+                  options={[{ value: String("BUG_GENERATION"), label: "Lỗi sinh test" }, { value: String("COVERAGE_TESTPLAN"), label: "Độ phủ & Test Plan" }, { value: String("ACCOUNT_QUOTA"), label: "Quota & Tài khoản" }, { value: String("FEATURE_REQUEST"), label: "Đề xuất tính năng" }, { value: String("OTHER"), label: "Khác" }]}
+                />
               </label>
 
               <label className="block">
@@ -637,7 +594,7 @@ export function AdminFeedbackPage() {
             </div>
 
             {actionError && (
-              <p role="alert" className="text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-lg">
+              <p role="alert" className="text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-base">
                 {actionError}
               </p>
             )}
@@ -656,7 +613,7 @@ export function AdminFeedbackPage() {
                 disabled={mutations.create.isPending}
               >
                 <Save size={13} />
-                <span>Gửi Phản Hồi</span>
+                <span>Gửi phản hồi</span>
               </button>
             </div>
           </form>

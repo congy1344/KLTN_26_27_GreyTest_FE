@@ -1,3 +1,5 @@
+import { IconButton } from './IconButton';
+import { Tag } from './Tag';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -190,38 +192,28 @@ export function UpgradeToProModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="upgrade-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-dark/65 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200"
       onMouseDown={(e) => e.target === e.currentTarget && handleClose()}
     >
-      <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-purple-500/25 bg-neutral-primary-soft p-5 sm:p-6 shadow-2xl transition-all">
+      <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-base border border-border-brand-subtle bg-neutral-primary-soft p-5 sm:p-6 shadow-2xl transition-colors">
         {/* Glow trang trí nền */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-          <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-purple-500/15 blur-3xl" />
-          <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-indigo-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-base">
         </div>
 
         {/* Modal Header */}
         <div className="relative flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/15 border border-purple-500/25 px-2.5 py-0.5 text-[11px] font-bold text-purple-600 dark:text-purple-400">
-                <ShieldCheck size={12} />
-                NÂNG CẤP & GIA HẠN GÓI DỊCH VỤ
-              </span>
-              <h2 id="upgrade-modal-title" className="text-xl font-bold text-heading mt-1.5">
+              <Tag>
+                <ShieldCheck size={12} aria-hidden="true"  />
+                Nâng cấp & gia hạn gói dịch vụ
+              </Tag>
+              <h2 id="upgrade-modal-title" className="font-semibold text-heading mt-1.5 text-lg font-display">
                 Chọn gói mở rộng hạn mức AI
               </h2>
             </div>
           </div>
-          <button
-            type="button"
-            aria-label="Đóng"
-            disabled={isRedirecting}
-            onClick={handleClose}
-            className="rounded-lg p-1.5 text-body-subtle hover:bg-neutral-secondary hover:text-heading transition-colors"
-          >
-            <X size={18} />
-          </button>
+          <IconButton icon={X} label={t('Đóng', 'Close')} disabled={isRedirecting} onClick={handleClose} />
         </div>
 
         <p className="mt-1.5 text-xs text-body-subtle leading-relaxed">
@@ -229,38 +221,40 @@ export function UpgradeToProModal({
         </p>
 
         {/* Thanh trạng thái gói hiện tại của người dùng */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border-default/80 bg-neutral-secondary-soft/60 px-3.5 py-2.5 text-xs">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-t-border-default px-3.5 py-2.5 text-xs">
           <div className="flex items-center gap-2">
             <span className="text-body-subtle">Gói hiện tại:</span>
             {effectiveCurrentTier === 'PRO' ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 border border-purple-500/40 px-2.5 py-0.5 text-xs font-bold text-purple-600 dark:text-purple-400">
-                <ShieldCheck size={12} /> {t('Gói Chuyên Nghiệp (PRO)', 'Professional plan (PRO)')}
-              </span>
+              <Tag>
+                <ShieldCheck size={12} aria-hidden="true"  /> {t('Gói chuyên nghiệp (PRO)', 'Professional plan (PRO)')}
+              </Tag>
             ) : effectiveCurrentTier === 'PLUS' ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 px-2.5 py-0.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                <Zap size={12} /> {t('Gói Tiêu Chuẩn (PLUS)', 'Standard plan (PLUS)')}
-              </span>
+              <Tag>
+                <Zap size={12} aria-hidden="true"  /> {t('Gói tiêu chuẩn (PLUS)', 'Standard plan (PLUS)')}
+              </Tag>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-neutral-secondary border border-border-default px-2.5 py-0.5 text-xs font-semibold text-body">
-                <ShieldCheck size={12} /> {t('Gói Miễn Phí (FREE)', 'Free plan (FREE)')}
-              </span>
+              <Tag>
+                <ShieldCheck size={12} aria-hidden="true"  /> {t('Gói miễn phí (FREE)', 'Free plan (FREE)')}
+              </Tag>
             )}
           </div>
           {quota && (
-            <div className="text-[11px] text-body-subtle">
-              Lượt AI còn lại:{' '}
-              <strong className="text-heading font-bold">
-                {remainingQuota != null ? remainingQuota : quota.limit ? quota.limit - quota.used : '--'}/{quota.limit ?? 100}
-              </strong>
+            <div className="text-xs text-body-subtle">
+              {quota.limit === null ? <>
+                {t(`Đã dùng ${quota.used} lượt`, `Used ${quota.used} credits`)} <strong className="text-heading font-semibold">{t('Không giới hạn', 'Unlimited')}</strong>
+              </> : <>
+                {t('Lượt AI còn lại:', 'AI credits remaining:')}{' '}
+                <strong className="text-heading font-semibold">{remainingQuota}/{quota.limit}</strong>
+              </>}
             </div>
           )}
         </div>
 
         {/* Danh sách các gói đang kích hoạt (PLUS và PRO) */}
         {!isPlusActive && !isProActive ? (
-          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 text-center">
-            <ShieldCheck size={28} className="mx-auto text-amber-500 mb-2" />
-            <h3 className="text-sm font-bold text-heading">Các gói nâng cấp đang tạm dừng</h3>
+          <div className="mt-4 rounded-base border border-border-warning-subtle bg-warning-soft p-5 text-center">
+            <ShieldCheck size={28} className="mx-auto text-fg-warning mb-2" />
+            <h2 className="text-base font-semibold text-heading font-display">Các gói nâng cấp đang tạm dừng</h2>
             <p className="mt-1 text-xs text-body-subtle leading-relaxed">
               Hệ thống đang tạm ngừng mở đăng ký hoặc nâng cấp các gói trực tuyến để bảo trì cấu hình. Vui lòng quay lại sau!
             </p>
@@ -271,28 +265,26 @@ export function UpgradeToProModal({
             {isPlusActive && (
               <div
                 onClick={() => !isRedirecting && setSelectedTier('PLUS')}
-            className={`cursor-pointer relative flex flex-col justify-between rounded-xl border-2 p-4 transition-all duration-200 ${
+            className={`cursor-pointer relative flex flex-col justify-between rounded-base border-2 p-4 transition-colors duration-200 ${
               selectedTier === 'PLUS'
-                ? 'border-indigo-500 bg-indigo-500/10 shadow-lg ring-2 ring-indigo-500/20'
-                : 'border-border-default bg-neutral-secondary-soft/40 hover:border-indigo-400/50 hover:bg-neutral-secondary-soft/70'
+                ? 'border-border-brand bg-brand-softer  ring-2 ring-border-brand-subtle'
+                : 'border-border-default bg-neutral-secondary-soft hover:border-border-brand-subtle hover:bg-neutral-secondary-soft'
             }`}
           >
             {/* Huy hiệu nhận biết gói đang dùng */}
             {effectiveCurrentTier === 'PLUS' && (
-              <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-sm">
-                <CheckCircle2 size={10} strokeWidth={3} /> {t('Đang sử dụng', 'Current plan')}
-              </span>
+              <Tag variant="status" tone={'success'} icon={CheckCircle2} className="absolute -top-2.5 left-3">
+                 {t('Đang sử dụng', 'Current plan')}
+              </Tag>
             )}
 
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                  Gói PLUS
-                </span>
+                <Tag>Gói PLUS</Tag>
                 <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${
+                  className={`flex h-5 w-5 items-center justify-center rounded-control transition-colors ${
                     selectedTier === 'PLUS'
-                      ? 'bg-indigo-600 text-white shadow-xs'
+                      ? 'bg-brand text-on-brand '
                       : 'border border-border-default-strong text-transparent'
                   }`}
                 >
@@ -301,20 +293,20 @@ export function UpgradeToProModal({
               </div>
 
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-2xl font-bold tracking-tight text-heading font-sans tabular-nums">{plusPrice}</span>
-                <span className="text-[11px] text-body-subtle">{plusCycle}</span>
+                <span className="text-[22px] font-semibold text-heading font-sans tabular-nums">{plusPkg ? plusPrice : t('Chưa có dữ liệu', 'Data unavailable')}</span>
+                <span className="text-xs text-body-subtle">{plusPkg ? plusCycle : ''}</span>
               </div>
 
               {effectiveCurrentTier === 'PLUS' ? (
-                <p className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  Gói hiện tại • Gia hạn thêm 1 {plusCycle.replace('/', '')}
+                <p className="mt-1 text-xs font-semibold text-fg-success-strong dark:text-fg-success-strong">
+                  Gói hiện tại, Gia hạn thêm 1 {plusCycle.replace('/', '')}
                 </p>
               ) : effectiveCurrentTier === 'PRO' ? (
-                <p className="mt-1 text-[11px] text-body-subtle">
+                <p className="mt-1 text-xs text-body-subtle">
                   Gói thấp hơn gói PRO hiện tại
                 </p>
               ) : (
-                <p className="mt-1 text-[11px] text-body-subtle">
+                <p className="mt-1 text-xs text-body-subtle">
                   {plusPkg?.description || 'Phù hợp nhu cầu cơ bản hàng tuần'}
                 </p>
               )}
@@ -323,25 +315,25 @@ export function UpgradeToProModal({
 
               <ul className="space-y-1.5 text-xs text-heading">
                 <li className="flex items-center gap-1.5 font-medium">
-                  <Check size={13} className="shrink-0 text-indigo-500" />
-                  <span><strong>{plusLimit}</strong> {plusCycle}</span>
+                  <Check size={13} className="shrink-0 text-fg-brand-strong" />
+                  <span><strong>{plusPkg ? plusLimit : t('Chưa có dữ liệu', 'Data unavailable')}</strong> {plusPkg ? plusCycle : ''}</span>
                 </li>
                 {plusExtraFeatures.map((feat, idx) => (
                   <li key={idx} className="flex items-center gap-1.5 text-body-subtle">
-                    <Check size={13} className="shrink-0 text-indigo-500" />
+                    <Check size={13} className="shrink-0 text-fg-brand-strong" />
                     <span>{feat}</span>
                   </li>
                 ))}
                 <li className="flex items-center gap-1.5 text-body-subtle">
-                  <Check size={13} className="shrink-0 text-indigo-500" />
-                  <span>{plusConcurrency}</span>
+                  <Check size={13} className="shrink-0 text-fg-brand-strong" />
+                  <span>{plusPkg ? plusConcurrency : t('Chưa có dữ liệu', 'Data unavailable')}</span>
                 </li>
               </ul>
             </div>
 
-            <div className="mt-3 pt-2 text-center text-[11px] font-medium">
+            <div className="mt-3 pt-2 text-center text-xs font-medium">
               {selectedTier === 'PLUS' ? (
-                <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+                <span className="text-fg-brand-strong dark:text-fg-brand-strong font-semibold">
                   {effectiveCurrentTier === 'PLUS' ? '✓ Đang chọn để gia hạn' : '✓ Đã chọn gói này'}
                 </span>
               ) : (
@@ -355,32 +347,30 @@ export function UpgradeToProModal({
             {isProActive && (
               <div
                 onClick={() => !isRedirecting && setSelectedTier('PRO')}
-            className={`cursor-pointer relative flex flex-col justify-between rounded-xl border-2 p-4 transition-all duration-200 ${
+            className={`cursor-pointer relative flex flex-col justify-between rounded-base border-2 p-4 transition-colors duration-200 ${
               selectedTier === 'PRO'
-                ? 'border-purple-500 bg-purple-500/10 shadow-lg ring-2 ring-purple-500/20'
-                : 'border-border-default bg-neutral-secondary-soft/40 hover:border-purple-400/50 hover:bg-neutral-secondary-soft/70'
+                ? 'border-border-brand bg-brand-softer  ring-2 ring-border-brand-subtle'
+                : 'border-border-default bg-neutral-secondary-soft hover:border-border-brand-subtle hover:bg-neutral-secondary-soft'
             }`}
           >
             {/* Huy hiệu nhận biết gói đang dùng hoặc khuyên dùng */}
             {effectiveCurrentTier === 'PRO' ? (
-              <span className="absolute -top-2.5 left-3 inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-sm">
-                <CheckCircle2 size={10} strokeWidth={3} /> {t('Đang sử dụng', 'Current plan')}
-              </span>
+              <Tag variant="status" tone={'success'} icon={CheckCircle2} className="absolute -top-2.5 left-3">
+                 {t('Đang sử dụng', 'Current plan')}
+              </Tag>
             ) : (
-              <span className="absolute -top-2.5 right-3 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-2.5 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider shadow-sm">
-                {t('KHUYÊN DÙNG', 'RECOMMENDED')}
-              </span>
+              <Tag className="absolute -top-2.5 right-3">
+                {t('Khuyên dùng', 'Recommended')}
+              </Tag>
             )}
 
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
-                  Gói PRO
-                </span>
+                <Tag>Gói PRO</Tag>
                 <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${
+                  className={`flex h-5 w-5 items-center justify-center rounded-control transition-colors ${
                     selectedTier === 'PRO'
-                      ? 'bg-purple-600 text-white shadow-xs'
+                      ? 'bg-brand text-on-brand '
                       : 'border border-border-default-strong text-transparent'
                   }`}
                 >
@@ -389,16 +379,16 @@ export function UpgradeToProModal({
               </div>
 
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-2xl font-bold tracking-tight text-heading font-sans tabular-nums">{proPrice}</span>
-                <span className="text-[11px] text-body-subtle">{proCycle}</span>
+                <span className="text-[22px] font-semibold text-heading font-sans tabular-nums">{proPkg ? proPrice : t('Chưa có dữ liệu', 'Data unavailable')}</span>
+                <span className="text-xs text-body-subtle">{proPkg ? proCycle : ''}</span>
               </div>
 
               {effectiveCurrentTier === 'PRO' ? (
-                <p className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  Gói hiện tại • Gia hạn thêm 1 {proCycle.replace('/', '')}
+                <p className="mt-1 text-xs font-semibold text-fg-success-strong dark:text-fg-success-strong">
+                  Gói hiện tại, Gia hạn thêm 1 {proCycle.replace('/', '')}
                 </p>
               ) : (
-                <p className="mt-1 text-[11px] text-purple-600 dark:text-purple-400 font-medium">
+                <p className="mt-1 text-xs text-fg-brand-strong dark:text-fg-brand-strong font-medium">
                   {proPkg?.description || 'Tối đa công suất kiểm thử AI'}
                 </p>
               )}
@@ -407,25 +397,25 @@ export function UpgradeToProModal({
 
               <ul className="space-y-1.5 text-xs text-heading">
                 <li className="flex items-center gap-1.5 font-medium">
-                  <Check size={13} className="shrink-0 text-purple-500" />
-                  <span><strong>{proLimit}</strong> {proCycle}</span>
+                  <Check size={13} className="shrink-0 text-fg-brand-strong" />
+                  <span><strong>{proPkg ? proLimit : t('Chưa có dữ liệu', 'Data unavailable')}</strong> {proPkg ? proCycle : ''}</span>
                 </li>
                 {proExtraFeatures.map((feat, idx) => (
                   <li key={idx} className="flex items-center gap-1.5 text-body-subtle">
-                    <Check size={13} className="shrink-0 text-purple-500" />
+                    <Check size={13} className="shrink-0 text-fg-brand-strong" />
                     <span>{feat}</span>
                   </li>
                 ))}
                 <li className="flex items-center gap-1.5 text-body-subtle">
-                  <Check size={13} className="shrink-0 text-purple-500" />
-                  <span>{proConcurrency}</span>
+                  <Check size={13} className="shrink-0 text-fg-brand-strong" />
+                  <span>{proPkg ? proConcurrency : t('Chưa có dữ liệu', 'Data unavailable')}</span>
                 </li>
               </ul>
             </div>
 
-            <div className="mt-3 pt-2 text-center text-[11px] font-medium">
+            <div className="mt-3 pt-2 text-center text-xs font-medium">
               {selectedTier === 'PRO' ? (
-                <span className="text-purple-600 dark:text-purple-400 font-bold">
+                <span className="text-fg-brand-strong dark:text-fg-brand-strong font-semibold">
                   {effectiveCurrentTier === 'PRO' ? '✓ Đang chọn để gia hạn' : '✓ Đã chọn gói này'}
                 </span>
               ) : (
@@ -438,20 +428,20 @@ export function UpgradeToProModal({
         )}
 
         {error && (
-          <p role="alert" className="mt-4 rounded-lg bg-danger-soft p-3 text-xs font-medium text-fg-danger-strong">
+          <p role="alert" className="mt-4 rounded-base bg-danger-soft p-3 text-xs font-medium text-fg-danger-strong">
             {error}
           </p>
         )}
 
         {/* Khối tóm tắt giao dịch thanh toán */}
         {(isPlusActive || isProActive) && (
-          <div className="mt-4 rounded-xl border border-border-default/80 bg-neutral-secondary-soft/50 p-3 sm:p-3.5">
+          <div className="mt-4 border-t border-t-border-default p-3 sm:p-3.5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
               <div className="flex items-center gap-2 min-w-0">
-                <CreditCard size={15} className="text-purple-600 dark:text-purple-400 shrink-0" />
-                <div className="text-body-subtle text-[11px] sm:text-xs min-w-0">
+                <CreditCard size={15} className="text-fg-brand-strong dark:text-fg-brand-strong shrink-0" />
+                <div className="text-body-subtle text-xs sm:text-xs min-w-0">
                   <span>Dự kiến thực hiện: </span>
-                  <strong className="text-heading font-bold text-foreground">
+                  <strong className="text-heading font-semibold">
                     {actionText}
                   </strong>
                   <span className="text-body-subtle"> (Cổng thanh toán VNPay)</span>
@@ -459,8 +449,8 @@ export function UpgradeToProModal({
               </div>
               <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 whitespace-nowrap pt-1 sm:pt-0 border-t sm:border-t-0 border-border-default-subtle">
                 <span className="text-xs text-body-subtle">Số tiền: </span>
-                <span className="text-base font-extrabold text-heading text-purple-600 dark:text-purple-400 font-sans tabular-nums whitespace-nowrap">
-                  {selectedPriceText}
+                <span className="text-base font-semibold text-heading text-fg-brand-strong dark:text-fg-brand-strong font-sans tabular-nums whitespace-nowrap">
+                  {selectedPkg ? selectedPriceText : t('Chưa có dữ liệu', 'Data unavailable')}
                 </span>
               </div>
             </div>
@@ -480,13 +470,13 @@ export function UpgradeToProModal({
 
           <button
             type="button"
-            className="btn text-xs px-5 py-2.5 font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-brand text-xs px-5 py-2.5 font-semibold transition-colors flex items-center justify-center gap-2 w-full sm:w-auto disabled:cursor-not-allowed"
             disabled={isRedirecting || (!isPlusActive && !isProActive)}
             onClick={handlePayVnpay}
           >
             {isRedirecting ? (
               <>
-                <Loader2 size={14} className="animate-spin" /> Đang chuyển sang VNPay...
+                <Loader2 size={14} className="animate-spin" /> Đang chuyển sang VNPay…
               </>
             ) : !isPlusActive && !isProActive ? (
               <span>Dịch vụ đang tạm dừng</span>
@@ -494,7 +484,7 @@ export function UpgradeToProModal({
               <>
                 {isCurrentTierSelected ? <RefreshCw size={14} /> : <CreditCard size={14} />}
                 <span>
-                  Thanh toán qua VNPay ({selectedPriceText})
+                  Thanh toán qua VNPay ({selectedPkg ? selectedPriceText : t('Chưa có dữ liệu', 'Data unavailable')})
                 </span>
                 <ArrowRight size={14} />
               </>
@@ -507,4 +497,3 @@ export function UpgradeToProModal({
 
   return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
-

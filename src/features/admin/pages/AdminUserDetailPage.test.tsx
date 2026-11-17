@@ -112,7 +112,7 @@ describe('AdminUserDetailPage', () => {
     expect(screen.getByText('120')).toBeInTheDocument(); // Unit test đã sinh
     expect(screen.getByText(/\/10000 lượt/)).toBeInTheDocument();
     expect(screen.getByText('PaymentService')).toBeInTheDocument();
-    expect(screen.getByText('Lịch Sử Đăng Nhập')).toBeInTheDocument();
+    expect(screen.getByText("Lịch sử đăng nhập")).toBeInTheDocument();
     expect(screen.getByText('192.168.1.50')).toBeInTheDocument();
     expect(screen.getByText('Windows (Chrome)')).toBeInTheDocument();
   });
@@ -131,10 +131,10 @@ describe('AdminUserDetailPage', () => {
     );
 
     fireEvent.click(screen.getByTitle('Nhấn để nâng cấp hoặc đổi gói Tier'));
-    expect(screen.getByText('Cập Nhật Gói Tier Dịch Vụ')).toBeInTheDocument();
+    expect(screen.getByText("Cập nhật gói Tier dịch vụ")).toBeInTheDocument();
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'PRO' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gói dịch vụ' }));
+    fireEvent.click(screen.getByRole('option', { name: 'PRO - 300 lượt gọi/tháng, 4 batch, JaCoCo Refinement' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Lưu gói Tier' }));
     expect(screen.getByText('Xác nhận thay đổi gói Tier?')).toBeInTheDocument();
@@ -159,7 +159,7 @@ describe('AdminUserDetailPage', () => {
     );
 
     fireEvent.click(screen.getByTitle('Chỉnh sửa hạn mức quota'));
-    expect(screen.getByText('Điều Chỉnh Hạn Mức Quota')).toBeInTheDocument();
+    expect(screen.getByText("Điều chỉnh hạn mức quota")).toBeInTheDocument();
 
     const input = screen.getByRole('spinbutton');
     fireEvent.change(input, { target: { value: '25000' } });
@@ -236,7 +236,7 @@ describe('AdminUserDetailPage', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Chỉnh sửa/i }));
-    expect(screen.getByText('Chỉnh Sửa Tài Khoản')).toBeInTheDocument();
+    expect(screen.getByText("Chỉnh sửa tài khoản")).toBeInTheDocument();
 
     const nameInput = screen.getByPlaceholderText('Cập nhật họ tên...');
     fireEvent.change(nameInput, { target: { value: 'Dev Lead Senior' } });

@@ -1,5 +1,6 @@
+import { AlertTriangle, Bot, CheckCircle2, CircleDot, Clock, FlaskConical, RefreshCw, UserPlus, Users } from 'lucide-react';
+import { Tag } from '../../../shared/components/Tag';
 import { useState } from 'react';
-import { AlertTriangle, Bot, FlaskConical, RefreshCw, UserPlus, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { GlassCard } from '../../../shared/components/GlassCard';
 import { MetricCard } from '../../../shared/components/MetricCard';
@@ -44,14 +45,14 @@ export function AdminDashboardPage() {
   const llm7Days = data?.llmCalls7Days ?? 0;
 
   const trendTitle = dateFrom && dateTo
-    ? (language === 'vi' ? `Xu hướng Hoạt động Kiểm thử · ${dateFrom} đến ${dateTo}` : `Testing Activity Trend · ${dateFrom} to ${dateTo}`)
+    ? (language === 'vi' ? `Xu hướng hoạt động kiểm thử, ${dateFrom} đến ${dateTo}` : `Testing Activity Trend, ${dateFrom} to ${dateTo}`)
     : dateFrom
-    ? (language === 'vi' ? `Xu hướng Hoạt động Kiểm thử · Từ ${dateFrom}` : `Testing Activity Trend · From ${dateFrom}`)
+    ? (language === 'vi' ? `Xu hướng hoạt động kiểm thử, Từ ${dateFrom}` : `Testing Activity Trend, From ${dateFrom}`)
     : trendGranularity === 'year'
-    ? (language === 'vi' ? 'Xu hướng Hoạt động Kiểm thử · 5 năm' : 'Testing Activity Trend · 5 Years')
+    ? (language === 'vi' ? 'Xu hướng hoạt động kiểm thử, 5 năm' : 'Testing Activity Trend, 5 Years')
     : trendGranularity === 'month'
-    ? (language === 'vi' ? 'Xu hướng Hoạt động Kiểm thử · 12 tháng' : 'Testing Activity Trend · 12 Months')
-    : (language === 'vi' ? 'Xu hướng Hoạt động Kiểm thử · 30 ngày' : 'Testing Activity Trend · 30 Days');
+    ? (language === 'vi' ? 'Xu hướng hoạt động kiểm thử, 12 tháng' : 'Testing Activity Trend, 12 Months')
+    : (language === 'vi' ? 'Xu hướng hoạt động kiểm thử, 30 ngày' : 'Testing Activity Trend, 30 Days');
 
   return (
     <AdminShell>
@@ -59,15 +60,15 @@ export function AdminDashboardPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-fg-brand">
+            <span className="text-xs font-semibold text-body-subtle">
               SonarQube-Inspired Quality & Ops
             </span>
-            <span className="rounded-md bg-brand-softer px-2 py-0.5 text-[10px] font-sans font-bold text-fg-brand-strong">
+            <Tag variant="status" tone="brand" icon={CircleDot}>
               GreyTest v1.2
-            </span>
+            </Tag>
           </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-heading sm:text-3xl">
-            {language === 'vi' ? 'Bảng Điều Khiển Quản Trị' : 'Admin Operations Dashboard'}
+          <h1 className="mt-1 text-2xl font-bold text-heading sm:text-3xl">
+            {language === 'vi' ? 'Bảng điều khiển quản trị' : "Admin operations dashboard"}
           </h1>
         </div>
 
@@ -75,7 +76,7 @@ export function AdminDashboardPage() {
           <button
             type="button"
             onClick={handleRefresh}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs font-semibold text-body hover:bg-neutral-secondary-soft hover:text-heading shadow-xs"
+            className="btn btn-secondary rounded-control inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
           >
             <RefreshCw size={13} className={overview.isFetching ? 'animate-spin text-brand' : ''} />
             <span>{language === 'vi' ? 'Làm mới số liệu' : 'Refresh Data'}</span>
@@ -94,7 +95,7 @@ export function AdminDashboardPage() {
 
         {/* Module 3: Core Operational KPI Metrics */}
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <Link to="/admin/users" className="block transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-xl">
+          <Link to="/admin/users" className="block transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-base">
             <MetricCard
               icon={Users}
               label={language === 'vi' ? 'Tổng người dùng' : 'Total Users'}
@@ -106,7 +107,7 @@ export function AdminDashboardPage() {
               }}
             />
           </Link>
-          <Link to="/admin/users" className="block transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-xl">
+          <Link to="/admin/users" className="block transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-base">
             <MetricCard
               icon={UserPlus}
               label={language === 'vi' ? 'User mới 7 ngày' : 'New Users (7d)'}
@@ -118,7 +119,7 @@ export function AdminDashboardPage() {
               }}
             />
           </Link>
-          <Link to="/admin/jobs" className="block transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-xl">
+          <Link to="/admin/jobs" className="block transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-base">
             <MetricCard
               icon={FlaskConical}
               label={language === 'vi' ? 'Lượt sinh test' : 'Generation Requests'}
@@ -131,7 +132,7 @@ export function AdminDashboardPage() {
               }}
             />
           </Link>
-          <Link to="/admin/activity" className="block transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-xl">
+          <Link to="/admin/activity" className="block transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-base">
             <MetricCard
               icon={Bot}
               label={language === 'vi' ? 'Lượt gọi LLM' : 'Total LLM Calls'}
@@ -144,7 +145,7 @@ export function AdminDashboardPage() {
               }}
             />
           </Link>
-          <Link to="/admin/quotas" className="block transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-xl">
+          <Link to="/admin/quotas" className="block transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand rounded-base">
             <MetricCard
               icon={AlertTriangle}
               label={language === 'vi' ? 'Cảnh báo quota' : 'Quota Alerts'}
@@ -174,13 +175,13 @@ export function AdminDashboardPage() {
 
               {/* Bộ lọc xu hướng theo Ngày / Tháng / Năm và Khoảng ngày tùy chọn */}
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center rounded-lg border border-border-default bg-neutral-primary p-0.5 text-xs shadow-2xs">
+                <div className="flex items-center rounded-base border border-border-default bg-neutral-primary p-0.5 text-xs shadow-2xs">
                   <button
                     type="button"
                     onClick={() => { setDateFrom(''); setDateTo(''); setTrendGranularity('day'); }}
-                    className={`rounded-md px-2.5 py-1 font-medium transition-all ${
+                    className={`btn rounded-control px-2.5 py-1 font-medium transition-colors ${
                       !dateFrom && !dateTo && trendGranularity === 'day'
-                        ? 'bg-brand text-white font-semibold shadow-2xs'
+                        ? 'bg-brand text-on-brand font-semibold shadow-2xs'
                         : 'text-body-subtle hover:text-heading hover:bg-neutral-secondary/50'
                     }`}
                   >
@@ -189,9 +190,9 @@ export function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => { setDateFrom(''); setDateTo(''); setTrendGranularity('month'); }}
-                    className={`rounded-md px-2.5 py-1 font-medium transition-all ${
+                    className={`btn rounded-control px-2.5 py-1 font-medium transition-colors ${
                       !dateFrom && !dateTo && trendGranularity === 'month'
-                        ? 'bg-brand text-white font-semibold shadow-2xs'
+                        ? 'bg-brand text-on-brand font-semibold shadow-2xs'
                         : 'text-body-subtle hover:text-heading hover:bg-neutral-secondary/50'
                     }`}
                   >
@@ -200,9 +201,9 @@ export function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => { setDateFrom(''); setDateTo(''); setTrendGranularity('year'); }}
-                    className={`rounded-md px-2.5 py-1 font-medium transition-all ${
+                    className={`btn rounded-control px-2.5 py-1 font-medium transition-colors ${
                       !dateFrom && !dateTo && trendGranularity === 'year'
-                        ? 'bg-brand text-white font-semibold shadow-2xs'
+                        ? 'bg-brand text-on-brand font-semibold shadow-2xs'
                         : 'text-body-subtle hover:text-heading hover:bg-neutral-secondary/50'
                     }`}
                   >
@@ -210,8 +211,8 @@ export function AdminDashboardPage() {
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1.5 rounded-lg border border-border-default bg-neutral-primary px-2 py-1 text-xs shadow-2xs">
-                  <label className="flex items-center gap-1 text-[11px] text-body-subtle">
+                <div className="flex items-center gap-1.5 rounded-base border border-border-default bg-neutral-primary px-2 py-1 text-xs shadow-2xs">
+                  <label className="flex items-center gap-1 text-xs text-body-subtle">
                     <span>{language === 'vi' ? 'Từ:' : 'From:'}</span>
                     <input
                       type="date"
@@ -219,11 +220,11 @@ export function AdminDashboardPage() {
                       value={dateFrom}
                       max={dateTo || undefined}
                       onChange={(e) => setDateFrom(e.target.value)}
-                      className="rounded border border-border-default bg-neutral-secondary-soft px-1.5 py-0.5 text-xs text-heading focus:border-brand focus:outline-none"
+                      className="form-input rounded-control border border-border-default bg-neutral-secondary-soft px-1.5 py-0.5 text-xs text-heading focus:border-brand focus:outline-none"
                     />
                   </label>
                   <span className="text-body-subtle">-</span>
-                  <label className="flex items-center gap-1 text-[11px] text-body-subtle">
+                  <label className="flex items-center gap-1 text-xs text-body-subtle">
                     <span>{language === 'vi' ? 'Đến:' : 'To:'}</span>
                     <input
                       type="date"
@@ -231,14 +232,14 @@ export function AdminDashboardPage() {
                       value={dateTo}
                       min={dateFrom || undefined}
                       onChange={(e) => setDateTo(e.target.value)}
-                      className="rounded border border-border-default bg-neutral-secondary-soft px-1.5 py-0.5 text-xs text-heading focus:border-brand focus:outline-none"
+                      className="form-input rounded-control border border-border-default bg-neutral-secondary-soft px-1.5 py-0.5 text-xs text-heading focus:border-brand focus:outline-none"
                     />
                   </label>
                   {(dateFrom || dateTo) && (
                     <button
                       type="button"
                       onClick={() => { setDateFrom(''); setDateTo(''); }}
-                      className="ml-1 text-[11px] font-semibold text-fg-brand hover:underline"
+                      className="btn btn-ghost rounded-control ml-1 text-xs font-semibold hover:underline"
                     >
                       {language === 'vi' ? 'Đặt lại' : 'Reset'}
                     </button>
@@ -254,7 +255,7 @@ export function AdminDashboardPage() {
           <GlassCard>
             <div className="border-b border-border-default pb-3">
               <h2 className="font-bold text-heading">
-                {language === 'vi' ? 'Top Người Dùng LLM' : 'Top LLM Consumers'}
+                {language === 'vi' ? 'Top người dùng LLM' : "Top LLM consumers"}
               </h2>
               <p className="text-xs text-body-subtle">
                 {language === 'vi' ? '30 ngày gần nhất' : 'Past 30 days'}
@@ -263,7 +264,7 @@ export function AdminDashboardPage() {
             <div className="mt-4 space-y-3">
               {(top.data ?? []).map((user, index) => (
                 <div key={user.userId} className="flex items-center gap-3 border-b border-border-default-subtle pb-2.5">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-softer text-xs font-sans tabular-nums font-bold text-fg-brand">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-softer text-xs font-sans tabular-nums font-bold text-fg-brand-strong">
                     {index + 1}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-xs font-medium text-heading" title={user.email}>
@@ -288,7 +289,7 @@ export function AdminDashboardPage() {
           <div className="flex items-center justify-between border-b border-border-default pb-3">
             <div>
               <h2 className="font-bold text-heading">
-                {language === 'vi' ? 'Trạng Thái Dịch Vụ Cốt Lõi' : 'Core Infrastructure & Service Health'}
+                {language === 'vi' ? 'Trạng thái dịch vụ cốt lõi' : "Core infrastructure & service health"}
               </h2>
               <p className="text-xs text-body-subtle">
                 {language === 'vi' ? 'Trạng thái hoạt động của hệ thống và các dịch vụ tích hợp' : 'System and integrated services status'}
@@ -299,47 +300,39 @@ export function AdminDashboardPage() {
             {[
               {
                 key: 'application',
-                name: language === 'vi' ? 'Hệ Thống Backend' : 'Application Core',
+                name: language === 'vi' ? 'Hệ thống Backend' : 'Application Core',
                 desc: language === 'vi' ? 'Dịch vụ máy chủ Backend' : 'Backend Server Core',
                 status: health.data?.application ?? 'UNKNOWN',
               },
               {
                 key: 'database',
-                name: language === 'vi' ? 'Cơ Sở Dữ Liệu' : 'Database',
+                name: language === 'vi' ? 'Cơ sở dữ liệu' : 'Database',
                 desc: language === 'vi' ? 'Cơ sở dữ liệu PostgreSQL' : 'PostgreSQL Database',
                 status: health.data?.database ?? 'UNKNOWN',
               },
               {
                 key: 'llmGateway',
-                name: language === 'vi' ? 'Cổng Kết Nối AI' : 'AI Model Gateway',
+                name: language === 'vi' ? 'Cổng kết nối AI' : 'AI Model Gateway',
                 desc: language === 'vi' ? 'Mô hình AI (Google Gemini / VietAPI)' : 'Google Gemini / VietAPI',
                 status: health.data?.llmGateway ?? 'UNKNOWN',
               },
               {
                 key: 'javaParser',
-                name: language === 'vi' ? 'Bộ Phân Tích Mã Nguồn' : 'Java Parser',
+                name: language === 'vi' ? 'Bộ phân tích mã nguồn' : 'Java Parser',
                 desc: language === 'vi' ? 'Bộ phân tích cú pháp AST' : 'AST Semantic Engine',
                 status: health.data?.javaParser ?? 'UNKNOWN',
               },
             ].map(({ key, name, desc, status }) => (
-              <div key={key} className="flex items-center justify-between rounded-xl border border-border-default bg-neutral-secondary-soft/50 p-3">
+              <div key={key} className="flex items-center justify-between rounded-base border border-border-default bg-neutral-secondary-soft/50 p-3">
                 <div>
-                  <span className="text-xs font-bold capitalize text-heading">
+                  <span className="text-xs font-bold text-heading">
                     {name}
                   </span>
-                  <p className="text-[10px] text-body-subtle">{desc}</p>
+                  <p className="text-xs text-body-subtle">{desc}</p>
                 </div>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-sans font-bold ${
-                    status === 'UP'
-                      ? 'bg-success-soft text-fg-success-strong border border-border-success-subtle'
-                      : status === 'IN_PROCESS'
-                        ? 'bg-brand-softer text-fg-brand-strong border border-border-brand-subtle'
-                        : 'bg-warning-soft text-fg-warning border border-border-warning-subtle'
-                  }`}
-                >
+                <Tag variant="status" tone={status === 'UP' ? "success" : status === 'IN_PROCESS' ? "brand" : "warning"} icon={status === 'UP' ? CheckCircle2 : status === 'IN_PROCESS' ? CircleDot : Clock}>
                   {formatSemanticLabel(status, language)}
-                </span>
+                </Tag>
               </div>
             ))}
           </div>

@@ -96,7 +96,8 @@ describe('TestCasesPanel', () => {
   it('does not submit a selected plan after it loses approval', () => {
     const { rerender } = render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Thêm Test Case thủ công' }));
-    fireEvent.change(screen.getByLabelText('Chọn Test Plan'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn Test Plan' }));
+    fireEvent.click(screen.getByRole('option', { name: 'TP-001 - Valid email' }));
     fireEvent.change(screen.getByPlaceholderText(/Mô tả scenario/), { target: { value: 'Equality' } });
     fireEvent.change(screen.getByPlaceholderText(/Preconditions/), { target: { value: 'Valid account' } });
     fireEvent.change(screen.getByPlaceholderText(/Expected result/), { target: { value: 'Success' } });
@@ -119,7 +120,7 @@ describe('TestCasesPanel', () => {
     mocks.casesData = [{ ...sampleCase(1), status: 'PENDING_REVIEW' }];
     render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
 
-    expect(screen.getByText('Bản nháp')).toHaveClass('bg-warning-soft', 'text-fg-warning');
+    expect(screen.getByText('Bản nháp')).toHaveAttribute('data-tone', 'warning');
     expect(screen.queryByText('PENDING REVIEW')).not.toBeInTheDocument();
   });
 
@@ -131,7 +132,7 @@ describe('TestCasesPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'EN' }));
     expect(screen.getByText('Happy path')).toBeVisible();
     expect(screen.getByText('High')).toBeVisible();
-    expect(screen.getByText('Draft')).toHaveClass('bg-warning-soft');
+    expect(screen.getByText('Draft')).toHaveAttribute('data-tone', 'warning');
     expect(screen.queryByText('Cao')).not.toBeInTheDocument();
   });
 
@@ -139,8 +140,10 @@ describe('TestCasesPanel', () => {
     render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'AI sinh Case' }));
     expect(mocks.generate).toHaveBeenCalledOnce();
-    expect(screen.getByText(/lưu trực tiếp về backend/)).toBeInTheDocument();
-    expect(screen.getByText('Test Plan đã duyệt')).toBeVisible();
+    expect(screen.getByText(/Chọn Test Plan đã duyệt để sinh, kiểm tra và duyệt Test Case/)).toBeInTheDocument();
+    expect(screen.getByText(/Test Plan đã duyệt:/)).toBeVisible();
+    expect(screen.getByText(/Test Case chờ duyệt:/)).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Test Cases' })).not.toBeInTheDocument();
   });
 
   it('does not display regeneration banner in TestCasesPanel as it is handled in source update flow', () => {
@@ -172,7 +175,8 @@ describe('TestCasesPanel', () => {
     render(<MemoryRouter><TestCasesPanel projectId={105} projectStatus="PLAN_APPROVED" /></MemoryRouter>);
 
     fireEvent.click(screen.getByRole('button', { name: 'Thêm Test Case thủ công' }));
-    fireEvent.change(screen.getByLabelText('Chọn Test Plan'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn Test Plan' }));
+    fireEvent.click(screen.getByRole('option', { name: 'TP-001 - Valid email' }));
     fireEvent.change(screen.getByPlaceholderText(/Mô tả scenario/), { target: { value: 'Tao user hop le' } });
     fireEvent.change(screen.getByPlaceholderText(/Preconditions/), { target: { value: 'Mock repository' } });
     fireEvent.change(screen.getByPlaceholderText(/Expected result/), { target: { value: 'Tra ve user co ID' } });

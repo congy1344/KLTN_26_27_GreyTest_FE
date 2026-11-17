@@ -1,3 +1,6 @@
+import { IconButton } from '../../../shared/components/IconButton';
+import { BrandMark } from '../../../shared/components/BrandMark';
+import { Tag } from '../../../shared/components/Tag';
 import {
   Activity,
   ArrowLeft,
@@ -10,7 +13,6 @@ import {
   Menu,
   MessageSquareText,
   Search,
-  ShieldCheck,
   Sliders,
   Users,
   X,
@@ -49,83 +51,71 @@ export function AdminShell({ children }: AdminShellProps) {
   const displayName = user?.fullName?.trim() || user?.email || 'Admin';
 
   const navItemClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all duration-150 ${
+    `flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-semibold transition-colors duration-150 ${
       isActive
-        ? 'bg-brand-softer text-fg-brand-strong font-bold shadow-2xs'
+        ? 'bg-brand-softer text-fg-brand-strong'
         : 'text-body hover:bg-neutral-secondary-soft hover:text-heading'
     }`;
 
   const mobileNavItemClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-semibold transition-colors duration-150 ${
+    `flex items-center gap-3 rounded-control px-3.5 py-2.5 text-sm font-semibold transition-colors duration-150 ${
       isActive
         ? 'bg-brand-softer text-fg-brand-strong font-bold'
         : 'text-body hover:bg-neutral-secondary-soft hover:text-heading'
     }`;
 
   return (
-    <div className="min-h-screen bg-neutral-primary/30 text-body flex flex-col">
+    <div className="min-h-[100dvh] bg-neutral-primary text-body flex flex-col">
       {/* Top Navigation Bar - 64px comfortable header */}
-      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-border-default bg-neutral-primary-soft px-4 sm:px-8 shadow-2xs">
-        <div className="flex items-center gap-4 sm:gap-8">
+      <header className="sticky top-0 z-40 flex min-h-16 w-full flex-wrap items-center justify-between gap-2 border-b border-border-default-subtle bg-neutral-primary-soft px-4 py-2 sm:px-6 lg:flex-nowrap">
+        <div className="flex items-center gap-3 sm:gap-6">
           {/* Mobile menu trigger */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden rounded-lg p-2 text-body-subtle hover:bg-neutral-secondary hover:text-heading"
-            aria-label={mobileMenuOpen ? 'Đóng menu quản trị' : 'Mở menu quản trị'}
-          >
-            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
+          <IconButton onClick={() => setMobileMenuOpen(!mobileMenuOpen)} label={mobileMenuOpen ? 'Đóng menu quản trị' : 'Mở menu quản trị'} icon={mobileMenuOpen ? X : Menu} className="md:hidden hover:bg-neutral-secondary hover:text-heading" />
 
-          <Link to="/admin" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand text-white shadow-xs">
-              <ShieldCheck size={22} strokeWidth={2.4} />
-            </span>
+          <Link to="/admin" className="flex items-center gap-3 rounded-control">
+            <BrandMark size={28} decorative />
             <div className="flex flex-col">
-              <span className="font-sans text-base font-extrabold tracking-tight text-heading">
-                GREYTEST
+              <span className="font-display text-lg font-semibold text-heading">
+                GreyTest
               </span>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-body-subtle -mt-0.5">
-                Enterprise Admin
+              <span className="text-xs text-body-subtle -mt-0.5">
+                {language === 'vi' ? 'Quản trị' : 'Administration'}
               </span>
             </div>
           </Link>
 
           {/* Quick search input */}
-          <div className="relative hidden md:block">
+          <div className="relative hidden xl:block">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-body-subtle" />
             <input
               type="text"
               readOnly
               placeholder={language === 'vi' ? 'Tìm nhanh dự án, tác vụ, user... (Ctrl+K)' : 'Quick search... (Ctrl+K)'}
-              className="h-10 w-72 rounded-lg border border-border-default bg-neutral-secondary-soft pl-9 pr-9 text-xs sm:text-sm text-heading placeholder:text-body-subtle focus:border-brand focus:outline-hidden"
+              className="form-input h-10 w-72 rounded-control border border-border-default bg-neutral-secondary-soft pl-9 pr-9 text-xs sm:text-sm text-heading placeholder:text-body-subtle focus:border-brand focus:outline-hidden"
             />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-border-default bg-neutral-primary-soft px-2 py-0.5 text-xs font-sans font-semibold text-body-subtle">
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded-base border border-border-default bg-neutral-primary-soft px-2 py-0.5 text-xs font-sans font-semibold text-body-subtle">
               ⌘K
             </kbd>
           </div>
         </div>
 
         {/* Right side controls */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2.5">
           {/* Live System Health indicator pill */}
           <Link
             to="/admin/health"
-            className={`hidden sm:flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold transition-transform hover:scale-105 ${
-              isHealthy
-                ? 'bg-success-soft text-fg-success-strong border border-border-success-subtle'
-                : 'bg-warning-soft text-fg-warning border border-border-warning-subtle'
-            }`}
+            className="hidden lg:inline-flex rounded-control transition-colors hover:bg-brand-softer"
             title={language === 'vi' ? 'Xem trạng thái kết nối hệ thống' : 'View system connectivity & health'}
           >
-            <span className={`h-2 w-2 rounded-full ${isHealthy ? 'bg-success animate-pulse' : 'bg-warning'}`} />
-            <span>{isHealthy ? (language === 'vi' ? 'Hệ thống: UP' : 'Systems: UP') : 'DEGRADED'}</span>
+            <Tag variant="status" tone={isHealthy ? 'success' : 'warning'} icon={HeartPulse}>
+              {isHealthy ? (language === 'vi' ? 'Hệ thống: UP' : 'Systems: UP') : 'DEGRADED'}
+            </Tag>
           </Link>
 
           {/* Return to user app */}
           <Link
             to="/projects"
-            className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-border-default bg-neutral-secondary-soft px-3.5 py-2 text-xs font-bold text-body hover:bg-neutral-secondary hover:text-heading shadow-2xs"
+            className="btn btn-secondary hidden sm:inline-flex text-xs"
           >
             <ArrowLeft size={14} />
             <span>{language === 'vi' ? 'Giao diện người dùng' : 'User App'}</span>
@@ -138,25 +128,19 @@ export function AdminShell({ children }: AdminShellProps) {
 
           {/* Administrator profile & logout */}
           <div className="flex items-center gap-2.5 pl-1">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-softer font-sans text-sm font-extrabold text-fg-brand">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-softer font-sans text-sm font-extrabold text-fg-brand-strong">
               {avatarInitial}
             </div>
             <div className="hidden lg:flex flex-col text-left">
               <span className="max-w-[150px] truncate text-xs font-bold text-heading leading-tight" title={displayName}>
                 {displayName}
               </span>
-              <span className="text-[10px] font-extrabold text-fg-brand uppercase tracking-wider">
+              <span className="text-xs font-extrabold text-fg-brand-strong">
                 ADMIN
               </span>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-lg p-2 text-body-subtle hover:bg-neutral-secondary hover:text-danger"
-              title={language === 'vi' ? 'Đăng xuất khỏi trang quản trị' : 'Log out from admin'}
-            >
-              <LogOut size={17} />
-            </button>
+            <IconButton onClick={handleLogout}
+              title={language === 'vi' ? 'Đăng xuất khỏi trang quản trị' : 'Log out from admin'} label={language === 'vi' ? 'Đăng xuất khỏi trang quản trị' : 'Log out from admin'} icon={LogOut} className="hover:bg-neutral-secondary hover:text-fg-danger-strong" />
           </div>
         </div>
       </header>
@@ -167,46 +151,46 @@ export function AdminShell({ children }: AdminShellProps) {
           <nav className="space-y-1.5">
             <NavLink end to="/admin" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
               <Gauge size={18} />
-              <span>{language === 'vi' ? 'Dashboard Tổng quan' : 'Dashboard Overview'}</span>
+              <span>{language === 'vi' ? 'Dashboard tổng quan' : 'Dashboard Overview'}</span>
             </NavLink>
             <NavLink to="/admin/jobs" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
               <Layers size={18} />
-              <span>{language === 'vi' ? 'Hàng đợi Sinh Test' : 'Test Gen Jobs'}</span>
+              <span>{language === 'vi' ? 'Hàng đợi sinh test' : 'Test Gen Jobs'}</span>
             </NavLink>
             <NavLink to="/admin/ai-providers" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
               <Cpu size={18} />
-              <span>{language === 'vi' ? 'Cổng AI & Model Key' : 'AI Providers & Keys'}</span>
+              <span>{language === 'vi' ? 'Cổng AI & Model key' : 'AI Providers & Keys'}</span>
             </NavLink>
             <NavLink to="/admin/quotas" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
               <BarChart3 size={18} />
-              <span>{language === 'vi' ? 'Hạn ngạch & Quota' : 'Usage & Quotas'}</span>
+              <span>{language === 'vi' ? 'Hạn ngạch & quota' : 'Usage & Quotas'}</span>
             </NavLink>
             <NavLink to="/admin/users" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
               <Users size={18} />
-              <span>{language === 'vi' ? 'Danh sách Người dùng' : 'User Accounts'}</span>
+              <span>{language === 'vi' ? 'Danh sách người dùng' : 'User Accounts'}</span>
             </NavLink>
             <NavLink to="/admin/feedback" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
               <MessageSquareText size={18} />
-              <span>{language === 'vi' ? 'Phản hồi Người dùng' : 'User Feedbacks'}</span>
+              <span>{language === 'vi' ? 'Phản hồi người dùng' : 'User Feedbacks'}</span>
             </NavLink>
             <NavLink to="/admin/activity" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
               <Activity size={18} />
-              <span>{language === 'vi' ? 'Nhật ký Hoạt động' : 'Audit Activity Logs'}</span>
+              <span>{language === 'vi' ? 'Nhật ký hoạt động' : 'Audit Activity Logs'}</span>
             </NavLink>
             <NavLink to="/admin/health" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
               <HeartPulse size={18} />
-              <span>{language === 'vi' ? 'Trạng thái Dịch vụ' : 'Service Health'}</span>
+              <span>{language === 'vi' ? 'Trạng thái dịch vụ' : 'Service Health'}</span>
             </NavLink>
             <NavLink to="/admin/settings" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
               <Sliders size={18} />
-              <span>{language === 'vi' ? 'Cấu hình Tham số' : 'System Settings'}</span>
+              <span>{language === 'vi' ? 'Cấu hình tham số' : 'System Settings'}</span>
             </NavLink>
           </nav>
           <div className="mt-5 pt-4 border-t border-border-default-subtle">
             <Link
               to="/projects"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-2 text-sm font-bold text-fg-brand"
+              className="flex items-center gap-2 text-sm font-bold text-fg-brand-strong"
             >
               <ArrowLeft size={16} />
               <span>{language === 'vi' ? 'Quay lại Giao diện người dùng' : 'Back to User App'}</span>
@@ -225,68 +209,68 @@ export function AdminShell({ children }: AdminShellProps) {
           <div className="space-y-4">
             {/* Group 1: OVERVIEW */}
             <div>
-              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-body-subtle pb-1 pt-1">
+              <p className="px-3 text-xs font-semibold text-body-subtle pb-1 pt-1">
                 {language === 'vi' ? 'Tổng quan' : 'Overview'}
               </p>
               <nav className="space-y-1">
                 <NavLink end to="/admin" className={navItemClass}>
                   <Gauge size={17} />
-                  <span>{language === 'vi' ? 'Dashboard Tổng quan' : 'Dashboard Overview'}</span>
+                  <span>{language === 'vi' ? 'Dashboard tổng quan' : 'Dashboard Overview'}</span>
                 </NavLink>
               </nav>
             </div>
 
             {/* Group 2: AI & TEST OPS */}
             <div>
-              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-body-subtle pb-1 pt-1">
-                {language === 'vi' ? 'Vận hành Kiểm thử AI' : 'AI & Test Operations'}
+              <p className="px-3 text-xs font-semibold text-body-subtle pb-1 pt-1">
+                {language === 'vi' ? 'Vận hành kiểm thử AI' : 'AI & Test Operations'}
               </p>
               <nav className="space-y-1">
                 <NavLink to="/admin/jobs" className={navItemClass}>
                   <Layers size={17} />
-                  <span>{language === 'vi' ? 'Hàng đợi Sinh Test' : 'Test Gen Jobs'}</span>
+                  <span>{language === 'vi' ? 'Hàng đợi sinh test' : 'Test Gen Jobs'}</span>
                 </NavLink>
                 <NavLink to="/admin/ai-providers" className={navItemClass}>
                   <Cpu size={17} />
-                  <span>{language === 'vi' ? 'Cổng AI & Model Key' : 'AI Providers & Keys'}</span>
+                  <span>{language === 'vi' ? 'Cổng AI & Model key' : 'AI Providers & Keys'}</span>
                 </NavLink>
                 <NavLink to="/admin/quotas" className={navItemClass}>
                   <BarChart3 size={17} />
-                  <span>{language === 'vi' ? 'Hạn ngạch & Quota' : 'Usage & Quotas'}</span>
+                  <span>{language === 'vi' ? 'Hạn ngạch & quota' : 'Usage & Quotas'}</span>
                 </NavLink>
               </nav>
             </div>
 
             {/* Group 3: ADMINISTRATION */}
             <div>
-              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-body-subtle pb-1 pt-1">
-                {language === 'vi' ? 'Quản trị Người dùng' : 'Administration'}
+              <p className="px-3 text-xs font-semibold text-body-subtle pb-1 pt-1">
+                {language === 'vi' ? 'Quản trị người dùng' : 'Administration'}
               </p>
               <nav className="space-y-1">
                 <NavLink to="/admin/users" className={navItemClass}>
                   <Users size={17} />
-                  <span>{language === 'vi' ? 'Danh sách Người dùng' : 'User Accounts'}</span>
+                  <span>{language === 'vi' ? 'Danh sách người dùng' : 'User Accounts'}</span>
                 </NavLink>
                 <NavLink to="/admin/feedback" className={navItemClass}>
                   <MessageSquareText size={17} />
-                  <span>{language === 'vi' ? 'Phản hồi Người dùng' : 'User Feedbacks'}</span>
+                  <span>{language === 'vi' ? 'Phản hồi người dùng' : 'User Feedbacks'}</span>
                 </NavLink>
                 <NavLink to="/admin/activity" className={navItemClass}>
                   <Activity size={17} />
-                  <span>{language === 'vi' ? 'Nhật ký Hoạt động' : 'Audit Activity Logs'}</span>
+                  <span>{language === 'vi' ? 'Nhật ký hoạt động' : 'Audit Activity Logs'}</span>
                 </NavLink>
               </nav>
             </div>
 
             {/* Group 4: SYSTEM */}
             <div>
-              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-body-subtle pb-1 pt-1">
+              <p className="px-3 text-xs font-semibold text-body-subtle pb-1 pt-1">
                 {language === 'vi' ? 'Hệ thống' : 'System'}
               </p>
               <nav className="space-y-1">
                 <NavLink to="/admin/health" className={navItemClass}>
                   <HeartPulse size={17} />
-                  <span>{language === 'vi' ? 'Trạng thái Dịch vụ' : 'Service Health'}</span>
+                  <span>{language === 'vi' ? 'Trạng thái dịch vụ' : 'Service Health'}</span>
                   <span
                     className={`ml-auto h-2 w-2 rounded-full ${isHealthy ? 'bg-success' : 'bg-warning'}`}
                     title={isHealthy ? 'Tất cả dịch vụ hoạt động tốt' : 'Có cảnh báo'}
@@ -294,16 +278,16 @@ export function AdminShell({ children }: AdminShellProps) {
                 </NavLink>
                 <NavLink to="/admin/settings" className={navItemClass}>
                   <Sliders size={17} />
-                  <span>{language === 'vi' ? 'Cấu hình Tham số' : 'System Settings'}</span>
+                  <span>{language === 'vi' ? 'Cấu hình tham số' : 'System Settings'}</span>
                 </NavLink>
               </nav>
             </div>
           </div>
 
           {/* Compact Single-line Sidebar Footer */}
-          <div className="rounded-lg border border-border-default bg-neutral-secondary-soft/60 px-3 py-2 text-xs text-body-subtle flex items-center justify-between">
+          <div className="rounded-base border border-border-default bg-neutral-secondary-soft/60 px-3 py-2 text-xs text-body-subtle flex items-center justify-between">
             <span>GreyTest Ops</span>
-            <span className="font-sans tabular-nums text-fg-brand font-bold">v1.2</span>
+            <span className="font-sans tabular-nums text-fg-brand-strong font-bold">v1.2</span>
           </div>
         </aside>
 

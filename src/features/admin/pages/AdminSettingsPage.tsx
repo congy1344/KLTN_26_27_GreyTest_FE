@@ -1,7 +1,5 @@
-import {
-  AlertTriangle, ArrowLeft, CheckCircle2, CreditCard,
-  FileText, RefreshCw, Save, Settings,
-} from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, CircleDot, CreditCard, RefreshCw, Save, Settings } from 'lucide-react';
+import { Tag } from '../../../shared/components/Tag';
 import { FormEvent, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { getErrorMessage } from '../../../shared/api/api-client';
@@ -16,8 +14,6 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   'ai.batch_concurrency': '3',
   'vnpay.tmn_code': 'CGXZLS0Z',
   'vnpay.url': 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
-  'log.output_dir': '../log/llm-usage',
-  'alert.quota_threshold_percent': '80',
 };
 
 export function AdminSettingsPage() {
@@ -52,8 +48,17 @@ export function AdminSettingsPage() {
   };
 
   const handleConfirmSave = () => {
+    // Chỉ gửi ô admin thực sự đã sửa, để lưu VNPay không vô tình ghi đè model AI đang chạy.
+    const changed = Object.fromEntries(
+      Object.entries(customValues).filter(([key, value]) => value !== (settingsQuery.data?.settings?.[key] ?? DEFAULT_SETTINGS[key])),
+    );
+    if (Object.keys(changed).length === 0) {
+      setConfirmOpen(false);
+      setSuccessMsg(language === 'vi' ? 'Không có thay đổi nào để lưu.' : 'Nothing changed.');
+      return;
+    }
     updateMutation.mutate(
-      { settings: formValues },
+      { settings: changed },
       {
         onSuccess: () => {
           setConfirmOpen(false);
@@ -91,15 +96,15 @@ export function AdminSettingsPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-fg-brand">
+            <span className="text-xs font-semibold text-body-subtle">
               System Configuration & Health
             </span>
-            <span className="rounded-md bg-brand-softer px-2 py-0.5 text-[10px] font-sans font-bold text-fg-brand-strong">
-              PostgreSQL · system_setting
-            </span>
+            <Tag variant="status" tone="brand" icon={CircleDot}>
+              PostgreSQL, system_setting
+            </Tag>
           </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-heading sm:text-3xl">
-            {language === 'vi' ? 'Cấu Hình Hệ Thống (Tham Số Vận Hành)' : 'System Configuration Settings'}
+          <h1 className="mt-1 text-2xl font-bold text-heading sm:text-3xl">
+            {language === 'vi' ? 'Cấu hình hệ thống (tham số vận hành)' : "System configuration settings"}
           </h1>
           <p className="mt-1 text-xs text-body-subtle">
             {language === 'vi'
@@ -111,7 +116,7 @@ export function AdminSettingsPage() {
         <button
           type="button"
           onClick={() => settingsQuery.refetch()}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-neutral-primary-soft px-3 py-1.5 text-xs font-semibold text-body hover:bg-neutral-secondary-soft shadow-xs"
+          className="btn btn-secondary rounded-control inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
         >
           <RefreshCw
             size={13}
@@ -122,24 +127,24 @@ export function AdminSettingsPage() {
       </div>
 
       {successMsg && (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-border-success-subtle bg-success-soft p-3.5 text-xs font-semibold text-fg-success-strong shadow-xs">
+        <div className="mb-4 flex items-center justify-between rounded-base border border-border-success-subtle bg-success-soft p-3.5 text-xs font-semibold text-fg-success-strong shadow-xs">
           <div className="flex items-center gap-2">
             <CheckCircle2 size={16} />
             <span>{successMsg}</span>
           </div>
-          <button type="button" onClick={() => setSuccessMsg(null)} className="underline text-[11px] cursor-pointer">
+          <button type="button" onClick={() => setSuccessMsg(null)} className="btn btn-ghost rounded-control underline text-xs cursor-pointer">
             Đóng
           </button>
         </div>
       )}
 
       {errorMsg && (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-border-danger-subtle bg-danger-soft p-3.5 text-xs font-semibold text-fg-danger-strong shadow-xs">
+        <div className="mb-4 flex items-center justify-between rounded-base border border-border-danger-subtle bg-danger-soft p-3.5 text-xs font-semibold text-fg-danger-strong shadow-xs">
           <div className="flex items-center gap-2">
             <AlertTriangle size={16} />
             <span>{errorMsg}</span>
           </div>
-          <button type="button" onClick={() => setErrorMsg(null)} className="underline text-[11px] cursor-pointer">
+          <button type="button" onClick={() => setErrorMsg(null)} className="btn btn-ghost rounded-control underline text-xs cursor-pointer">
             Đóng
           </button>
         </div>
@@ -152,14 +157,14 @@ export function AdminSettingsPage() {
       ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* AI Runtime Configuration */}
-              <section className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
+              <section className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
                 <div className="flex items-center gap-2 border-b border-border-default pb-3">
-                  <Settings size={16} className="text-fg-brand" />
+                  <Settings size={16} className="text-fg-brand-strong" />
                   <div>
                     <h3 className="text-sm font-bold text-heading">
-                      {language === 'vi' ? 'Cấu Hình Mô Hình AI & Sinh Test' : 'AI Inference & Model Configuration'}
+                      {language === 'vi' ? 'Cấu hình mô hình AI & sinh test' : "AI inference & model configuration"}
                     </h3>
-                    <p className="text-[11px] text-body-subtle">
+                    <p className="text-xs text-body-subtle">
                       {language === 'vi' ? 'Mô hình mặc định và mức độ song song khi sinh batch' : 'Default LLM model and concurrency'}
                     </p>
                   </div>
@@ -184,7 +189,7 @@ export function AdminSettingsPage() {
                         <option value="gpt-4o-mini">OpenAI GPT-4o Mini</option>
                       </optgroup>
                     </select>
-                    <span className="mt-1 block text-[11px] text-body-subtle">
+                    <span className="mt-1 block text-xs text-body-subtle">
                       Khóa cấu hình: <code>ai.model</code>
                     </span>
                   </div>
@@ -201,7 +206,7 @@ export function AdminSettingsPage() {
                       value={formValues['ai.batch_concurrency'] ?? '3'}
                       onChange={(e) => handleChange('ai.batch_concurrency', e.target.value)}
                     />
-                    <span className="mt-1 block text-[11px] text-body-subtle">
+                    <span className="mt-1 block text-xs text-body-subtle">
                       Khóa cấu hình: <code>ai.batch_concurrency</code> (1 - 10 workers)
                     </span>
                   </div>
@@ -209,14 +214,14 @@ export function AdminSettingsPage() {
               </section>
 
               {/* VNPay Sandbox Settings */}
-              <section className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
+              <section className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
                 <div className="flex items-center gap-2 border-b border-border-default pb-3">
-                  <CreditCard size={16} className="text-fg-brand" />
+                  <CreditCard size={16} className="text-fg-brand-strong" />
                   <div>
                     <h3 className="text-sm font-bold text-heading">
-                      {language === 'vi' ? 'Cổng Thanh Toán VNPay Sandbox' : 'VNPay Payment Sandbox'}
+                      {language === 'vi' ? 'Cổng thanh toán VNPay Sandbox' : "VNPay payment sandbox"}
                     </h3>
-                    <p className="text-[11px] text-body-subtle">
+                    <p className="text-xs text-body-subtle">
                       {language === 'vi' ? 'Thông số kết nối cổng thanh toán VNPay' : 'VNPay connection credentials'}
                     </p>
                   </div>
@@ -230,7 +235,7 @@ export function AdminSettingsPage() {
                       value={formValues['vnpay.tmn_code'] ?? 'CGXZLS0Z'}
                       onChange={(e) => handleChange('vnpay.tmn_code', e.target.value)}
                     />
-                    <span className="mt-1 block text-[11px] text-body-subtle">
+                    <span className="mt-1 block text-xs text-body-subtle">
                       Khóa cấu hình: <code>vnpay.tmn_code</code>
                     </span>
                   </div>
@@ -243,7 +248,7 @@ export function AdminSettingsPage() {
                       className="form-input w-full font-mono bg-neutral-secondary-soft cursor-not-allowed"
                       value="••••••••••••••••••••••••••••••••"
                     />
-                    <span className="mt-1 block text-[11px] text-body-subtle">
+                    <span className="mt-1 block text-xs text-body-subtle">
                       Được bảo vệ trong biến môi trường máy chủ (Secure Vault)
                     </span>
                   </div>
@@ -256,56 +261,8 @@ export function AdminSettingsPage() {
                       value={formValues['vnpay.url'] ?? 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'}
                       onChange={(e) => handleChange('vnpay.url', e.target.value)}
                     />
-                    <span className="mt-1 block text-[11px] text-body-subtle">
+                    <span className="mt-1 block text-xs text-body-subtle">
                       Khóa cấu hình: <code>vnpay.url</code>
-                    </span>
-                  </div>
-                </div>
-              </section>
-
-              {/* Logging & Alert Thresholds */}
-              <section className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
-                <div className="flex items-center gap-2 border-b border-border-default pb-3">
-                  <FileText size={16} className="text-fg-brand" />
-                  <div>
-                    <h3 className="text-sm font-bold text-heading">
-                      {language === 'vi' ? 'Nhật Ký & Cảnh Báo Quota' : 'Logging & Quota Alert Thresholds'}
-                    </h3>
-                    <p className="text-[11px] text-body-subtle">
-                      {language === 'vi' ? 'Đường dẫn xuất file log và ngưỡng báo động' : 'Log directory and quota alert trigger'}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-4 md:grid-cols-2 text-xs">
-                  <div>
-                    <label className="block font-semibold text-heading mb-1">
-                      {language === 'vi' ? 'Thư mục xuất log LLM' : 'Log Output Directory'}
-                    </label>
-                    <input
-                      type="text"
-                      className="form-input w-full font-mono"
-                      value={formValues['log.output_dir'] ?? '../log/llm-usage'}
-                      onChange={(e) => handleChange('log.output_dir', e.target.value)}
-                    />
-                    <span className="mt-1 block text-[11px] text-body-subtle">
-                      Khóa cấu hình: <code>log.output_dir</code>
-                    </span>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-heading mb-1">
-                      {language === 'vi' ? 'Ngưỡng cảnh báo vượt hạn mức (%)' : 'Quota Warning Threshold (%)'}
-                    </label>
-                    <input
-                      type="number"
-                      min="50"
-                      max="100"
-                      className="form-input w-full font-sans tabular-nums"
-                      value={formValues['alert.quota_threshold_percent'] ?? '80'}
-                      onChange={(e) => handleChange('alert.quota_threshold_percent', e.target.value)}
-                    />
-                    <span className="mt-1 block text-[11px] text-body-subtle">
-                      Khóa cấu hình: <code>alert.quota_threshold_percent</code> (Cảnh báo khi đạt &gt;= 80%)
                     </span>
                   </div>
                 </div>
@@ -322,7 +279,7 @@ export function AdminSettingsPage() {
                   <span>
                     {updateMutation.isPending
                       ? (language === 'vi' ? 'Đang lưu cấu hình...' : 'Saving...')
-                      : (language === 'vi' ? 'Lưu Cấu Hình Hệ Thống' : 'Save System Settings')}
+                      : (language === 'vi' ? 'Lưu cấu hình hệ thống' : 'Save System Settings')}
                   </span>
                 </button>
               </div>

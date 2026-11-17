@@ -10,6 +10,7 @@ import { LanguageProvider } from '../../../shared/i18n/language';
 import { LanguageToggle } from '../../../shared/components/LanguageToggle';
 
 const mocks = vi.hoisted(() => ({
+  traceRows: [] as import("../../traceability/types").TraceabilityRow[],
   download: vi.fn(),
   generate: vi.fn(),
   generating: false,
@@ -34,6 +35,8 @@ const mocks = vi.hoisted(() => ({
     sourceBranchId: null as string | null,
   }],
 }));
+
+vi.mock('../../traceability/hooks/useTraceability', () => ({ useTraceability: () => ({ data: { rows: mocks.traceRows, uncoveredRules: [] } }) }));
 
 vi.mock('../utils/business-rule-export', () => ({ downloadBusinessRules: mocks.download }));
 
@@ -95,6 +98,7 @@ describe('BusinessRulesPanel', () => {
   });
 
   beforeEach(() => {
+    mocks.traceRows = [];
     mocks.download.mockReset();
     mocks.rules.splice(1);
     mocks.rules[0].source = 'AI_GENERATED';
@@ -171,7 +175,7 @@ describe('BusinessRulesPanel', () => {
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
     expect(screen.getByRole('button', { name: /Tiếp tục sinh/ })).toBeDisabled();
-    expect(screen.getByRole('complementary')).toBeVisible();
+    expect(screen.getByRole('complementary', { name: 'Tiến trình AI đang chạy' })).toBeVisible();
   });
 
   it('hides the resume action once every service method has a rule', () => {
@@ -239,65 +243,19 @@ describe('BusinessRulesPanel', () => {
     expect(screen.queryByRole('button', { name: /Thu gọn|Mở tất cả/ })).not.toBeInTheDocument();
   });
 
-  it('groups rules by source file, service and method', () => {
-    mocks.classes = [{
-      id: 10,
-      packageName: 'demo',
-      className: 'UserService',
-      qualifiedName: 'demo.UserService',
-      classType: 'SERVICE',
-      filePath: 'src/main/java/demo/UserService.java',
-      methods: [{
-        id: 11,
-        methodName: 'createUser',
-        returnType: 'User',
-        parameters: [{ name: 'email', type: 'String' }],
-        throwsList: [],
-        visibility: 'PUBLIC',
-        sourceCode: '',
-        lineStart: 20,
-        lineEnd: 30,
-        endpoints: [],
-      }],
-    }];
-    mocks.classes.push({
-      id: 12,
-      packageName: 'demo',
-      className: 'AuditService',
-      qualifiedName: 'demo.AuditService',
-      classType: 'SERVICE',
-      filePath: 'src/main/java/demo/UserService.java',
-      methods: [{
-        id: 13,
-        methodName: 'audit',
-        returnType: 'void',
-        parameters: [],
-        throwsList: [],
-        visibility: 'PUBLIC',
-        sourceCode: '',
-        lineStart: 32,
-        lineEnd: 36,
-        endpoints: [],
-      }],
-    });
-
+  it('groups selectable rule rows by method inside each service', () => {
+    mocks.classes = serviceWithMethods(11, 12);
+    mocks.rules.push({ ...mocks.rules[0], id: 2, methodId: 12, ruleCode: 'BR-002', description: 'Second rule.' });
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
-
-    expect(screen.getAllByText('src/main/java/demo/UserService.java')).toHaveLength(1);
-    expect(screen.getByText('Tệp')).toBeVisible();
-    expect(screen.getAllByText('Dịch vụ')).toHaveLength(2);
-    expect(screen.getAllByText('Phương thức')).toHaveLength(2);
-    expect(screen.getByText('UserService')).toBeVisible();
-    expect(screen.getByText('createUser(String email)')).toBeVisible();
-    expect(screen.getByText('User | Dòng 20-30')).toBeVisible();
-    expect(screen.getByText('Email phai hop le.')).toBeVisible();
-    expect(screen.getByText('Dòng nguồn L20-30')).toBeVisible();
-    expect(screen.getByText('AuditService')).toBeVisible();
-    expect(document.querySelectorAll('details')).toHaveLength(5);
-    const fileNode = document.querySelector('details');
-    expect(fileNode).toHaveAttribute('open');
-    fireEvent.click(fileNode!.querySelector('summary')!);
-    expect(fileNode).not.toHaveAttribute('open');
+    const list = screen.getByRole('region', { name: 'Danh sách Business Rule' });
+    expect(within(list).getByText('method11')).toHaveClass('text-fg-brand-strong');
+    expect(within(list).getByText('method12')).toBeVisible();
+    const detail = screen.getByRole('complementary', { name: 'Chi tiết Business Rule' });
+    expect(within(detail).getByRole('heading', { name: 'Email phai hop le.' })).toBeVisible();
+    fireEvent.click(within(list).getByRole('button', { name: /BR-002/ }));
+    expect(within(detail).getByRole('heading', { name: 'Second rule.' })).toBeVisible();
+    expect(within(list).getByRole('button', { name: /BR-002/ })).toHaveStyle({ boxShadow: 'inset 3px 0 0 var(--brand)' });
+    expect(within(detail).getByRole('button', { name: 'Sửa rule' })).toBeVisible();
   });
 
   it('hides the resume button when all decisions are covered (generation completed)', () => {
@@ -382,13 +340,16 @@ describe('BusinessRulesPanel', () => {
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
     fireEvent.click(screen.getByRole('button', { name: 'Thêm Business Rule thủ công' }));
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: '11' } });
-    expect(screen.getAllByRole('combobox')).toHaveLength(2);
-    expect(screen.getByRole('option', { name: /src\/main\/java\/demo\/UserService.java/ }))
-      .toHaveAttribute('title', 'module-a/src/main/java/demo/UserService.java');
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn Service method' }));
+    const method = screen.getByRole('option', { name: /src\/main\/java\/demo\/UserService.java/ });
+    expect(method).toHaveAttribute('title', 'module-a/src/main/java/demo/UserService.java');
+    fireEvent.click(method);
+    expect(screen.getByRole('button', { name: 'Chọn Service method' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn quyết định source' }));
     expect(screen.getByRole('option', { name: /IF-1: if \(exists\)/ })).toBeVisible();
     expect(screen.queryByText(/Li\u00ean k\u1ebft quy\u1ebft \u0111\u1ecbnh source/)).not.toBeInTheDocument();
     expect(screen.getByText('Dòng nguồn L22-22')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /BR-002/ }));
     expect(screen.getByText('Dòng nguồn L23-23')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Duyệt tất cả' })).toBeEnabled();
   });
@@ -422,8 +383,10 @@ describe('BusinessRulesPanel', () => {
     render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
 
     fireEvent.click(screen.getByRole('button', { name: 'Thêm Business Rule thủ công' }));
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: '11' } });
-    fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'IF-1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn Service method' }));
+    fireEvent.click(screen.getByRole('option', { name: /UserService.createUser/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn quyết định source' }));
+    fireEvent.click(screen.getByRole('option', { name: 'IF-1: if (exists)' }));
     fireEvent.change(document.querySelector('form textarea')!, {
       target: { value: 'Rule one.\nRule two.' },
     });
@@ -457,7 +420,7 @@ describe('BusinessRulesPanel', () => {
     mocks.rules[0].reviewNote = 'Da sua thu cong. AI review lai la tuy chon.';
     rerender(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
     expect(screen.queryByText(/Da sua thu cong/)).not.toBeInTheDocument();
-    expect(screen.getByText('Email phai hop le.')).toBeVisible();
+    expect(screen.getAllByText('Email phai hop le.')[0]).toBeVisible();
   });
 
   it('localizes a review verdict and shows fresh feedback only once', () => {
@@ -544,4 +507,36 @@ describe('BusinessRulesPanel', () => {
     expect(screen.queryByRole('button', { name: 'Dùng gợi ý AI' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Duyệt tất cả' })).toBeEnabled();
   });
+  it('uses traceability identifiers and only indicates whether a Unit Test exists', () => {
+    mocks.classes = serviceWithMethods(11);
+    mocks.traceRows = [{ ruleId: 1, ruleCode: 'BR-001', ruleDescription: 'Email phai hop le.',
+      planId: 7, planCode: 'TP-007', planTitle: 'Validate email', testType: 'NORMAL',
+      caseId: 12, caseCode: 'TC-012', caseDescription: 'Valid email', unitTestId: 8, unitTestName: 'UserTest.validEmail' }];
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+    const list = screen.getByRole('region', { name: 'Danh sách Business Rule' });
+    expect(within(list).getByText('TP-007')).toBeVisible();
+    expect(within(list).getByText('TC-012')).toBeVisible();
+    expect(within(list).getByText('Có Unit Test')).toBeVisible();
+    expect(within(list).queryByText(/UT đạt|UT lỗi/)).not.toBeInTheDocument();
+    const detail = screen.getByRole('complementary', { name: 'Chi tiết Business Rule' });
+    expect(within(detail).getAllByRole('listitem')).toHaveLength(4);
+    expect(within(detail).getByText('UserTest.validEmail')).toBeVisible();
+  });
+
+  it('shows missing Unit Tests and highlights only the exact source branch lines', () => {
+    const service = serviceWithMethods(11)[0];
+    mocks.rules[0].sourceBranchId = 'IF-1-TRUE';
+    mocks.classes = [{ ...service, methods: [{ ...service.methods[0], lineStart: 40, lineEnd: 42,
+      sourceCode: 'void save() {\n  reject();\n}', branches: [{ branchId: 'IF-1-TRUE', kind: 'IF', outcome: 'TRUE', condition: 'invalid', lineStart: 41, lineEnd: 41 }] }] }];
+    render(<MemoryRouter><BusinessRulesPanel projectId={1} /></MemoryRouter>);
+    expect(screen.getByText('Chưa có Unit Test')).toBeVisible();
+    const detail = screen.getByRole('complementary', { name: 'Chi tiết Business Rule' });
+    expect(within(detail).getByText('40')).toBeVisible();
+    const highlight = detail.querySelectorAll('.code-line-on');
+    expect(highlight).toHaveLength(1);
+    expect(highlight[0]).toHaveTextContent('41 reject();');
+    // Chuỗi truy vết chỉ có một mục; các dòng code là listitem riêng của khung code.
+    expect(within(detail).getAllByRole('listitem').filter((item) => !item.classList.contains('code-line'))).toHaveLength(1);
+  });
+
 });

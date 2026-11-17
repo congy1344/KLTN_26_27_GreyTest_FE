@@ -85,7 +85,7 @@ describe('AdminAiProvidersPage', () => {
     expect(screen.queryByText(/Google Gemini Gateway \(Dự phòng\)/i)).not.toBeInTheDocument();
   });
 
-  it('renders read-only rotation pool without KHÓA API, CRUD actions, or (Rotation Pool - CRUD)', () => {
+  it('lets admins add or replace keys but never reveals or copies a raw key', () => {
     render(
       <MemoryRouter>
         <ThemeProvider>
@@ -96,29 +96,37 @@ describe('AdminAiProvidersPage', () => {
       </MemoryRouter>,
     );
 
-    // Verifies title does not contain CRUD text
-    expect(screen.getByRole('heading', { name: /Bể Khóa API Xoay Vòng$/i })).toBeInTheDocument();
-    expect(screen.queryByText(/Rotation Pool - CRUD/i)).not.toBeInTheDocument();
-
-    // Verifies table headers: Env Variable, Pool Role, Status exist
-    expect(screen.getByRole('columnheader', { name: 'Biến môi trường' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Vai trò trong Rotation Pool' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Trạng thái' })).toBeInTheDocument();
-
-    // Verifies Khóa API (Bảo mật) and Thao tác columns are removed
-    expect(screen.queryByRole('columnheader', { name: /Khóa API/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: /Thao tác/i })).not.toBeInTheDocument();
-
-    // Verifies CRUD buttons are not present
-    expect(screen.queryByRole('button', { name: /^Sửa$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Thêm$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Xóa khóa/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Thao tác' })).toBeInTheDocument();
+    expect(screen.getByText('Đang kích hoạt')).toBeInTheDocument();
+    expect(screen.getByText('Trống')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Hiện toàn bộ khóa API/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Sao chép khóa API/i })).not.toBeInTheDocument();
+    // Chỉ còn 1 khoá thì không cho xoá, tránh tắt hẳn AI.
+    expect(screen.queryByRole('button', { name: /Xoá khoá vị trí/i })).not.toBeInTheDocument();
+  });
 
-    // Verifies status badges
-    expect(screen.getByText('ĐANG KÍCH HOẠT')).toBeInTheDocument();
-    expect(screen.getByText('TRỐNG')).toBeInTheDocument();
+  it('saves a new key for an empty slot after confirmation', () => {
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AdminAiProvidersPage />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm' }));
+    const input = screen.getByLabelText(/Khoá API vị trí/);
+    expect(input).toHaveAttribute('type', 'password');
+    fireEvent.change(input, { target: { value: 'sk-new-rotation-key-0002' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu khoá' }));
+
+    expect(mockUpdateKeys).toHaveBeenCalledWith(
+      { slots: [{ slot: expect.any(Number), key: 'sk-new-rotation-key-0002' }] },
+      expect.any(Object),
+    );
   });
 
   it('edits stage token limits and saves live to runtime', () => {
@@ -139,7 +147,7 @@ describe('AdminAiProvidersPage', () => {
     expect(saveLimitsBtn).toBeInTheDocument();
     fireEvent.click(saveLimitsBtn);
 
-    expect(screen.getByText('Xác nhận cập nhật Giới hạn Token?')).toBeInTheDocument();
+    expect(screen.getByText("Xác nhận cập nhật giới hạn token?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận lưu' }));
 
     expect(mockUpdateLimits).toHaveBeenCalledWith(
@@ -164,12 +172,12 @@ describe('AdminAiProvidersPage', () => {
     const changeModelBtn = screen.getByRole('button', { name: /Đổi mô hình/i });
     fireEvent.click(changeModelBtn);
 
-    expect(screen.getByText('Chọn Mô Hình AI Hoạt Động Cho Dự Án')).toBeInTheDocument();
+    expect(screen.getByText("Chọn mô hình AI hoạt động cho dự án")).toBeInTheDocument();
 
     const saveModelBtn = screen.getByRole('button', { name: /Lưu & Áp dụng trực tiếp/i });
     fireEvent.click(saveModelBtn);
 
-    expect(screen.getByText('Xác nhận thay đổi Mô hình AI?')).toBeInTheDocument();
+    expect(screen.getByText("Xác nhận thay đổi mô hình AI?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận áp dụng' }));
 
     expect(mockUpdateModel).toHaveBeenCalledWith(

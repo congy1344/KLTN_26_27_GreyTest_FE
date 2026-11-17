@@ -1,8 +1,7 @@
-import {
-  Activity, ArrowLeft, CalendarDays, Crown, FolderKanban, Gauge, Lock, LogIn, Mail,
-  Monitor, Pencil, RefreshCw, RotateCcw, Save, ShieldCheck, Smartphone, TestTube2,
-  Unlock, UserRound, X, Zap,
-} from 'lucide-react';
+import { SelectMenu } from '../../../shared/components/SelectMenu';
+import { Activity, AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, CircleDot, Crown, FolderKanban, Gauge, Lock, LogIn, Mail, Monitor, Pencil, RefreshCw, RotateCcw, Save, ShieldCheck, Smartphone, TestTube2, Unlock, UserRound, X, Zap } from 'lucide-react';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Tag } from '../../../shared/components/Tag';
 import { FormEvent, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getErrorMessage } from '../../../shared/api/api-client';
@@ -183,7 +182,7 @@ export function AdminUserDetailPage() {
           Dashboard
         </Link>
         <span className="text-body-subtle">/</span>
-        <Link to="/admin/users" className="inline-flex items-center gap-1 font-semibold text-fg-brand hover:underline">
+        <Link to="/admin/users" className="inline-flex items-center gap-1 font-semibold text-fg-brand-strong hover:underline">
           <ArrowLeft size={13} />
           <span>{t('Danh sách người dùng', 'Users')}</span>
         </Link>
@@ -196,7 +195,7 @@ export function AdminUserDetailPage() {
       )}
 
       {query.error && (
-        <p role="alert" className="rounded-xl bg-danger-soft p-3 text-sm text-fg-danger-strong">
+        <p role="alert" className="rounded-base bg-danger-soft p-3 text-sm text-fg-danger-strong">
           {getErrorMessage(query.error)}
         </p>
       )}
@@ -207,7 +206,7 @@ export function AdminUserDetailPage() {
           <GlassCard>
             <div className="flex flex-wrap items-start justify-between gap-5">
               <div className="flex items-center gap-4">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-softer text-fg-brand">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-softer text-fg-brand-strong">
                   <UserRound size={26} />
                 </span>
                 <div>
@@ -226,34 +225,28 @@ export function AdminUserDetailPage() {
               {/* Status and Action Badges */}
               <div className="flex flex-wrap items-center gap-2.5">
                 {/* Role Badge */}
-                <span className="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full bg-brand-softer px-3 py-1 text-xs font-semibold text-fg-brand">
-                  <ShieldCheck size={13} />
+                <Tag variant="status" tone={user.role === 'ADMIN' ? 'brand' : 'neutral'} icon={ShieldCheck} className="whitespace-nowrap">
                   <span>{formatSemanticLabel(user.role, language)}</span>
-                </span>
+                </Tag>
 
                 {/* Tier Badge with Quick Edit */}
                 <button
                   type="button"
                   onClick={handleOpenTierModal}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-all hover:ring-2 hover:ring-brand ${
-                    user.tier === 'PRO'
-                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
-                      : user.tier === 'PLUS'
-                      ? 'bg-brand-softer text-fg-brand-strong'
-                      : 'bg-neutral-secondary text-body-subtle'
-                  }`}
+                  className="btn btn-ghost rounded-control p-0"
                   title="Nhấn để nâng cấp hoặc đổi gói Tier"
                 >
-                  {user.tier === 'PRO' ? <Crown size={13} className="text-amber-500" /> : <Zap size={13} />}
-                  <span>Gói {user.tier || 'FREE'}</span>
-                  <Pencil size={11} className="opacity-60" />
+                  <Tag variant="status" tone={user.tier === 'PRO' || user.tier === 'PLUS' ? 'brand' : 'neutral'} icon={user.tier === 'PRO' ? Crown : Zap}>
+                    <span>Gói {user.tier || 'FREE'}</span>
+                  </Tag>
+                  <Pencil size={13} aria-hidden="true" />
                 </button>
 
                 {/* Edit User Button */}
                 <button
                   type="button"
                   onClick={handleOpenEditUser}
-                  className="btn btn-secondary inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold shadow-2xs hover:bg-neutral-secondary transition-colors"
+                  className="btn btn-secondary inline-flex items-center gap-1.5 rounded-control px-3 py-1 text-xs font-semibold shadow-2xs hover:bg-neutral-secondary transition-colors"
                   title="Chỉnh sửa thông tin tài khoản"
                 >
                   <Pencil size={12} />
@@ -268,12 +261,12 @@ export function AdminUserDetailPage() {
                     setLockReason('');
                     setStatusConfirmOpen(true);
                   }}
-                  className={`btn whitespace-nowrap inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold shadow-2xs transition-opacity ${
+                  className={`btn whitespace-nowrap inline-flex items-center gap-1.5 rounded-control px-3 py-1 text-xs font-semibold shadow-2xs transition-opacity ${
                     isSelf ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85'
                   } ${
                     user.enabled
                       ? 'btn-ghost-danger border border-border-danger-subtle'
-                      : 'btn-secondary text-fg-success border border-border-success-subtle'
+                      : 'btn-secondary text-fg-success-strong border border-border-success-subtle'
                   }`}
                   title={
                     isSelf
@@ -326,8 +319,8 @@ export function AdminUserDetailPage() {
               <GlassCard>
                 <div className="flex items-center justify-between border-b border-border-default pb-3">
                   <div className="flex items-center gap-2">
-                    <Gauge size={17} className="text-fg-brand" />
-                    <h3 className="font-bold text-heading">Hạn Mức & Quota LLM Tháng</h3>
+                    <Gauge size={17} className="text-fg-brand-strong" />
+                    <h3 className="font-bold text-heading">Hạn mức & quota LLM tháng</h3>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button
@@ -342,7 +335,7 @@ export function AdminUserDetailPage() {
                     <button
                       type="button"
                       onClick={() => setResetConfirmOpen(true)}
-                      className="btn btn-secondary px-2.5 py-1 text-xs text-fg-brand hover:text-fg-brand-strong flex items-center gap-1"
+                      className="btn btn-secondary px-2.5 py-1 text-xs text-fg-brand-strong hover:text-fg-brand-strong flex items-center gap-1"
                       title="Đặt lại số lượt gọi về 0"
                     >
                       <RotateCcw size={12} />
@@ -378,10 +371,10 @@ export function AdminUserDetailPage() {
                       aria-valuemin={0}
                       aria-valuemax={user.quota.limit}
                       aria-valuenow={Math.min(user.quota.used, user.quota.limit)}
-                      className="mt-3 h-2.5 rounded-full bg-neutral-secondary-medium overflow-hidden"
+                      className="mt-3 h-2.5 rounded-control bg-neutral-secondary-medium overflow-hidden"
                     >
                       <div
-                        className={`h-full rounded-full transition-all ${
+                        className={`h-full rounded-control ${
                           user.quota.exceeded ? 'bg-danger' : 'bg-brand'
                         }`}
                         style={{
@@ -406,14 +399,14 @@ export function AdminUserDetailPage() {
                 <h3 className="font-semibold text-heading">Dự án đã liên kết</h3>
                 <div className="mt-4 space-y-2.5">
                   {query.data.projects.map((project) => (
-                    <div key={project.id} className="rounded-lg border border-border-default p-3 flex justify-between items-center">
+                    <div key={project.id} className="rounded-base border border-border-default p-3 flex justify-between items-center bg-neutral-primary-soft">
                       <div>
                         <p className="font-semibold text-heading text-xs">{project.name}</p>
-                        <p className="mt-0.5 text-[11px] text-body-subtle">Project #{project.id}</p>
+                        <p className="mt-0.5 text-xs text-body-subtle">Project #{project.id}</p>
                       </div>
-                      <span className="rounded-md bg-neutral-secondary px-2 py-0.5 text-[10px] font-bold text-body-subtle uppercase">
+                      <Tag variant="status" tone="neutral" icon={CircleDot}>
                         {project.status}
-                      </span>
+                      </Tag>
                     </div>
                   ))}
                   {!query.data.projects.length && (
@@ -428,12 +421,12 @@ export function AdminUserDetailPage() {
               <GlassCard>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default pb-3">
                   <div className="flex items-center gap-2.5">
-                    <LogIn size={18} className="text-fg-brand" />
+                    <LogIn size={18} className="text-fg-brand-strong" />
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-heading">Lịch Sử Đăng Nhập</h3>
+                        <h3 className="font-bold text-heading">Lịch sử đăng nhập</h3>
                       </div>
-                      <p className="mt-0.5 text-[11px] text-body-subtle">
+                      <p className="mt-0.5 text-xs text-body-subtle">
                         Ghi nhận thiết bị, địa chỉ IP và trạng thái các phiên đăng nhập vào hệ thống.
                       </p>
                     </div>
@@ -453,13 +446,13 @@ export function AdminUserDetailPage() {
 
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="border-b border-border-default bg-neutral-secondary-soft text-[11px] font-bold uppercase text-body-subtle">
+                    <thead className="border-b border-border-default bg-neutral-secondary-soft text-xs font-semibold text-body-subtle">
                       <tr>
-                        <th className="p-2.5">Thời Gian</th>
-                        <th className="p-2.5">Địa Chỉ IP</th>
-                        <th className="p-2.5">Thiết Bị / Trình Duyệt</th>
-                        <th className="p-2.5">Cổng</th>
-                        <th className="p-2.5 text-right">Trạng Thái</th>
+                        <th className="font-semibold text-body-subtle text-xs p-2.5">Thời gian</th>
+                        <th className="font-semibold text-body-subtle text-xs p-2.5">Địa chỉ IP</th>
+                        <th className="font-semibold text-body-subtle text-xs p-2.5">Thiết bị / trình duyệt</th>
+                        <th className="font-semibold text-body-subtle text-xs p-2.5">Cổng</th>
+                        <th className="font-semibold text-body-subtle text-xs p-2.5 text-right">Trạng thái</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-default-subtle">
@@ -473,15 +466,15 @@ export function AdminUserDetailPage() {
                               <p className="font-semibold text-heading">
                                 {new Date(lh.timestamp).toLocaleDateString('vi-VN')}
                               </p>
-                              <p className="text-[10px] text-body-subtle">
+                              <p className="text-xs text-body-subtle">
                                 {new Date(lh.timestamp).toLocaleTimeString('vi-VN')}
                               </p>
                             </td>
 
                             <td className="p-2.5 whitespace-nowrap">
-                              <span className="font-sans text-xs text-body bg-neutral-secondary px-2 py-0.5 rounded-md">
+                              <Tag>
                                 {lh.ip || '127.0.0.1'}
-                              </span>
+                              </Tag>
                             </td>
 
                             <td className="p-2.5 min-w-[150px]">
@@ -498,24 +491,15 @@ export function AdminUserDetailPage() {
                             </td>
 
                             <td className="p-2.5 whitespace-nowrap">
-                              <span className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                                lh.portal?.includes('ADMIN')
-                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
-                                  : 'bg-neutral-secondary text-body-subtle'
-                              }`}>
+                              <Tag variant="status" tone={lh.portal?.includes('ADMIN') ? "brand" : "neutral"} icon={CircleDot}>
                                 {lh.portal?.includes('ADMIN') ? 'Admin' : 'Web'}
-                              </span>
+                              </Tag>
                             </td>
 
                             <td className="p-2.5 text-right whitespace-nowrap">
-                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                isSuccess
-                                  ? 'bg-success-soft text-fg-success-strong'
-                                  : 'bg-danger-soft text-fg-danger-strong'
-                              }`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${isSuccess ? 'bg-success' : 'bg-danger'}`} />
+                              <Tag variant="status" tone={isSuccess ? "success" : "danger"} icon={isSuccess ? CheckCircle2 : AlertCircle}>
                                 <span>{isSuccess ? 'Thành công' : 'Thất bại'}</span>
-                              </span>
+                              </Tag>
                             </td>
                           </tr>
                         );
@@ -537,9 +521,9 @@ export function AdminUserDetailPage() {
                     <div className="mt-3 border-t border-border-default-subtle pt-2.5 text-right">
                       <Link
                         to={`/admin/activity?action=USER_LOGIN&userSearch=${encodeURIComponent(query.data.user.email)}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-fg-brand hover:underline"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-fg-brand-strong hover:underline"
                       >
-                        <span>Tra cứu toàn bộ lịch sử đăng nhập tại Nhật ký hoạt động &rarr;</span>
+                        <span>Tra cứu toàn bộ lịch sử đăng nhập tại Nhật ký hoạt động</span><ArrowRight size={14} aria-hidden="true" />
                       </Link>
                     </div>
                   )}
@@ -552,23 +536,23 @@ export function AdminUserDetailPage() {
                   <h3 className="font-semibold text-heading">Lịch sử hoạt động gần đây</h3>
                   <Link
                     to={`/admin/activity?userSearch=${encodeURIComponent(query.data.user.email)}`}
-                    className="text-xs font-semibold text-fg-brand hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-fg-brand-strong hover:underline"
                   >
-                    Xem tất cả &rarr;
+                    <span>Xem tất cả</span><ArrowRight size={14} aria-hidden="true" />
                   </Link>
                 </div>
                 <div className="mt-4 space-y-1 divide-y divide-border-default-subtle">
                   {query.data.recentActivities.map((item) => (
-                    <div key={item.id} className="flex gap-3 p-3 hover:bg-neutral-secondary-soft/50 rounded-lg transition-colors">
+                    <div key={item.id} className="flex gap-3 p-3 hover:bg-neutral-secondary-soft/50 rounded-base transition-colors">
                       <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" />
                       <div>
                         <p className="text-xs font-semibold text-heading">{activityLabel(item.actionType)}</p>
-                        <p className="mt-0.5 text-[11px] text-body-subtle">
+                        <p className="mt-0.5 text-xs text-body-subtle">
                           {new Date(item.createdAt).toLocaleString('vi-VN')}
-                          {item.projectId ? ` · Project #${item.projectId}` : ''}
+                          {item.projectId ? `, Project #${item.projectId}` : ''}
                         </p>
                         {item.metadata && (
-                          <p className="mt-0.5 text-[11px] text-body-subtle font-sans tabular-nums">
+                          <p className="mt-0.5 text-xs text-body-subtle font-sans tabular-nums">
                             {formatActivityMetadata(item.metadata)}
                           </p>
                         )}
@@ -589,15 +573,13 @@ export function AdminUserDetailPage() {
               className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/75 px-4 backdrop-blur-sm"
               onMouseDown={(e) => e.target === e.currentTarget && setTierModalOpen(false)}
             >
-              <form onSubmit={handleSaveTier} className="w-full max-w-sm rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xl">
+              <form style={{ boxShadow: 'var(--shadow-lg)' }} onSubmit={handleSaveTier} className="w-full max-w-sm rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-lg">
                 <div className="flex items-center justify-between border-b border-border-default pb-3">
-                  <div className="flex items-center gap-2 text-fg-brand">
+                  <div className="flex items-center gap-2 text-fg-brand-strong">
                     <Crown size={16} />
-                    <h3 className="text-sm font-bold text-heading">Cập Nhật Gói Tier Dịch Vụ</h3>
+                    <h3 className="text-sm font-bold text-heading">Cập nhật gói Tier dịch vụ</h3>
                   </div>
-                  <button type="button" className="btn btn-secondary p-1" onClick={() => setTierModalOpen(false)}>
-                    <X size={14} />
-                  </button>
+                  <IconButton onClick={() => setTierModalOpen(false)} label="Đóng" icon={X} />
                 </div>
 
                 <div className="mt-4 space-y-3 text-xs">
@@ -605,20 +587,17 @@ export function AdminUserDetailPage() {
                     Chọn gói dịch vụ muốn áp dụng cho <strong>{user.email}</strong>:
                   </p>
                   <label className="block">
-                    <select
-                      className="form-input"
+                    <SelectMenu
                       value={selectedTier}
-                      onChange={(e) => setSelectedTier(e.target.value as UserTier)}
-                    >
-                      <option value="FREE">FREE - 100 lượt gọi/tháng, 2 batch song song</option>
-                      <option value="PLUS">PLUS - 200 lượt gọi/tuần, 3 batch song song</option>
-                      <option value="PRO">PRO - 300 lượt gọi/tháng, 4 batch, JaCoCo Refinement</option>
-                    </select>
+                      onChange={(selectedValue) => setSelectedTier(selectedValue as UserTier)}
+                      aria-label={'Gói dịch vụ'}
+                      options={[{ value: String("FREE"), label: "FREE - 100 lượt gọi/tháng, 2 batch song song" }, { value: String("PLUS"), label: "PLUS - 200 lượt gọi/tuần, 3 batch song song" }, { value: String("PRO"), label: "PRO - 300 lượt gọi/tháng, 4 batch, JaCoCo Refinement" }]}
+                    />
                   </label>
                 </div>
 
                 {mutations.tier?.error && (
-                  <p role="alert" className="mt-3 text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-lg">
+                  <p role="alert" className="mt-3 text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-base">
                     {getErrorMessage(mutations.tier.error)}
                   </p>
                 )}
@@ -642,15 +621,13 @@ export function AdminUserDetailPage() {
               className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/75 px-4 backdrop-blur-sm"
               onMouseDown={(e) => e.target === e.currentTarget && setQuotaModalOpen(false)}
             >
-              <form onSubmit={handleSaveQuota} className="w-full max-w-sm rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xl">
+              <form style={{ boxShadow: 'var(--shadow-lg)' }} onSubmit={handleSaveQuota} className="w-full max-w-sm rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-lg">
                 <div className="flex items-center justify-between border-b border-border-default pb-3">
-                  <div className="flex items-center gap-2 text-fg-brand">
+                  <div className="flex items-center gap-2 text-fg-brand-strong">
                     <Gauge size={16} />
-                    <h3 className="text-sm font-bold text-heading">Điều Chỉnh Hạn Mức Quota</h3>
+                    <h3 className="text-sm font-bold text-heading">Điều chỉnh hạn mức quota</h3>
                   </div>
-                  <button type="button" className="btn btn-secondary p-1" onClick={() => setQuotaModalOpen(false)}>
-                    <X size={14} />
-                  </button>
+                  <IconButton onClick={() => setQuotaModalOpen(false)} label="Đóng" icon={X} />
                 </div>
 
                 <div className="mt-4 space-y-3 text-xs">
@@ -679,7 +656,7 @@ export function AdminUserDetailPage() {
                 </div>
 
                 {mutations.quota?.error && (
-                  <p role="alert" className="mt-3 text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-lg">
+                  <p role="alert" className="mt-3 text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-base">
                     {getErrorMessage(mutations.quota.error)}
                   </p>
                 )}
@@ -715,12 +692,12 @@ export function AdminUserDetailPage() {
               className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/75 px-4 backdrop-blur-sm"
               onMouseDown={(e) => e.target === e.currentTarget && !mutations.status.isPending && setStatusConfirmOpen(false)}
             >
-              <form
+              <form style={{ boxShadow: 'var(--shadow-lg)' }}
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleToggleStatus();
                 }}
-                className="w-full max-w-md rounded-xl border border-border-default bg-neutral-primary-soft p-6 shadow-xl space-y-4"
+                className="w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-6 shadow-lg space-y-4"
               >
                 <h3 className="text-base font-semibold text-heading">
                   {user.enabled ? 'Khóa tài khoản người dùng?' : 'Mở khóa tài khoản?'}
@@ -789,18 +766,16 @@ export function AdminUserDetailPage() {
               className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/75 px-4 backdrop-blur-sm"
               onMouseDown={(e) => e.target === e.currentTarget && !mutations.update?.isPending && setEditModalOpen(false)}
             >
-              <form onSubmit={handleSaveEditUser} className="w-full max-w-md rounded-xl border border-border-default bg-neutral-primary-soft p-6 shadow-xl">
+              <form style={{ boxShadow: 'var(--shadow-lg)' }} onSubmit={handleSaveEditUser} className="w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-6 shadow-lg">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2 text-fg-brand">
+                    <div className="flex items-center gap-2 text-fg-brand-strong">
                       <Pencil size={17} />
-                      <span className="text-xs font-bold uppercase tracking-wide">Chỉnh Sửa Tài Khoản</span>
+                      <span className="text-xs font-bold">Chỉnh sửa tài khoản</span>
                     </div>
                     <h2 className="mt-1 text-lg font-bold text-heading">{user.email}</h2>
                   </div>
-                  <button type="button" aria-label="Đóng" className="btn btn-secondary p-2" onClick={() => setEditModalOpen(false)}>
-                    <X size={15} />
-                  </button>
+                  <IconButton onClick={() => setEditModalOpen(false)} label="Đóng" icon={X} />
                 </div>
 
                 <div className="mt-4 space-y-3.5 text-xs">
@@ -830,28 +805,23 @@ export function AdminUserDetailPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block">
                       <span className="mb-1 block font-semibold text-heading">Vai trò</span>
-                      <select
-                        className="form-input"
+                      <SelectMenu
                         value={editForm.role}
                         disabled={currentUser?.id === user.id}
-                        onChange={(e) => setEditForm({ ...editForm, role: e.target.value as UserRole })}
-                      >
-                        <option value="USER">Người dùng</option>
-                        <option value="ADMIN">Quản trị viên</option>
-                      </select>
+                        onChange={(selectedValue) => setEditForm({ ...editForm, role: selectedValue as UserRole })}
+                        aria-label={'Vai trò'}
+                        options={[{ value: String("USER"), label: "Người dùng" }, { value: String("ADMIN"), label: "Quản trị viên" }]}
+                      />
                     </label>
 
                     <label className="block">
                       <span className="mb-1 block font-semibold text-heading">Hạng tài khoản</span>
-                      <select
-                        className="form-input"
+                      <SelectMenu
                         value={editForm.tier}
-                        onChange={(e) => setEditForm({ ...editForm, tier: e.target.value as UserTier })}
-                      >
-                        <option value="FREE">FREE</option>
-                        <option value="PLUS">PLUS</option>
-                        <option value="PRO">PRO</option>
-                      </select>
+                        onChange={(selectedValue) => setEditForm({ ...editForm, tier: selectedValue as UserTier })}
+                        aria-label={'Hạng tài khoản'}
+                        options={[{ value: String("FREE"), label: "FREE" }, { value: String("PLUS"), label: "PLUS" }, { value: String("PRO"), label: "PRO" }]}
+                      />
                     </label>
                   </div>
 
@@ -962,9 +932,9 @@ export function AdminUserDetailPage() {
 
 function DetailMetric({ icon: Icon, label, value }: { icon: typeof Activity; label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
+    <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-softer text-fg-brand">
+        <span className="flex h-9 w-9 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong">
           <Icon size={17} />
         </span>
         <div>

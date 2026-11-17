@@ -63,12 +63,14 @@ afterEach(() => {
 describe('TestPlansPanel', () => {
   it('requires approved business rules before generating or creating plans', () => {
     mocks.rules[0].status = 'PENDING_REVIEW';
-    render(<MemoryRouter><TestPlansPanel projectId={105} projectStatus="BR_PENDING_REVIEW" /></MemoryRouter>);
+    render(<MemoryRouter><TestPlansPanel projectId={105} projectStatus="BR_PENDING_REVIEW" servicePath="billing" /></MemoryRouter>);
 
     expect(screen.getByRole('button', { name: /AI sinh Plan/ })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Thêm Test Plan thủ công' }));
-    expect(screen.getAllByRole('combobox')[0]).toBeDisabled();
-    expect(screen.getByText('Hãy duyệt Business Rule trước khi sinh Test Plan.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Chọn anchor Business Rule' })).toBeDisabled();
+    expect(screen.getByText(/Hãy duyệt Business Rule trước khi sinh Test Plan/).closest('[role="alert"]')).toHaveClass('bg-warning-soft');
+    expect(screen.getByRole('link', { name: 'Duyệt Business Rule' })).toHaveAttribute('href', '/projects/105/business-rules?servicePath=billing');
+    expect(screen.queryByRole('heading', { name: 'Test Plans' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /AI sinh Plan/ }));
     expect(mocks.generate).not.toHaveBeenCalled();
   });
@@ -78,9 +80,11 @@ describe('TestPlansPanel', () => {
     render(<MemoryRouter><TestPlansPanel projectId={105} projectStatus="BR_APPROVED" /></MemoryRouter>);
 
     expect(screen.getByRole('button', { name: /AI sinh Plan/ })).toBeEnabled();
-    expect(screen.getByText(/Còn 1 Business Rule chờ duyệt lại/)).toBeInTheDocument();
+    expect(screen.getByText(/Còn 1 Business Rule chờ duyệt lại/).closest('[role="alert"]')).toHaveClass('bg-warning-soft');
+    expect(screen.getByRole('link', { name: 'Duyệt Business Rule' })).toHaveAttribute('href', '/projects/105/business-rules');
     fireEvent.click(screen.getByRole('button', { name: 'Thêm Test Plan thủ công' }));
-    expect(within(screen.getAllByRole('combobox')[0]).getAllByRole('option')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn anchor Business Rule' }));
+    expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(2);
     expect(screen.queryByRole('option', { name: /BR-008/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Tiếp tục sinh/ })).not.toBeInTheDocument();
   });
@@ -89,7 +93,8 @@ describe('TestPlansPanel', () => {
     const panel = <MemoryRouter><TestPlansPanel projectId={105} projectStatus="BR_APPROVED" /></MemoryRouter>;
     const { rerender } = render(panel);
     fireEvent.click(screen.getByRole('button', { name: 'Thêm Test Plan thủ công' }));
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: '7' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn anchor Business Rule' }));
+    fireEvent.click(screen.getByRole('option', { name: /^BR-007/ }));
     fireEvent.change(screen.getByPlaceholderText('Tiêu đề Test Plan'), { target: { value: 'Equality' } });
     fireEvent.change(screen.getByPlaceholderText('Mục tiêu test'), { target: { value: 'Allow equality' } });
     expect(screen.getByRole('button', { name: /Thêm Plan/ })).toBeEnabled();

@@ -110,11 +110,11 @@ describe('ProfilePage', () => {
     expect(screen.getByText('1/11/2026')).toBeInTheDocument();
 
     // Kiểm tra hiển thị nút Nâng cấp
-    expect(screen.getByText('10.000đ')).toBeInTheDocument();
-    expect(screen.getByText('20.000đ')).toBeInTheDocument();
-    expect(screen.getByText('Sinh tối đa 2 batch đồng thời')).toBeInTheDocument();
-    expect(screen.getByText('Sinh tối đa 3 batch đồng thời')).toBeInTheDocument();
-    expect(screen.getByText('Sinh tối đa 4 batch đồng thời')).toBeInTheDocument();
+    expect(screen.queryByText('10.000đ')).not.toBeInTheDocument();
+    expect(screen.queryByText('20.000đ')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sinh tối đa 2 batch đồng thời')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sinh tối đa 3 batch đồng thời')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sinh tối đa 4 batch đồng thời')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Lịch sử thanh toán/i })).toBeInTheDocument();
     const upgradeBtns = screen.getAllByRole('button', { name: /Nâng cấp/i });
     expect(upgradeBtns.length).toBeGreaterThan(0);
@@ -200,6 +200,9 @@ describe('ProfilePage', () => {
         limit: 100,
         used: 20,
         remaining: 80,
+        periodStart: '2026-11-01',
+        resetDate: '2026-12-01',
+        exceeded: false,
       },
       isLoading: false,
     } as any);
@@ -249,6 +252,9 @@ describe('ProfilePage', () => {
         limit: 50,
         used: 0,
         remaining: 50,
+        periodStart: '2026-11-01',
+        resetDate: '2026-12-01',
+        exceeded: false,
       },
       isLoading: false,
     } as any);
@@ -300,6 +306,9 @@ describe('ProfilePage', () => {
         limit: 200,
         used: 50,
         remaining: 150,
+        periodStart: '2026-11-01',
+        resetDate: '2026-12-01',
+        exceeded: false,
       },
       isLoading: false,
     } as any);
@@ -347,6 +356,9 @@ describe('ProfilePage', () => {
         limit: 300,
         used: 12,
         remaining: 288,
+        periodStart: '2026-11-01',
+        resetDate: '2026-12-01',
+        exceeded: false,
       },
       isLoading: false,
     } as any);
@@ -394,6 +406,9 @@ describe('ProfilePage', () => {
         limit: 100,
         used: 10,
         remaining: 90,
+        periodStart: '2026-11-01',
+        resetDate: '2026-12-01',
+        exceeded: false,
       },
       isLoading: false,
     } as any);
@@ -456,6 +471,9 @@ describe('ProfilePage', () => {
         limit: 300,
         used: 10,
         remaining: 290,
+        periodStart: '2026-11-01',
+        resetDate: '2026-12-01',
+        exceeded: false,
       },
       isLoading: false,
     } as any);
@@ -507,7 +525,8 @@ describe('ProfilePage', () => {
     const dobInput = screen.getByLabelText('Ngày sinh');
 
     fireEvent.change(phoneInput, { target: { value: '0912345678' } });
-    fireEvent.change(genderSelect, { target: { value: 'MALE' } });
+    fireEvent.click(genderSelect);
+    fireEvent.click(screen.getByRole('option', { name: 'Nam' }));
     fireEvent.change(dobInput, { target: { value: '2002-05-15' } });
 
     const saveBtn = screen.getByTestId('save-profile-btn');

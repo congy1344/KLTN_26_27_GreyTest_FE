@@ -78,7 +78,8 @@ describe('AdminUsersPage', () => {
   it('requires confirmation before changing a user role', () => {
     render(<MemoryRouter><AdminUsersPage /></MemoryRouter>);
 
-    fireEvent.change(screen.getByLabelText('Vai trò của user@greytest.dev'), { target: { value: 'ADMIN' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Vai trò của user@greytest.dev' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Quản trị viên' }));
     expect(mutations.role).not.toHaveBeenCalled();
     expect(screen.getByText('Xác nhận thay đổi vai trò')).toBeInTheDocument();
 
@@ -112,8 +113,9 @@ describe('AdminUsersPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Gói' }));
     expect(userState.lastFilters).toMatchObject({ sort: 'tier', direction: 'desc', page: 0 });
 
-    // Change sort select
-    fireEvent.change(screen.getByLabelText('Sắp xếp'), { target: { value: 'totalGenerationRequests:desc' } });
+    // Chọn thứ tự từ bộ lọc tự vẽ.
+    fireEvent.click(screen.getByRole('button', { name: 'Sắp xếp' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Lượt sinh test: Nhiều nhất' }));
     expect(userState.lastFilters).toMatchObject({ sort: 'totalGenerationRequests', direction: 'desc', page: 0 });
   });
 

@@ -1,6 +1,8 @@
+import { Tag } from './Tag';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Mail,
   Bell,
   CheckCircle2,
   CreditCard,
@@ -84,20 +86,20 @@ export function NotificationDropdown() {
     switch (type) {
       case 'ADMIN':
         return (
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong dark:text-fg-brand-strong border border-border-brand-subtle">
             <MessageSquare size={15} />
           </div>
         );
       case 'PAYMENT':
         return (
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-success-soft text-fg-success-strong dark:text-fg-success-strong border border-border-success-subtle">
             <CreditCard size={15} />
           </div>
         );
       case 'TASK':
       default:
         return (
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-softer text-fg-brand-strong border border-border-brand-subtle">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong border border-border-brand-subtle">
             <CheckCircle2 size={15} />
           </div>
         );
@@ -111,19 +113,16 @@ export function NotificationDropdown() {
         type="button"
         data-testid="notification-bell-btn"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative flex h-8 w-8 items-center justify-center rounded-default border border-border-default bg-neutral-secondary-soft text-body-subtle shadow-xs transition-colors hover:border-border-default-strong hover:bg-neutral-secondary-medium hover:text-heading"
+        className="relative flex h-8 w-8 items-center justify-center rounded-control border border-border-default bg-neutral-secondary-soft text-body-subtle transition-colors hover:border-border-default-strong hover:bg-neutral-secondary-medium hover:text-heading"
         aria-label={t('Thông báo', 'Notifications')}
         title={t('Thông báo hệ thống', 'System notifications')}
         aria-expanded={isOpen}
       >
         <Bell size={15} />
         {unreadCount > 0 && (
-          <span
-            data-testid="unread-badge"
-            className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-xs animate-in zoom-in"
-          >
+          <Tag data-testid="unread-badge" className="absolute -top-1 -right-1 font-mono tabular-nums">
             {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
+          </Tag>
         )}
       </button>
 
@@ -132,18 +131,18 @@ export function NotificationDropdown() {
         <div
           role="menu"
           data-testid="notification-dropdown-menu"
-          className="absolute right-0 mt-2 w-80 sm:w-96 origin-top-right rounded-2xl border border-border-default bg-neutral-primary-soft p-3 text-body shadow-2xl backdrop-blur-xl animate-fade-in z-50"
+          className="absolute right-0 mt-2 w-80 sm:w-96 origin-top-right rounded-base border border-border-default bg-neutral-primary-soft p-3 text-body shadow-2xl animate-fade-in z-50"
         >
           {/* Header */}
           <div className="mb-2 flex items-center justify-between border-b border-border-default-subtle pb-2.5 px-1">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-heading">
+              <span className="text-sm font-semibold text-heading">
                 {t('Thông báo', 'Notifications')}
               </span>
               {unreadCount > 0 && (
-                <span className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.2 text-[10px] font-bold text-red-600 dark:text-red-400">
+                <Tag className="font-mono tabular-nums">
                   {unreadCount} {t('chưa đọc', 'unread')}
-                </span>
+                </Tag>
               )}
             </div>
 
@@ -152,7 +151,7 @@ export function NotificationDropdown() {
                 type="button"
                 data-testid="mark-all-read-btn"
                 onClick={markAllAsRead}
-                className="flex items-center gap-1 text-[11px] font-semibold text-fg-brand hover:underline"
+                className="rounded-control flex items-center gap-1 text-xs font-semibold text-fg-brand hover:underline"
               >
                 <CheckCheck size={13} />
                 <span>{t('Đánh dấu đã đọc', 'Mark all as read')}</span>
@@ -164,11 +163,11 @@ export function NotificationDropdown() {
           <div className="max-h-80 overflow-y-auto space-y-1.5 pr-0.5">
             {notifications.length === 0 ? (
               <div className="py-8 text-center text-xs text-body-subtle">
-                <BellOff size={24} className="mx-auto text-body-subtle/50 mb-1.5" />
+                <BellOff size={24} className="mx-auto text-body-subtle mb-1.5" />
                 <p className="font-medium text-heading">
                   {t('Không có thông báo nào', 'No notifications')}
                 </p>
-                <p className="text-[11px] text-body-subtle mt-0.5">
+                <p className="text-xs text-body-subtle mt-0.5">
                   {t('Các tác vụ hoàn thành, thanh toán và thông báo từ admin sẽ xuất hiện ở đây.', 'Completed tasks, payments, and admin notices will appear here.')}
                 </p>
               </div>
@@ -178,10 +177,10 @@ export function NotificationDropdown() {
                   key={item.id}
                   data-testid={`notification-item-${item.id}`}
                   onClick={() => handleNotificationClick(item)}
-                  className={`group relative flex items-start gap-3 rounded-xl p-2.5 text-xs transition-all cursor-pointer ${
+                  className={`group relative flex items-start gap-3 rounded-base p-2.5 text-xs transition-colors cursor-pointer ${
                     !item.read
-                      ? 'bg-brand-softer/50 hover:bg-brand-softer/80 border border-border-brand-subtle/60'
-                      : 'hover:bg-neutral-secondary-soft/70 border border-transparent'
+                      ? 'bg-brand-softer hover:bg-brand-softer border border-border-brand-subtle'
+                      : 'hover:bg-neutral-secondary-soft border border-transparent'
                   }`}
                 >
                   {getIconForType(item.type)}
@@ -192,15 +191,15 @@ export function NotificationDropdown() {
                         {item.title}
                       </h4>
                       {!item.read && (
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500 shadow-xs" />
+                        <Tag variant="status" tone="brand" icon={Mail}>{t('Chưa đọc', 'Unread')}</Tag>
                       )}
                     </div>
 
-                    <p className="mt-0.5 text-[11px] text-body-subtle line-clamp-2 leading-relaxed">
+                    <p className="mt-0.5 text-xs text-body-subtle line-clamp-2 leading-relaxed">
                       {item.message}
                     </p>
 
-                    <div className="mt-1.5 flex items-center justify-between text-[10px] text-body-subtle">
+                    <div className="mt-1.5 flex items-center justify-between text-xs text-body-subtle">
                       <span>{timeAgo(item.createdAt, language)}</span>
                       {item.link && (
                         <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-fg-brand font-medium">

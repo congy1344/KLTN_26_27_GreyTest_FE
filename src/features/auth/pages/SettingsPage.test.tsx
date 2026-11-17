@@ -134,6 +134,9 @@ describe('SettingsPage', () => {
         limit: 300,
         used: 50,
         remaining: 250,
+        periodStart: '2026-11-01',
+        resetDate: '2026-12-01',
+        exceeded: false,
       },
       isLoading: false,
     } as any);

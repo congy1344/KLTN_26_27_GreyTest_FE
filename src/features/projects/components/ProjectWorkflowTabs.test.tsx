@@ -19,7 +19,7 @@ describe('ProjectWorkflowTabs', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: /^01.*Analysis & BR/ })).toHaveAttribute('href', '/projects/7');
+    expect(screen.getByRole('link', { name: /^01.*Analysis & BR/ })).toHaveAttribute('href', '/projects/7/business-rules');
     expect(screen.getByRole('link', { name: /^02.*Test Plan/ })).toHaveAttribute('href', '/projects/7/test-plans');
     expect(screen.getByRole('link', { name: /^03.*Test Case/ })).toHaveAttribute('href', '/projects/7/test-cases');
     expect(screen.getByRole('link', { name: /^04.*Unit Test/ })).toHaveAttribute('href', '/projects/7/unit-tests');
@@ -109,7 +109,7 @@ describe('ProjectWorkflowTabs', () => {
   });
 
   it('resumes each project at the current workflow step', () => {
-    expect(getProjectResumePath(7, 'BR_PENDING_REVIEW')).toBe('/projects/7');
+    expect(getProjectResumePath(7, 'BR_PENDING_REVIEW')).toBe('/projects/7/business-rules');
     expect(getProjectResumePath(7, 'PLAN_PENDING_REVIEW')).toBe('/projects/7/test-plans');
     expect(getProjectResumePath(7, 'CASE_PENDING_REVIEW')).toBe('/projects/7/test-cases');
     expect(getProjectResumePath(7, 'CASE_APPROVED')).toBe('/projects/7/unit-tests');

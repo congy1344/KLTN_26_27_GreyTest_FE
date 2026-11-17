@@ -1,4 +1,5 @@
-import { CheckCircle2, ChevronRight, FileCode2, FileSpreadsheet, FileText, Sparkles, Clock, ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, CheckCircle2, ChevronRight, CircleDot, Clock, FileCode2, FileSpreadsheet, FileText, Sparkles } from 'lucide-react';
+import { Tag } from '../../../shared/components/Tag';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../shared/i18n/language';
 import type { AdminOverview } from '../types';
@@ -69,19 +70,19 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
   };
 
   return (
-    <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 sm:p-6 shadow-xs">
+    <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5 sm:p-6 shadow-xs">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-default pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-fg-brand">
+            <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Quy trình AI Grey-box' : 'Grey-box AI Pipeline'}
             </span>
-            <span className="text-[11px] text-body-subtle">
+            <span className="text-xs text-body-subtle">
               ({language === 'vi' ? 'Nhấn vào giai đoạn để xem lịch sử sinh' : 'Click stage to inspect records'})
             </span>
           </div>
-          <h3 className="mt-1 text-lg sm:text-xl font-extrabold text-heading tracking-tight">
-            {language === 'vi' ? 'Trạng thái Tiến trình BR → TP → TC → UT' : 'Pipeline Progression: BR → TP → TC → UT'}
+          <h3 className="mt-1 text-lg sm:text-xl font-extrabold text-heading">
+            {language === 'vi' ? 'Trạng thái tiến trình BR → TP → TC → UT' : 'Pipeline Progression: BR → TP → TC → UT'}
           </h3>
           <p className="mt-0.5 text-xs text-body-subtle">
             {language === 'vi'
@@ -90,10 +91,9 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full bg-brand-softer px-3 py-1 text-xs font-bold text-fg-brand-strong">
-            <span className="h-2 w-2 rounded-full bg-brand animate-pulse" />
+          <Tag variant="status" tone="brand" icon={CircleDot}>
             {language === 'vi' ? 'Hàng đợi vận hành ổn định' : 'Pipeline Operational'}
-          </span>
+          </Tag>
         </div>
       </div>
 
@@ -115,7 +115,7 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
                 }
               }}
               title={language === 'vi' ? `Xem nhật ký tác vụ ${stage.name}` : `View ${stage.name} job logs`}
-              className={`group relative flex flex-col justify-between rounded-xl border p-4 sm:p-5 transition-all cursor-pointer select-none ${
+              className={`group relative flex flex-col justify-between rounded-base border p-4 sm:p-5 transition-colors cursor-pointer select-none ${
                 isActive
                   ? 'border-brand bg-brand-softer/30 shadow-xs ring-2 ring-brand/30'
                   : 'border-border-default-subtle bg-neutral-secondary-soft/60 hover:bg-neutral-secondary-soft hover:border-brand/60 hover:shadow-xs'
@@ -123,14 +123,14 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-softer text-sm font-sans font-extrabold text-fg-brand group-hover:bg-brand group-hover:text-white transition-colors">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-control bg-brand-softer text-sm font-sans font-semibold text-fg-brand-strong group-hover:bg-brand-soft transition-colors">
                     {stage.short}
                   </span>
                   <div>
-                    <h4 className="text-sm sm:text-base font-bold text-heading group-hover:text-fg-brand transition-colors">
+                    <h4 className="text-sm sm:text-base font-bold text-heading group-hover:text-fg-brand-strong transition-colors">
                       {stage.name}
                     </h4>
-                    <p className="text-[11px] sm:text-xs text-body-subtle mt-0.5">{stage.desc}</p>
+                    <p className="text-xs sm:text-xs text-body-subtle mt-0.5">{stage.desc}</p>
                   </div>
                 </div>
                 <Icon size={18} className="text-body-subtle shrink-0 mt-0.5" />
@@ -142,12 +142,12 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
                     {stage.count}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 font-sans text-xs font-semibold text-fg-brand group-hover:underline">
+                <div className="flex items-center gap-1 font-sans text-xs font-semibold text-fg-brand-strong group-hover:underline">
                   {stage.hasData ? (
                     <>
-                      <CheckCircle2 size={13} className="text-fg-success" />
-                      <span className="text-fg-brand">{language === 'vi' ? 'Xem tác vụ' : 'View jobs'}</span>
-                      <ArrowUpRight size={13} className="text-body-subtle group-hover:text-fg-brand" />
+                      <CheckCircle2 size={13} className="text-fg-success-strong" />
+                      <span className="text-fg-brand-strong">{language === 'vi' ? 'Xem tác vụ' : 'View jobs'}</span>
+                      <ArrowUpRight size={13} className="text-body-subtle group-hover:text-fg-brand-strong" />
                     </>
                   ) : (
                     <span className="text-body-subtle font-normal flex items-center gap-1">

@@ -35,7 +35,7 @@ export function AccountDisabledModal() {
   const handleLogout = () => {
     setIsOpen(false);
     localStorage.removeItem('greytest.token');
-    window.location.href = '/?disabled=true';
+    window.location.href = '/login?disabled=true';
   };
 
   if (!isOpen) return null;
@@ -45,14 +45,14 @@ export function AccountDisabledModal() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="account-disabled-title"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-neutral-primary/80 p-4 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-dark/60 p-4 backdrop-blur-md animate-fade-in"
     >
       <div className="w-full max-w-md rounded-base border border-border-danger-subtle bg-neutral-primary-soft p-6 text-center shadow-2xl animate-fade-in-up">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-danger-soft text-fg-danger-strong shadow-xs">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-base bg-danger-soft text-fg-danger-strong">
           <ShieldAlert size={28} strokeWidth={2} />
         </div>
 
-        <h2 id="account-disabled-title" className="mt-4 text-xl font-bold text-heading">
+        <h2 id="account-disabled-title" className="mt-4 font-semibold text-heading text-lg font-display">
           {t('Tài khoản đã bị vô hiệu hóa', 'Account Disabled')}
         </h2>
 
@@ -60,7 +60,7 @@ export function AccountDisabledModal() {
           {message || t('Tài khoản của bạn đã bị quản trị viên khóa hoặc vô hiệu hóa. Phiên làm việc đã kết thúc.', 'Your account has been locked or disabled by an administrator. Your session has ended.')}
         </p>
 
-        <p className="mt-2 text-xs text-body-subtle/80">
+        <p className="mt-2 text-xs text-body-subtle">
           {t(
             'Vui lòng liên hệ với quản trị viên nếu bạn cho rằng đây là một sự nhầm lẫn.',
             'Please contact the administrator if you believe this is a mistake.'

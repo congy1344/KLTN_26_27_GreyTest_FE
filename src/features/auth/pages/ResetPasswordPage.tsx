@@ -1,10 +1,11 @@
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Beaker, CheckCircle2, KeyRound, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, KeyRound, Loader2 } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { LanguageToggle } from '../../../shared/components/LanguageToggle';
 import { ThemeToggle } from '../../../shared/components/ThemeToggle';
 import { useLanguage } from '../../../shared/i18n/language';
+import { BrandMark } from '../../../shared/components/BrandMark';
 import { useResetPassword } from '../hooks/useAuth';
 import {
   MAX_PASSWORD_LENGTH,
@@ -74,19 +75,12 @@ export function ResetPasswordPage() {
 
   return (
     <div className="relative flex min-h-[100dvh] items-center justify-center bg-neutral-primary px-4 py-10 text-body">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-0 h-px w-[82vw] -translate-x-1/2 bg-gradient-to-r from-transparent via-border-brand-subtle to-transparent" />
-        <div className="absolute right-[8%] top-[-18rem] h-[34rem] w-[34rem] rounded-full bg-brand/[0.08] blur-[110px]" />
-        <div className="absolute left-[4%] bottom-[-16rem] h-[28rem] w-[28rem] rounded-full bg-brand/[0.05] blur-[100px]" />
-      </div>
 
-      <section className="relative w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-6 shadow-md animate-fade-in-up">
+      <section className="relative w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-6 animate-fade-in-up">
         <div className="mb-6 flex items-start gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-default border border-border-brand-subtle bg-brand-softer text-fg-brand-strong">
-            <Beaker size={18} strokeWidth={1.8} />
-          </span>
+          <BrandMark size={40} decorative />
           <div>
-            <h1 className="text-xl font-bold text-heading">
+            <h1 className="font-semibold text-heading text-[28px] font-display">
               {t('Đặt lại mật khẩu mới', 'Reset Password')}
             </h1>
             <p className="text-xs text-body-subtle">
@@ -106,14 +100,14 @@ export function ResetPasswordPage() {
           <div className="space-y-4">
             <div
               role="alert"
-              className="rounded-default border border-border-danger-subtle bg-danger-soft p-3.5 text-sm font-medium text-fg-danger-strong"
+              className="rounded-base border border-border-danger-subtle bg-danger-soft p-3.5 text-sm font-medium text-fg-danger-strong"
             >
               {t(
                 'Đường dẫn đặt lại mật khẩu không hợp lệ hoặc thiếu mã xác thực. Vui lòng gửi lại yêu cầu quên mật khẩu.',
                 'Invalid password reset link or missing token. Please request a new password reset link.'
               )}
             </div>
-            <Link to="/" className="btn btn-brand w-full justify-center">
+            <Link to="/login" className="btn btn-ghost h-9 py-0">
               <ArrowLeft size={15} />
               {t('Quay về trang đăng nhập', 'Back to sign in')}
             </Link>
@@ -122,14 +116,14 @@ export function ResetPasswordPage() {
           <div className="space-y-4" data-testid="reset-password-success">
             <div
               role="status"
-              className="flex items-start gap-2.5 rounded-default border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-sm font-medium text-emerald-600 dark:text-emerald-400"
+              className="flex items-start gap-2.5 rounded-base border border-border-success-subtle bg-success-soft p-3.5 text-sm font-medium text-fg-success-strong dark:text-fg-success-strong"
             >
               <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
               <span>{successMessage}</span>
             </div>
             <button
               type="button"
-              onClick={() => navigate('/', { replace: true })}
+              onClick={() => navigate('/login', { replace: true })}
               className="btn btn-brand w-full justify-center"
             >
               {t('Đăng nhập ngay', 'Sign in now')}
@@ -142,7 +136,7 @@ export function ResetPasswordPage() {
                 <span className="text-xs font-semibold text-heading">
                   {t('Mật khẩu mới', 'New password')}
                 </span>
-                <span className="text-[11px] font-mono text-body-subtle">
+                <span className="text-xs font-mono text-body-subtle">
                   {newPassword.length}/{MAX_PASSWORD_LENGTH}
                 </span>
               </div>
@@ -151,9 +145,9 @@ export function ResetPasswordPage() {
                 aria-invalid={showNewPasswordError}
                 className={`form-input ${
                   showNewPasswordError
-                    ? 'border-red-500 focus:border-red-500'
+                    ? 'border-border-danger '
                     : showNewPasswordValid
-                      ? 'border-emerald-500/70'
+                      ? 'border-border-success-subtle'
                       : ''
                 }`}
                 type="password"
@@ -189,9 +183,9 @@ export function ResetPasswordPage() {
                 aria-invalid={showConfirmError}
                 className={`form-input ${
                   showConfirmError
-                    ? 'border-red-500 focus:border-red-500'
+                    ? 'border-border-danger '
                     : showConfirmValid
-                      ? 'border-emerald-500/70'
+                      ? 'border-border-success-subtle'
                       : ''
                 }`}
                 type="password"
@@ -215,7 +209,7 @@ export function ResetPasswordPage() {
                 </p>
               )}
               {showConfirmValid && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-fg-success-strong dark:text-fg-success-strong">
                   <CheckCircle2 size={13} className="shrink-0" />
                   <span>{t('Mật khẩu xác nhận khớp', 'Passwords match')}</span>
                 </p>
@@ -225,7 +219,7 @@ export function ResetPasswordPage() {
             {resetPasswordMutation.error && (
               <div
                 role="alert"
-                className="rounded-default border border-border-danger-subtle bg-danger-soft p-3 text-sm font-medium text-fg-danger-strong"
+                className="rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-sm font-medium text-fg-danger-strong"
               >
                 {getErrorMessage(resetPasswordMutation.error)}
               </div>
@@ -243,8 +237,8 @@ export function ResetPasswordPage() {
             </button>
 
             <Link
-              to="/"
-              className="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-body-subtle hover:text-heading"
+              to="/login"
+              className="btn btn-ghost h-9 py-0 mt-3"
             >
               <ArrowLeft size={13} />
               {t('Quay lại trang đăng nhập', 'Back to sign in')}
@@ -255,4 +249,3 @@ export function ResetPasswordPage() {
     </div>
   );
 }
-

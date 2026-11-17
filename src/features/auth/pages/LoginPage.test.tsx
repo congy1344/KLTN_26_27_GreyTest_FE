@@ -48,6 +48,8 @@ function renderLoginPage(initialEntries: string[]) {
         <Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<LoginPage />} />
         </Routes>
       </MemoryRouter>
     </ThemeProvider>
@@ -66,13 +68,24 @@ describe('LoginPage', () => {
     vi.clearAllMocks();
   });
 
-  it('strips /login suffix and normalizes user sign-in URL to root /', () => {
+  it('stays on /login now that / is the landing page', () => {
     renderLoginPage(['/login?disabled=true']);
 
-    expect(screen.getByTestId('current-pathname')).toHaveTextContent('/');
+    expect(screen.getByTestId('current-pathname')).toHaveTextContent(/^\/login$/);
     expect(
       screen.getByText(/Tài khoản của bạn đã bị vô hiệu hóa\. Vui lòng liên hệ quản trị viên\./i)
     ).toBeInTheDocument();
+  });
+
+  it('gives sign-in, sign-up and forgot-password their own URLs', () => {
+    renderLoginPage(['/register']);
+    expect(screen.getByRole('button', { name: 'Đăng ký', pressed: true })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng nhập', pressed: false }));
+    expect(screen.getByTestId('current-pathname')).toHaveTextContent(/^\/login$/);
+
+    fireEvent.click(screen.getByRole('button', { name: /Quên mật khẩu/ }));
+    expect(screen.getByTestId('current-pathname')).toHaveTextContent(/^\/forgot-password$/);
   });
 
   it('renders account disabled error returned from backend on login attempt', () => {

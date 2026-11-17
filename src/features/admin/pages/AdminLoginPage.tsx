@@ -4,6 +4,7 @@ import { AlertCircle, ArrowRight, CheckCircle2, Loader2, LockKeyhole, ShieldChec
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { LanguageToggle } from '../../../shared/components/LanguageToggle';
 import { ThemeToggle } from '../../../shared/components/ThemeToggle';
+import { BrandMark } from '../../../shared/components/BrandMark';
 import { useLanguage } from '../../../shared/i18n/language';
 import { useAdminLogin, useCurrentUser } from '../../auth/hooks/useAuth';
 import {
@@ -52,26 +53,16 @@ export function AdminLoginPage() {
 
   return (
     <main className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-neutral-primary px-4 py-10 text-body">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/2 top-[-14rem] h-[34rem] w-[34rem] -translate-x-1/2 rounded-full bg-brand/[0.12] blur-[110px]" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border-brand-subtle to-transparent" />
-      </div>
-
-      <section className="relative w-full max-w-md rounded-xl border border-border-default bg-neutral-primary-soft p-6 shadow-xl sm:p-8">
-        <div className="mb-7 flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand text-white shadow-md">
-              <ShieldCheck size={23} strokeWidth={1.8} />
-            </span>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-fg-brand">GreyTest Admin</p>
-              <h1 className="mt-1 text-xl font-bold text-heading">Đăng nhập quản trị</h1>
-            </div>
+      <section className="relative w-full max-w-md rounded-base border border-border-default bg-neutral-primary-soft p-6 sm:p-8">
+        <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <BrandMark size={28} withWordmark />
+            <h1 className="mt-4 text-xl font-semibold text-heading">Đăng nhập quản trị</h1>
           </div>
           <div className="flex gap-2"><ThemeToggle /><LanguageToggle /></div>
         </div>
 
-        <p className="mb-6 rounded-lg border border-border-brand-subtle bg-brand-softer p-3 text-sm leading-relaxed text-body">
+        <p className="mb-6 rounded-base border border-border-brand-subtle bg-brand-softer p-3 text-sm leading-relaxed text-body">
           Khu vực dành riêng cho quản trị viên. Tài khoản người dùng thông thường không thể đăng nhập tại đây.
         </p>
 
@@ -83,14 +74,14 @@ export function AdminLoginPage() {
           <label className="block">
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-xs font-semibold text-heading">Email quản trị</span>
-              <span className="text-[11px] font-mono text-body-subtle">
+              <span className="text-xs font-mono text-body-subtle">
                 {email.trim().length}/{MAX_EMAIL_LENGTH}
               </span>
             </div>
             <input
               aria-label="Email quản trị"
               aria-invalid={showEmailError}
-              className={`form-input ${showEmailError ? 'border-red-500 focus:border-red-500' : showEmailValid ? 'border-emerald-500/70' : ''}`}
+              className={`form-input ${showEmailError ? 'border-border-danger-subtle focus:border-border-danger-subtle' : showEmailValid ? 'border-border-success-subtle' : ''}`}
               type="email"
               autoComplete="username"
               autoFocus
@@ -109,7 +100,7 @@ export function AdminLoginPage() {
               </p>
             )}
             {showEmailValid && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-fg-success-strong">
                 <CheckCircle2 size={13} className="shrink-0" />
                 <span>Định dạng Email hợp lệ</span>
               </p>
@@ -118,7 +109,7 @@ export function AdminLoginPage() {
           <label className="block">
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-xs font-semibold text-heading">Mật khẩu</span>
-              <span className="text-[11px] font-mono text-body-subtle">
+              <span className="text-xs font-mono text-body-subtle">
                 {password.length}/{MAX_PASSWORD_LENGTH}
               </span>
             </div>
@@ -127,7 +118,7 @@ export function AdminLoginPage() {
               <input
                 aria-label="Mật khẩu"
                 aria-invalid={showPasswordError}
-                className={`form-input pl-9 ${showPasswordError ? 'border-red-500 focus:border-red-500' : ''}`}
+                className={`form-input pl-9 ${showPasswordError ? 'border-border-danger-subtle focus:border-border-danger-subtle' : ''}`}
                 type="password"
                 autoComplete="current-password"
                 minLength={MIN_PASSWORD_LENGTH}
@@ -149,7 +140,7 @@ export function AdminLoginPage() {
           </label>
 
           {loginMutation.error && (
-            <div role="alert" className="rounded-lg border border-border-danger-subtle bg-danger-soft p-3 text-sm font-medium text-fg-danger-strong">
+            <div role="alert" className="rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-sm font-medium text-fg-danger-strong">
               {getErrorMessage(loginMutation.error)}
             </div>
           )}
@@ -161,7 +152,7 @@ export function AdminLoginPage() {
           </button>
         </form>
 
-        <Link to="/" className="mt-6 block text-center text-xs font-semibold text-fg-brand hover:underline">
+        <Link to="/" className="mt-6 block text-center text-xs font-semibold text-fg-brand-strong hover:underline">
           Quay lại đăng nhập người dùng
         </Link>
       </section>

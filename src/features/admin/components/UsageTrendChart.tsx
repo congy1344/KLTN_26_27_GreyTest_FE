@@ -49,7 +49,7 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
 
   if (!points || !points.length) {
     return (
-      <div className="flex h-56 items-center justify-center rounded-xl border border-dashed border-border-default bg-neutral-primary-soft/50">
+      <div className="flex h-56 items-center justify-center rounded-base border border-dashed border-border-default bg-neutral-primary-soft/50">
         <p className="text-center text-xs text-body-subtle">Chưa có dữ liệu trong khoảng thời gian này.</p>
       </div>
     );
@@ -95,7 +95,7 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
     }
   }
 
-  // Gradient area under the line
+  // Vùng tô nhẹ dưới đường biểu đồ.
   const bottomY = paddingTop + chartHeight;
   const areaD =
     coords.length > 1
@@ -117,37 +117,32 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
             <span>Tổng: <strong className="text-heading font-sans tabular-nums font-bold">{totalSum.toLocaleString()}</strong> lượt</span>
           </span>
           <span className="flex items-center gap-1.5 font-medium">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="h-2 w-2 rounded-full bg-success" />
             <span>Đỉnh cao: <strong className="text-heading font-sans tabular-nums font-bold">{rawMax.toLocaleString()}</strong></span>
           </span>
           <span className="hidden sm:inline-flex items-center gap-1.5 font-medium">
-            <span className="h-2 w-2 rounded-full bg-purple" />
+            <span className="h-2 w-2 rounded-full bg-brand-softer" />
             <span>Trung bình: <strong className="text-heading font-sans tabular-nums font-bold">{avgVal.toLocaleString()}</strong></span>
           </span>
         </div>
 
         {activePoint && (
-          <div className="rounded-md bg-brand-softer px-2.5 py-0.5 text-[11px] font-semibold text-fg-brand">
+          <div className="rounded-control bg-brand-softer px-2.5 py-0.5 text-xs font-semibold text-fg-brand-strong">
             {formatFullBucket(activePoint.point.bucket, granularity)}: <span className="font-sans tabular-nums font-bold">{activePoint.point.total}</span> lượt
           </div>
         )}
       </div>
 
       {/* SVG Line / Area Graph */}
-      <div className="relative w-full overflow-hidden rounded-xl border border-border-default bg-neutral-primary-soft/40 p-2">
-        <svg
+      <div className="relative w-full overflow-x-auto rounded-base border border-border-default bg-neutral-primary-soft/40 p-2">
+        <svg aria-hidden="true"
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="w-full h-56 select-none"
+          className="h-56 w-full min-w-[800px] select-none"
           preserveAspectRatio="none"
         >
           <defs>
-            <linearGradient id="trendAreaGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--brand, #3b82f6)" stopOpacity="0.32" />
-              <stop offset="60%" stopColor="var(--brand, #3b82f6)" stopOpacity="0.08" />
-              <stop offset="100%" stopColor="var(--brand, #3b82f6)" stopOpacity="0.0" />
-            </linearGradient>
             <filter id="glowHalo" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--brand, #3b82f6)" floodOpacity="0.35" />
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--brand)" floodOpacity="0.35" />
             </filter>
           </defs>
 
@@ -166,7 +161,7 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
             x={paddingLeft - 8}
             y={paddingTop + 4}
             textAnchor="end"
-            className="fill-body-subtle text-[10px] font-sans tabular-nums"
+            style={{ fill: 'var(--body-subtle)' }} className="text-xs font-sans tabular-nums"
           >
             {maximum}
           </text>
@@ -185,7 +180,7 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
             x={paddingLeft - 8}
             y={paddingTop + chartHeight / 2 + 4}
             textAnchor="end"
-            className="fill-body-subtle text-[10px] font-sans tabular-nums"
+            style={{ fill: 'var(--body-subtle)' }} className="text-xs font-sans tabular-nums"
           >
             {Math.round(maximum / 2)}
           </text>
@@ -203,7 +198,7 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
             x={paddingLeft - 8}
             y={bottomY + 4}
             textAnchor="end"
-            className="fill-body-subtle text-[10px] font-sans tabular-nums"
+            style={{ fill: 'var(--body-subtle)' }} className="text-xs font-sans tabular-nums"
           >
             0
           </text>
@@ -212,7 +207,7 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
           {areaD && (
             <path
               d={areaD}
-              fill="url(#trendAreaGradient)"
+              style={{ fill: 'var(--brand)' }} fillOpacity={0.1}
             />
           )}
 
@@ -254,20 +249,15 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
                     cx={c.x}
                     cy={c.y}
                     r="7"
-                    className="fill-brand/20 animate-pulse"
+                    style={{ fill: 'var(--brand)' }} fillOpacity={0.2} className="animate-pulse"
                   />
                 )}
                 <circle
                   cx={c.x}
                   cy={c.y}
                   r={isHovered ? 6 : coords.length > 30 ? 2.5 : 4}
-                  className={`${
-                    isHovered
-                      ? 'fill-brand text-brand stroke-neutral-primary stroke-2'
-                      : isPeak
-                      ? 'fill-brand text-brand stroke-neutral-primary stroke-2'
-                      : 'fill-neutral-primary text-brand stroke-brand stroke-2'
-                  } transition-all duration-150`}
+                  style={{ fill: isHovered || isPeak ? 'var(--brand)' : 'var(--neutral-primary-soft)', stroke: isHovered || isPeak ? 'var(--neutral-primary-soft)' : 'var(--brand)' }}
+                  strokeWidth={2} className="transition-colors duration-150"
                 />
               </g>
             );
@@ -284,7 +274,7 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
                 x={c.x}
                 y={bottomY + 20}
                 textAnchor="middle"
-                className="fill-body-subtle text-[10px] font-sans tabular-nums"
+                style={{ fill: 'var(--body-subtle)' }} className="text-xs font-sans tabular-nums"
               >
                 {formatBucketLabel(c.point.bucket, granularity)}
               </text>

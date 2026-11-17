@@ -1,7 +1,6 @@
-import {
-  AlertCircle, ArrowLeft, CheckCircle2, KeyRound, Pencil,
-  Save, SlidersHorizontal, Users, X,
-} from 'lucide-react';
+import { IconButton } from '../../../shared/components/IconButton';
+import { AlertCircle, ArrowLeft, CheckCircle2, CircleDot, Clock, KeyRound, Pencil, Plus, Save, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
+import { Tag } from '../../../shared/components/Tag';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getErrorMessage } from '../../../shared/api/api-client';
@@ -43,6 +42,33 @@ export function AdminAiProvidersPage() {
   const [confirmLimitsOpen, setConfirmLimitsOpen] = useState(false);
   const [limitsForm, setLimitsForm] = useState<Record<string, number>>({});
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+
+  // State thêm/thay/xoá khoá API: khoá thô chỉ nằm trong ô nhập, không bao giờ hiển thị lại.
+  const [keyEdit, setKeyEdit] = useState<{ slot: number; value: string } | null>(null);
+  const [keyConfirm, setKeyConfirm] = useState<{ slot: number; key: string } | null>(null);
+  const [keyError, setKeyError] = useState<string | null>(null);
+
+  const handleConfirmKey = () => {
+    if (!keyConfirm) return;
+    const removing = keyConfirm.key === '';
+    mutations.updateKeys.mutate(
+      { slots: [{ slot: keyConfirm.slot, key: keyConfirm.key }] },
+      {
+        onSuccess: () => {
+          setKeyConfirm(null);
+          setKeyEdit(null);
+          setKeyError(null);
+          setActionSuccessMessage(removing
+            ? (language === 'vi' ? `Đã xoá khoá ở vị trí ${keyConfirm.slot + 1}.` : `Removed key in slot ${keyConfirm.slot + 1}.`)
+            : (language === 'vi' ? `Đã lưu khoá ở vị trí ${keyConfirm.slot + 1}, áp dụng ngay cho lần gọi AI tiếp theo.` : `Saved key in slot ${keyConfirm.slot + 1}; used from the next AI call.`));
+        },
+        onError: (error) => {
+          setKeyConfirm(null);
+          setKeyError(getErrorMessage(error));
+        },
+      },
+    );
+  };
 
   useEffect(() => {
     if (aiConfig.data?.stageLimits) {
@@ -123,15 +149,15 @@ export function AdminAiProvidersPage() {
 
       <div className="mb-6">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-fg-brand">
+          <span className="text-xs font-semibold text-body-subtle">
             AI Inference Architecture
           </span>
-          <span className="rounded-md bg-brand-softer px-2 py-0.5 text-[10px] font-sans font-bold text-fg-brand-strong">
+          <Tag variant="status" tone="brand" icon={CircleDot}>
             Live Project Runtime
-          </span>
+          </Tag>
         </div>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-heading sm:text-3xl">
-          {language === 'vi' ? 'Cổng Mô Hình AI & Bể Khóa Xoay Vòng' : 'AI Providers & Dynamic Key Management'}
+        <h1 className="mt-1 text-2xl font-bold text-heading sm:text-3xl">
+          {language === 'vi' ? 'Cổng mô hình AI & bể khóa xoay vòng' : "AI providers & dynamic key management"}
         </h1>
         <p className="mt-1 text-xs text-body-subtle">
           {language === 'vi'
@@ -140,8 +166,15 @@ export function AdminAiProvidersPage() {
         </p>
       </div>
 
+      {keyError && (
+        <div role="alert" className="mb-6 flex items-center gap-2 rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-xs font-semibold text-fg-danger-strong">
+          <AlertCircle size={16} />
+          <span>{keyError}</span>
+        </div>
+      )}
+
       {actionSuccessMessage && (
-        <div className="mb-6 flex items-center gap-2 rounded-lg border border-border-success-subtle bg-success-soft p-3 text-xs font-semibold text-fg-success-strong">
+        <div className="mb-6 flex items-center gap-2 rounded-base border border-border-success-subtle bg-success-soft p-3 text-xs font-semibold text-fg-success-strong">
           <CheckCircle2 size={16} />
           <span>{actionSuccessMessage}</span>
         </div>
@@ -150,33 +183,27 @@ export function AdminAiProvidersPage() {
       <div className="space-y-6">
         {/* Module 1: Live Inference Metrics from DB & Runtime */}
         <section className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
+          <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Tổng số lượt gọi LLM (Toàn hệ thống)' : 'Total Recorded LLM Calls'}
             </span>
             <p className="mt-2 font-sans tabular-nums text-2xl sm:text-3xl font-extrabold text-heading">
               {overview.data?.totalLlmCalls?.toLocaleString() ?? '—'}
             </p>
-            <p className="mt-1 text-[11px] text-fg-success font-medium flex items-center gap-1">
+            <p className="mt-1 text-xs text-fg-success-strong font-medium flex items-center gap-1">
               <CheckCircle2 size={12} />
               {language === 'vi' ? 'Lượt gọi suy luận thực tế đã lưu DB' : 'Recorded in database'}
             </p>
           </div>
 
-          <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
+          <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-body-subtle">
                 {language === 'vi' ? 'Trạng thái kết nối Gateway' : 'Gateway Status'}
               </span>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-[10px] font-sans font-bold ${
-                  activeKeysCount > 0
-                    ? 'bg-success-soft text-fg-success-strong border border-border-success-subtle'
-                    : 'bg-warning-soft text-fg-warning border border-border-warning-subtle'
-                }`}
-              >
-                {activeKeysCount > 0 ? (language === 'vi' ? 'SẴN SÀNG' : 'READY') : (language === 'vi' ? 'CHƯA CẤU HÌNH KEY' : 'NO KEYS')}
-              </span>
+              <Tag variant="status" tone={activeKeysCount > 0 ? "success" : "warning"} icon={activeKeysCount > 0 ? CheckCircle2 : Clock}>
+                {activeKeysCount > 0 ? (language === 'vi' ? 'Sẵn sàng' : 'READY') : (language === 'vi' ? 'Chưa cấu hình key' : 'NO KEYS')}
+              </Tag>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <span className={`h-3 w-3 rounded-full ${activeKeysCount > 0 ? 'bg-success animate-pulse' : 'bg-warning'}`} />
@@ -186,12 +213,13 @@ export function AdminAiProvidersPage() {
                   : (language === 'vi' ? 'Cần cấu hình ít nhất 1 key' : 'Configure at least 1 key')}
               </span>
             </div>
-            <p className="mt-1 text-[11px] text-body-subtle truncate" title={aiConfig.data?.endpoint}>
-              <span className="font-semibold text-fg-brand uppercase">{aiConfig.data?.provider || 'openai'}</span> · {aiConfig.data?.endpoint || 'https://api.openai.com/v1/chat/completions'}
-            </p>
+            <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-body-subtle" title={aiConfig.data?.endpoint}>
+              <Tag variant="status" tone="brand" icon={CircleDot}>{aiConfig.data?.provider || 'openai'}</Tag>
+              <span className="truncate">{aiConfig.data?.endpoint || 'https://api.openai.com/v1/chat/completions'}</span>
+            </div>
           </div>
 
-          <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-4 shadow-xs flex flex-col justify-between">
+          <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-body-subtle">
@@ -200,31 +228,31 @@ export function AdminAiProvidersPage() {
                 <button
                   type="button"
                   onClick={handleOpenModelModal}
-                  className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-neutral-secondary-soft px-2 py-0.5 text-xs font-bold text-fg-brand hover:bg-brand-softer hover:border-brand-subtle transition-colors shadow-2xs"
+                  className="btn btn-secondary rounded-control inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold transition-colors"
                   title={language === 'vi' ? 'Chọn mô hình LLM tương ứng với API key' : 'Select AI model matching API key'}
                 >
                   <Pencil size={11} />
                   <span>{language === 'vi' ? 'Đổi mô hình' : 'Change Model'}</span>
                 </button>
               </div>
-              <p className="mt-2 font-sans tabular-nums text-xl font-bold text-heading text-fg-brand">
+              <p className="mt-2 font-sans tabular-nums text-xl font-bold text-heading text-fg-brand-strong">
                 {aiConfig.data?.model || 'gpt-4o-mini'}
               </p>
             </div>
-            <p className="mt-2 text-[11px] text-body-subtle border-t border-border-default-subtle pt-2">
+            <p className="mt-2 text-xs text-body-subtle border-t border-border-default-subtle pt-2">
               {aiConfig.data?.batchConcurrency ?? 4} {language === 'vi' ? 'luồng chạy song song (GREYTEST_LLM_BATCH_CONCURRENCY)' : 'concurrent batches'}
             </p>
           </div>
         </section>
 
         {/* Module 2: Bể Khóa API Xoay Vòng (Read-only Runtime Pool) */}
-        <section className="rounded-xl border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
+        <section className="rounded-base border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
           <div className="border-b border-border-default p-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <KeyRound size={16} className="text-fg-brand" />
+              <KeyRound size={16} className="text-fg-brand-strong" />
               <div>
                 <h3 className="text-sm font-bold text-heading">
-                  {language === 'vi' ? 'Bể Khóa API Xoay Vòng' : 'API Key Rotation Pool'}
+                  {language === 'vi' ? 'Bể khóa API xoay vòng' : "API key rotation pool"}
                 </h3>
                 <p className="text-xs text-body-subtle">
                   {language === 'vi'
@@ -234,20 +262,21 @@ export function AdminAiProvidersPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-neutral-secondary px-3 py-1 text-xs font-semibold text-body">
+              <Tag>
                 {activeKeysCount} / 8 {language === 'vi' ? 'vị trí đã nạp key' : 'slots active'}
-              </span>
+              </Tag>
             </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-border-default bg-neutral-secondary-soft font-bold uppercase text-body-subtle">
+              <thead className="text-xs border-b border-border-default bg-neutral-secondary-soft font-semibold text-body-subtle">
                 <tr>
-                  <th className="p-3">#</th>
-                  <th className="p-3">{language === 'vi' ? 'Biến môi trường' : 'Env Variable'}</th>
-                  <th className="p-3">{language === 'vi' ? 'Vai trò trong Rotation Pool' : 'Pool Role'}</th>
-                  <th className="p-3">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3">#</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Biến môi trường' : "Env variable"}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Vai trò trong Rotation Pool' : "Pool role"}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3">{language === 'vi' ? 'Trạng thái' : 'Status'}</th>
+                  <th className="font-semibold text-body-subtle text-xs p-3 text-right">{language === 'vi' ? 'Thao tác' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-default-subtle">
@@ -257,13 +286,49 @@ export function AdminAiProvidersPage() {
                     <td className="p-3 font-mono font-bold text-heading">{k.envVar}</td>
                     <td className="p-3 text-body">{k.role}</td>
                     <td className="p-3">
-                      <span className={`rounded-full px-2.5 py-0.5 font-sans text-[10px] font-bold ${
-                        k.configured
-                          ? 'bg-success-soft text-fg-success-strong'
-                          : 'bg-neutral-secondary text-body-subtle'
-                      }`}>
-                        {k.configured ? (language === 'vi' ? 'ĐANG KÍCH HOẠT' : 'ACTIVE') : (language === 'vi' ? 'TRỐNG' : 'EMPTY')}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Tag variant="status" tone={k.configured ? "success" : "neutral"} icon={k.configured ? CheckCircle2 : CircleDot}>
+                          {k.configured ? (language === 'vi' ? 'Đang kích hoạt' : 'Active') : (language === 'vi' ? 'Trống' : 'Empty')}
+                        </Tag>
+                        {k.configured && <span className="font-mono text-xs text-body-subtle">{k.maskedKey}</span>}
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      {keyEdit?.slot === k.slot ? (
+                        <form className="flex items-center justify-end gap-2"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            const value = keyEdit.value.trim();
+                            if (value.length < 8) {
+                              setKeyError(language === 'vi' ? 'Khoá API quá ngắn.' : 'API key is too short.');
+                              return;
+                            }
+                            setKeyError(null);
+                            setKeyConfirm({ slot: k.slot, key: value });
+                          }}>
+                          <input type="password" autoComplete="off" autoFocus value={keyEdit.value}
+                            onChange={(event) => setKeyEdit({ slot: k.slot, value: event.target.value })}
+                            aria-label={language === 'vi' ? `Khoá API vị trí ${k.slot + 1}` : `API key for slot ${k.slot + 1}`}
+                            placeholder="sk-..." className="form-input h-9 w-56 font-mono text-xs" />
+                          <button type="submit" className="btn btn-brand h-9 px-3 text-xs">
+                            <Save size={14} aria-hidden="true" />{language === 'vi' ? 'Lưu' : 'Save'}
+                          </button>
+                          <IconButton icon={X} size="sm" label={language === 'vi' ? 'Huỷ' : 'Cancel'} onClick={() => setKeyEdit(null)} />
+                        </form>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1">
+                          <button type="button" className="btn btn-ghost h-9 px-3 text-xs"
+                            onClick={() => { setKeyError(null); setKeyEdit({ slot: k.slot, value: '' }); }}>
+                            {k.configured ? <Pencil size={14} aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}
+                            {k.configured ? (language === 'vi' ? 'Thay' : 'Replace') : (language === 'vi' ? 'Thêm' : 'Add')}
+                          </button>
+                          {k.configured && activeKeysCount > 1 && (
+                            <IconButton icon={Trash2} size="sm"
+                              label={language === 'vi' ? `Xoá khoá vị trí ${k.slot + 1}` : `Remove key in slot ${k.slot + 1}`}
+                              onClick={() => setKeyConfirm({ slot: k.slot, key: '' })} />
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -273,13 +338,13 @@ export function AdminAiProvidersPage() {
         </section>
 
         {/* Module 3: Giới Hạn Token Theo Giai Đoạn (Edit & Apply Directly) */}
-        <section className="rounded-xl border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
+        <section className="rounded-base border border-border-default bg-neutral-primary-soft shadow-xs overflow-hidden">
           <div className="border-b border-border-default p-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <SlidersHorizontal size={16} className="text-fg-brand" />
+              <SlidersHorizontal size={16} className="text-fg-brand-strong" />
               <div>
                 <h3 className="text-sm font-bold text-heading">
-                  {language === 'vi' ? 'Giới Hạn Token Theo Giai Đoạn' : 'Stage Token Limits'}
+                  {language === 'vi' ? 'Giới hạn token theo giai đoạn' : "Stage token limits"}
                 </h3>
                 <p className="text-xs text-body-subtle">
                   {language === 'vi'
@@ -334,7 +399,7 @@ export function AdminAiProvidersPage() {
                     <span className="font-semibold text-heading">
                       {language === 'vi' ? cfg.labelVi : cfg.labelEn}
                     </span>
-                    <p className="font-mono text-[11px] text-body-subtle mt-0.5">{cfg.envKey}</p>
+                    <p className="font-mono text-xs text-body-subtle mt-0.5">{cfg.envKey}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     {isEditingLimits ? (
@@ -354,9 +419,9 @@ export function AdminAiProvidersPage() {
                         <span className="font-sans text-body-subtle text-xs">tokens</span>
                       </div>
                     ) : (
-                      <span className="rounded-lg bg-neutral-secondary px-3 py-1 font-sans tabular-nums font-bold text-heading">
+                      <Tag>
                         {currentVal?.toLocaleString()} tokens
-                      </span>
+                      </Tag>
                     )}
                   </div>
                 </div>
@@ -365,25 +430,25 @@ export function AdminAiProvidersPage() {
           </div>
 
           {mutations.updateLimits?.error && (
-            <p role="alert" className="mt-3 text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-lg">
+            <p role="alert" className="mt-3 text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-base">
               {getErrorMessage(mutations.updateLimits.error)}
             </p>
           )}
         </section>
 
         {/* Module 4: Top Người Dùng Gọi LLM Nhiều Nhất */}
-        <section className="rounded-xl border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
+        <section className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
           <div className="flex items-center gap-2 border-b border-border-default pb-3">
-            <Users size={16} className="text-fg-brand" />
+            <Users size={16} className="text-fg-brand-strong" />
             <h3 className="text-sm font-bold text-heading">
-              {language === 'vi' ? 'Top Người Dùng Gọi LLM Nhiều Nhất' : 'Top LLM Users'}
+              {language === 'vi' ? 'Top người dùng gọi LLM nhiều nhất' : "Top LLM users"}
             </h3>
           </div>
           <div className="mt-4 space-y-2">
             {(topUsers.data ?? []).map((u, i) => (
-              <div key={u.userId} className="flex items-center justify-between rounded-lg border border-border-default-subtle bg-neutral-secondary-soft/40 p-3 text-xs">
+              <div key={u.userId} className="flex items-center justify-between rounded-base border border-border-default-subtle bg-neutral-secondary-soft/40 p-3 text-xs">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-softer font-sans tabular-nums text-xs font-bold text-fg-brand">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-softer font-sans tabular-nums text-xs font-bold text-fg-brand-strong">
                     {i + 1}
                   </span>
                   <span className="font-semibold text-heading">{u.email}</span>
@@ -402,11 +467,30 @@ export function AdminAiProvidersPage() {
         </section>
       </div>
 
+      {/* Confirm Dialog Thêm/Thay/Xoá khoá API */}
+      <ConfirmDialog
+        open={keyConfirm !== null}
+        variant={keyConfirm?.key === '' ? 'danger' : 'brand'}
+        title={keyConfirm?.key === ''
+          ? (language === 'vi' ? 'Xoá khoá API này?' : 'Remove this API key?')
+          : (language === 'vi' ? 'Lưu khoá API?' : 'Save API key?')}
+        description={keyConfirm?.key === ''
+          ? (language === 'vi' ? 'Các lần gọi AI tiếp theo sẽ không dùng khoá này nữa.' : 'Next AI calls will stop using this key.')
+          : (language === 'vi'
+            ? 'Khoá được mã hoá và lưu vào cơ sở dữ liệu, dùng ngay cho lần gọi AI tiếp theo và giữ nguyên sau khi khởi động lại. Từ giờ danh sách khoá trên trang này là nguồn chính thay cho file .env.'
+            : 'The key is encrypted and stored in the database, used from the next AI call and kept across restarts. From now on this list replaces the keys in .env.')}
+        confirmLabel={keyConfirm?.key === '' ? (language === 'vi' ? 'Xoá khoá' : 'Remove') : (language === 'vi' ? 'Lưu khoá' : 'Save key')}
+        cancelLabel={language === 'vi' ? 'Huỷ' : 'Cancel'}
+        pending={mutations.updateKeys.isPending}
+        onCancel={() => setKeyConfirm(null)}
+        onConfirm={handleConfirmKey}
+      />
+
       {/* Confirm Dialog Lưu Giới hạn Token theo giai đoạn */}
       <ConfirmDialog
         open={confirmLimitsOpen}
         variant="brand"
-        title={language === 'vi' ? 'Xác nhận cập nhật Giới hạn Token?' : 'Confirm Token Limits Update?'}
+        title={language === 'vi' ? 'Xác nhận cập nhật giới hạn token?' : 'Confirm Token Limits Update?'}
         description={
           language === 'vi'
             ? 'Bạn có chắc muốn lưu cấu hình giới hạn token cho từng giai đoạn? Cấu hình mới sẽ áp dụng trực tiếp cho các tác vụ suy luận tiếp theo.'
@@ -423,7 +507,7 @@ export function AdminAiProvidersPage() {
       <ConfirmDialog
         open={confirmModelOpen}
         variant="brand"
-        title={language === 'vi' ? 'Xác nhận thay đổi Mô hình AI?' : 'Confirm AI Model Change?'}
+        title={language === 'vi' ? 'Xác nhận thay đổi mô hình AI?' : 'Confirm AI Model Change?'}
         description={
           language === 'vi'
             ? `Bạn có chắc muốn áp dụng mô hình "${modelInput}" (Nhà cung cấp: ${providerInput}) cho toàn bộ dự án? Thay đổi này sẽ ảnh hưởng trực tiếp đến tất cả tác vụ sinh kiểm thử.`
@@ -438,28 +522,21 @@ export function AdminAiProvidersPage() {
 
       {/* Modal Lựa chọn & Cấu hình Mô hình Hoạt động */}
       {modelModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-xl border border-border-default bg-neutral-primary p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/80 p-4 backdrop-blur-xs">
+          <div style={{ boxShadow: 'var(--shadow-lg)' }} className="w-full max-w-lg rounded-base border border-border-default bg-neutral-primary p-6 shadow-lg">
             <div className="flex items-center justify-between border-b border-border-default pb-3">
               <div className="flex items-center gap-2">
-                <SlidersHorizontal size={18} className="text-fg-brand" />
+                <SlidersHorizontal size={18} className="text-fg-brand-strong" />
                 <h3 className="text-base font-bold text-heading">
-                  {language === 'vi' ? 'Chọn Mô Hình AI Hoạt Động Cho Dự Án' : 'Select Active AI Model'}
+                  {language === 'vi' ? 'Chọn mô hình AI hoạt động cho dự án' : "Select active AI model"}
                 </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setModelModalOpen(false)}
-                className="text-body-subtle hover:text-heading"
-                aria-label="Đóng"
-              >
-                <X size={18} />
-              </button>
+              <IconButton onClick={() => setModelModalOpen(false)} label="Đóng" icon={X} className="hover:text-heading" />
             </div>
 
             <form onSubmit={handleSaveModel} className="mt-4 space-y-4">
               {mutations.updateModel.error && (
-                <div className="flex items-center gap-2 rounded-lg border border-border-danger-subtle bg-danger-soft p-3 text-xs font-semibold text-fg-danger-strong">
+                <div className="flex items-center gap-2 rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-xs font-semibold text-fg-danger-strong">
                   <AlertCircle size={15} className="shrink-0" />
                   <span>{getErrorMessage(mutations.updateModel.error)}</span>
                 </div>
@@ -469,20 +546,20 @@ export function AdminAiProvidersPage() {
                 <label className="text-xs font-semibold text-body-subtle">
                   {language === 'vi' ? 'Nhà cung cấp dịch vụ LLM' : 'LLM Service Provider'}
                 </label>
-                <div className="mt-1.5 flex items-center justify-between rounded-lg border border-border-default bg-neutral-secondary-soft/70 p-3">
+                <div className="mt-1.5 flex items-center justify-between rounded-base border border-border-default bg-neutral-secondary-soft/70 p-3">
                   <div>
-                    <span className="font-sans text-xs font-bold uppercase text-heading">
+                    <span className="font-sans text-xs font-bold text-heading">
                       {providerInput === 'google' ? 'Google Gemini' : 'OpenAI Gateway'}
                     </span>
-                    <p className="text-[11px] text-body-subtle">
+                    <p className="text-xs text-body-subtle">
                       {language === 'vi'
                         ? 'Đang hoạt động trực tiếp trong runtime của hệ thống'
                         : 'Currently active in server runtime'}
                     </p>
                   </div>
-                  <span className="rounded-full bg-success-soft border border-border-success-subtle px-2 py-0.5 text-[10px] font-bold text-fg-success-strong">
+                  <Tag variant="status" tone="success" icon={CheckCircle2}>
                     {language === 'vi' ? 'RUNTIME ACTIVE' : 'ACTIVE'}
-                  </span>
+                  </Tag>
                 </div>
               </div>
 
@@ -522,7 +599,7 @@ export function AdminAiProvidersPage() {
                         <div
                           key={item.id}
                           onClick={() => setModelInput(item.id)}
-                          className={`cursor-pointer rounded-lg border p-2.5 text-xs transition-all ${
+                          className={`cursor-pointer rounded-base border p-2.5 text-xs transition-colors ${
                             modelInput === item.id
                               ? 'border-brand bg-brand-softer text-heading ring-1 ring-brand'
                               : 'border-border-default bg-neutral-primary-soft text-body hover:bg-neutral-secondary-soft'
@@ -530,11 +607,11 @@ export function AdminAiProvidersPage() {
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-sans font-bold">{item.name}</span>
-                            <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-fg-brand">
+                            <Tag variant="status" tone="brand" icon={CircleDot}>
                               {item.badge}
-                            </span>
+                            </Tag>
                           </div>
-                          <p className="mt-0.5 text-[11px] text-body-subtle">{item.desc}</p>
+                          <p className="mt-0.5 text-xs text-body-subtle">{item.desc}</p>
                         </div>
                       ))}
                     </>
@@ -557,7 +634,7 @@ export function AdminAiProvidersPage() {
                         <div
                           key={item.id}
                           onClick={() => setModelInput(item.id)}
-                          className={`cursor-pointer rounded-lg border p-2.5 text-xs transition-all ${
+                          className={`cursor-pointer rounded-base border p-2.5 text-xs transition-colors ${
                             modelInput === item.id
                               ? 'border-brand bg-brand-softer text-heading ring-1 ring-brand'
                               : 'border-border-default bg-neutral-primary-soft text-body hover:bg-neutral-secondary-soft'
@@ -565,11 +642,11 @@ export function AdminAiProvidersPage() {
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-sans font-bold">{item.name}</span>
-                            <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-fg-brand">
+                            <Tag variant="status" tone="brand" icon={CircleDot}>
                               {item.badge}
-                            </span>
+                            </Tag>
                           </div>
-                          <p className="mt-0.5 text-[11px] text-body-subtle">{item.desc}</p>
+                          <p className="mt-0.5 text-xs text-body-subtle">{item.desc}</p>
                         </div>
                       ))}
                     </>
@@ -589,7 +666,7 @@ export function AdminAiProvidersPage() {
                   value={modelInput}
                   onChange={(e) => setModelInput(e.target.value)}
                 />
-                <p className="mt-1 text-[11px] text-body-subtle">
+                <p className="mt-1 text-xs text-body-subtle">
                   {language === 'vi'
                     ? 'Bạn có thể chọn từ danh sách trên hoặc tự gõ tên model bất kỳ được hỗ trợ bởi API key của bạn.'
                     : 'Select a preset above or type any custom model ID supported by your API key.'}

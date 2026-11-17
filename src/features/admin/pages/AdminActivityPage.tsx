@@ -1,4 +1,6 @@
-import { Activity, ArrowLeft, Bot, FilterX, History, LogIn, Settings2 } from 'lucide-react';
+import { Activity, ArrowLeft, Bot, CheckCircle2, CircleDot, Clock, FilterX, History, LogIn, Settings2 } from 'lucide-react';
+import { Tag } from '../../../shared/components/Tag';
+import { SelectMenu } from '../../../shared/components/SelectMenu';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getErrorMessage } from '../../../shared/api/api-client';
@@ -67,13 +69,13 @@ export function AdminActivityPage() {
           <p className="mt-1 text-sm text-body-subtle">Theo dõi thao tác quan trọng theo thời gian, người dùng và loại hoạt động.</p>
         </div>
 
-        <div className="flex items-center rounded-lg border border-border-default bg-neutral-primary p-0.5 text-xs shadow-2xs">
+        <div className="flex items-center rounded-base border border-border-default bg-neutral-primary p-0.5 text-xs shadow-2xs">
           <button
             type="button"
             onClick={() => patch({ action: '' })}
-            className={`rounded-md px-3 py-1 font-medium transition-all ${
+            className={`btn rounded-control px-3 py-1 font-medium transition-colors ${
               !filters.action
-                ? 'bg-brand text-white font-semibold shadow-2xs'
+                ? 'bg-brand text-on-brand font-semibold shadow-2xs'
                 : 'text-body-subtle hover:text-heading hover:bg-neutral-secondary/50'
             }`}
           >
@@ -82,9 +84,9 @@ export function AdminActivityPage() {
           <button
             type="button"
             onClick={() => patch({ action: 'USER_LOGIN' })}
-            className={`rounded-md px-3 py-1 font-medium transition-all ${
+            className={`btn rounded-control px-3 py-1 font-medium transition-colors ${
               filters.action === 'USER_LOGIN'
-                ? 'bg-brand text-white font-semibold shadow-2xs'
+                ? 'bg-brand text-on-brand font-semibold shadow-2xs'
                 : 'text-body-subtle hover:text-heading hover:bg-neutral-secondary/50'
             }`}
           >
@@ -93,7 +95,7 @@ export function AdminActivityPage() {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.2fr_1.4fr_1fr_1fr_auto]">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[1.2fr_1.4fr_1fr_1fr_auto]">
         <input
           aria-label="Tìm kiếm người dùng"
           className="form-input"
@@ -102,23 +104,28 @@ export function AdminActivityPage() {
           value={filters.userSearch ?? ''}
           onChange={(event) => patch({ userSearch: event.target.value || undefined, userId: undefined })}
         />
-        <select aria-label="Loại hoạt động" className="form-input" value={filters.action ?? ''} onChange={(event) => patch({ action: event.target.value as ActivityAction | '' })}><option value="">Tất cả hoạt động</option>{actions.map((action) => <option key={action} value={action}>{activityLabel(action)}</option>)}</select>
+        <SelectMenu aria-label="Loại hoạt động"
+              value={filters.action ?? ''}
+              onChange={(value) => patch({ action: value as ActivityAction | '' })}
+              className="w-full sm:w-auto sm:min-w-[160px]"
+              options={[{ value: "", label: "Tất cả hoạt động" },
+                ...actions.map(action => ({ value: action, label: activityLabel(action) }))]} />
         <label><span className="sr-only">Từ ngày</span><input aria-label="Từ ngày" className="form-input" type="datetime-local" value={filters.from ?? ''} onChange={(event) => patch({ from: event.target.value || undefined })} /></label>
         <label><span className="sr-only">Đến ngày</span><input aria-label="Đến ngày" className="form-input" type="datetime-local" value={filters.to ?? ''} onChange={(event) => patch({ to: event.target.value || undefined })} /></label>
         <button type="button" className="btn btn-secondary whitespace-nowrap" onClick={() => setFilters({ page: 0, size: 20 })}><FilterX size={15} /> Xóa lọc</button>
       </div>
 
-      {query.error && <p role="alert" className="mt-4 rounded-xl bg-danger-soft p-3 text-sm text-fg-danger-strong">{getErrorMessage(query.error)}</p>}
-      {query.isLoading ? <LoadingState label="Đang tải nhật ký..." /> : <div className="mt-5 overflow-hidden rounded-xl border border-border-default">
+      {query.error && <p role="alert" className="mt-4 rounded-base bg-danger-soft p-3 text-sm text-fg-danger-strong">{getErrorMessage(query.error)}</p>}
+      {query.isLoading ? <LoadingState label="Đang tải nhật ký..." /> : <div className="mt-5 overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft">
         <div className="divide-y divide-border-default-subtle">
           {query.data?.content.map((item) => {
             const isAdmin = item.actionType.startsWith('ADMIN_');
             const isLlm = item.actionType === 'LLM_CALL';
             const isLogin = item.actionType === 'USER_LOGIN';
             return <article key={item.id} className="grid gap-3 p-3 transition-colors hover:bg-neutral-secondary-soft/60 md:grid-cols-[150px_minmax(180px,1fr)_minmax(180px,1.1fr)_minmax(180px,1.3fr)] md:items-center">
-              <div><p className="text-xs font-semibold text-heading">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</p><p className="mt-0.5 text-[11px] text-body-subtle">{new Date(item.createdAt).toLocaleTimeString('vi-VN')}</p></div>
-              <div className="min-w-0"><p className="truncate text-sm font-semibold text-heading">{item.userEmail ?? `User #${item.userId}`}</p><p className="text-[11px] text-body-subtle">ID {item.userId}{item.projectId ? ` · Project #${item.projectId}` : ''}</p></div>
-              <div><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${isLlm ? 'bg-purple-soft text-purple' : isAdmin ? 'bg-warning-soft text-fg-warning' : isLogin ? 'bg-success-soft text-fg-success-strong' : 'bg-brand-softer text-fg-brand'}`}>{activityLabel(item.actionType)}</span></div>
+              <div><p className="text-xs font-semibold text-heading">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</p><p className="mt-0.5 text-xs text-body-subtle">{new Date(item.createdAt).toLocaleTimeString('vi-VN')}</p></div>
+              <div className="min-w-0"><p className="truncate text-sm font-semibold text-heading">{item.userEmail ?? `User #${item.userId}`}</p><p className="text-xs text-body-subtle">ID {item.userId}{item.projectId ? `, Project #${item.projectId}` : ''}</p></div>
+              <div><Tag variant="status" tone={isLlm ? "brand" : isAdmin ? "warning" : isLogin ? "success" : "brand"} icon={isLlm ? CircleDot : isAdmin ? Clock : isLogin ? CheckCircle2 : CircleDot}>{activityLabel(item.actionType)}</Tag></div>
               <p className="line-clamp-2 text-xs leading-relaxed text-body-subtle" title={formatActivityMetadata(item.metadata)}>{formatActivityMetadata(item.metadata)}</p>
             </article>;
           })}
@@ -132,5 +139,5 @@ export function AdminActivityPage() {
 }
 
 function LogMetric({ icon: Icon, label, value }: { icon: typeof History; label: string; value: number }) {
-  return <div className="rounded-xl border border-border-default bg-neutral-primary-soft p-4 shadow-sm"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-softer text-fg-brand"><Icon size={17} /></span><div><p className="text-xs text-body-subtle">{label}</p><p className="text-xl font-bold text-heading font-sans tabular-nums">{value}</p></div></div></div>;
+  return <div className="rounded-base border border-border-default bg-neutral-primary-soft p-4 shadow-sm"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong"><Icon size={17} /></span><div><p className="text-xs text-body-subtle">{label}</p><p className="text-xl font-bold text-heading font-sans tabular-nums">{value}</p></div></div></div>;
 }
