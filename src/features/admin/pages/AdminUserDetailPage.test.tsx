@@ -134,7 +134,7 @@ describe('AdminUserDetailPage', () => {
     expect(screen.getByText("Cập nhật gói Tier dịch vụ")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Gói dịch vụ' }));
-    fireEvent.click(screen.getByRole('option', { name: 'PRO - 300 lượt gọi/tháng, 4 batch, JaCoCo Refinement' }));
+    fireEvent.click(screen.getByRole('option', { name: 'PRO - 300 lượt gọi/tháng, 8 batch, JaCoCo Refinement' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Lưu gói Tier' }));
     expect(screen.getByText('Xác nhận thay đổi gói Tier?')).toBeInTheDocument();

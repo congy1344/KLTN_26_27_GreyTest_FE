@@ -591,7 +591,7 @@ export function AdminUserDetailPage() {
                       value={selectedTier}
                       onChange={(selectedValue) => setSelectedTier(selectedValue as UserTier)}
                       aria-label={'Gói dịch vụ'}
-                      options={[{ value: String("FREE"), label: "FREE - 100 lượt gọi/tháng, 2 batch song song" }, { value: String("PLUS"), label: "PLUS - 200 lượt gọi/tuần, 3 batch song song" }, { value: String("PRO"), label: "PRO - 300 lượt gọi/tháng, 4 batch, JaCoCo Refinement" }]}
+                      options={[{ value: String("FREE"), label: "FREE - 100 lượt gọi/tháng, 2 batch song song" }, { value: String("PLUS"), label: "PLUS - 200 lượt gọi/tuần, 4 batch song song" }, { value: String("PRO"), label: "PRO - 300 lượt gọi/tháng, 8 batch, JaCoCo Refinement" }]}
                     />
                   </label>
                 </div>

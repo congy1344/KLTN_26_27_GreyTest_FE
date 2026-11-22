@@ -113,8 +113,8 @@ describe('ProfilePage', () => {
     expect(screen.queryByText('10.000đ')).not.toBeInTheDocument();
     expect(screen.queryByText('20.000đ')).not.toBeInTheDocument();
     expect(screen.queryByText('Sinh tối đa 2 batch đồng thời')).not.toBeInTheDocument();
-    expect(screen.queryByText('Sinh tối đa 3 batch đồng thời')).not.toBeInTheDocument();
     expect(screen.queryByText('Sinh tối đa 4 batch đồng thời')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sinh tối đa 8 batch đồng thời')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Lịch sử thanh toán/i })).toBeInTheDocument();
     const upgradeBtns = screen.getAllByRole('button', { name: /Nâng cấp/i });
     expect(upgradeBtns.length).toBeGreaterThan(0);

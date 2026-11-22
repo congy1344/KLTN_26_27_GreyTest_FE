@@ -55,8 +55,8 @@ describe('UpgradeToProModal', () => {
     expect(screen.getByText('Gói PRO')).toBeInTheDocument();
     expect(screen.queryByText('200 lượt gọi AI')).not.toBeInTheDocument();
     expect(screen.queryByText('300 lượt gọi AI')).not.toBeInTheDocument();
-    expect(screen.queryByText('Sinh tối đa 3 batch đồng thời')).not.toBeInTheDocument();
     expect(screen.queryByText('Sinh tối đa 4 batch đồng thời')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sinh tối đa 8 batch đồng thời')).not.toBeInTheDocument();
 
     // Verify unnecessary helper texts and Sandbox text are removed
     expect(screen.queryByText(/Mỗi batch xử lý một nhóm dữ liệu/i)).not.toBeInTheDocument();

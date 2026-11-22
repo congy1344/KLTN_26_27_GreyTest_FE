@@ -72,7 +72,7 @@ export function UpgradeToProModal({
   const plusPrice = plusPkg ? `${plusPkg.price.toLocaleString('vi-VN')}đ` : '10.000đ';
   const plusCycle = formatCycle(plusPkg?.cycle ?? 'WEEKLY');
   const plusLimit = plusPkg ? `${plusPkg.quotaLimit} lượt gọi AI` : '200 lượt gọi AI';
-  const plusConcurrency = plusPkg ? `Sinh tối đa ${plusPkg.batchConcurrency} batch đồng thời` : 'Sinh tối đa 3 batch đồng thời';
+  const plusConcurrency = plusPkg ? `Sinh tối đa ${plusPkg.batchConcurrency} batch đồng thời` : 'Sinh tối đa 4 batch đồng thời';
   const plusExtraFeatures = (plusPkg?.features ?? ['Hồi lại hàng tuần']).filter(
     (f) => !f.toLowerCase().includes('lượt gọi') && !f.toLowerCase().includes('batch')
   );
@@ -80,7 +80,7 @@ export function UpgradeToProModal({
   const proPrice = proPkg ? `${proPkg.price.toLocaleString('vi-VN')}đ` : '20.000đ';
   const proCycle = formatCycle(proPkg?.cycle ?? 'WEEKLY');
   const proLimit = proPkg ? `${proPkg.quotaLimit} lượt gọi AI` : '300 lượt gọi AI';
-  const proConcurrency = proPkg ? `Sinh tối đa ${proPkg.batchConcurrency} batch đồng thời` : 'Sinh tối đa 4 batch đồng thời';
+  const proConcurrency = proPkg ? `Sinh tối đa ${proPkg.batchConcurrency} batch đồng thời` : 'Sinh tối đa 8 batch đồng thời';
   const proExtraFeatures = (proPkg?.features ?? ['Hồi lại hàng tuần']).filter(
     (f) => !f.toLowerCase().includes('lượt gọi') && !f.toLowerCase().includes('batch')
   );
