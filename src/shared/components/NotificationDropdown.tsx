@@ -47,6 +47,7 @@ export function NotificationDropdown() {
     unreadCount,
     markAsRead,
     markAllAsRead,
+    refetch,
   } = useNotifications();
 
   // Đóng dropdown khi click ra ngoài
@@ -112,17 +113,26 @@ export function NotificationDropdown() {
       <button
         type="button"
         data-testid="notification-bell-btn"
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="relative flex h-8 w-8 items-center justify-center rounded-control border border-border-default bg-neutral-secondary-soft text-body-subtle transition-colors hover:border-border-default-strong hover:bg-neutral-secondary-medium hover:text-heading"
+        onClick={() => {
+          const next = !isOpen;
+          setIsOpen(next);
+          if (next) {
+            void refetch();
+          }
+        }}
+        className="icon-button relative flex h-8 w-8 items-center justify-center rounded-control border border-border-default bg-neutral-secondary-soft text-body-subtle transition-colors hover:border-border-default-strong hover:bg-neutral-secondary-medium hover:text-heading"
         aria-label={t('Thông báo', 'Notifications')}
         title={t('Thông báo hệ thống', 'System notifications')}
         aria-expanded={isOpen}
       >
-        <Bell size={15} />
+        <Bell size={16} />
         {unreadCount > 0 && (
-          <Tag data-testid="unread-badge" className="absolute -top-1 -right-1 font-mono tabular-nums">
+          <span
+            data-testid="unread-badge"
+            className="pointer-events-none absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 font-mono text-[10px] font-bold leading-none text-white shadow-xs ring-2 ring-neutral-primary-soft"
+          >
             {unreadCount > 9 ? '9+' : unreadCount}
-          </Tag>
+          </span>
         )}
       </button>
 
@@ -131,7 +141,7 @@ export function NotificationDropdown() {
         <div
           role="menu"
           data-testid="notification-dropdown-menu"
-          className="absolute right-0 mt-2 w-80 sm:w-96 origin-top-right rounded-base border border-border-default bg-neutral-primary-soft p-3 text-body shadow-2xl animate-fade-in z-50"
+          className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 w-auto sm:w-96 origin-top-right rounded-base border border-border-default bg-neutral-primary-soft p-3 text-body shadow-2xl animate-fade-in z-50"
         >
           {/* Header */}
           <div className="mb-2 flex items-center justify-between border-b border-border-default-subtle pb-2.5 px-1">
@@ -177,11 +187,10 @@ export function NotificationDropdown() {
                   key={item.id}
                   data-testid={`notification-item-${item.id}`}
                   onClick={() => handleNotificationClick(item)}
-                  className={`group relative flex items-start gap-3 rounded-base p-2.5 text-xs transition-colors cursor-pointer ${
-                    !item.read
-                      ? 'bg-brand-softer hover:bg-brand-softer border border-border-brand-subtle'
-                      : 'hover:bg-neutral-secondary-soft border border-transparent'
-                  }`}
+                  className={`group relative flex items-start gap-3 rounded-base p-2.5 text-xs transition-colors cursor-pointer ${!item.read
+                    ? 'bg-brand-softer hover:bg-brand-softer border border-border-brand-subtle'
+                    : 'hover:bg-neutral-secondary-soft border border-transparent'
+                    }`}
                 >
                   {getIconForType(item.type)}
 

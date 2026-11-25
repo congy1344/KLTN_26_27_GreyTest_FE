@@ -54,6 +54,7 @@ function useStageRunning(projectId: number, stage: GenerationProgressStage) {
     queryKey: ['generation-progress', projectId, stage],
     queryFn: () => fetchGenerationProgress(projectId, stage),
     enabled: projectId > 0,
+    staleTime: 5000,
     refetchInterval: (query) => ['QUEUED', 'RUNNING'].includes(query.state.data?.status ?? '') ? 3000 : false,
   });
   return data?.status === 'QUEUED' || data?.status === 'RUNNING' || (data?.status === 'PAUSED' && data.busy === true);
@@ -64,13 +65,6 @@ export function ProjectWorkspace({ active, status, reachedStatus, selector, chil
   const { project, servicePath } = header;
   const scope = servicePath ?? undefined;
   const dataId = project.status === 'UPLOADED' ? 0 : project.id;
-  const analysis = useAnalysis(project.id, project.status !== 'UPLOADED').data;
-  const rules = useBusinessRules(dataId, scope).data;
-  const plans = useTestPlans(dataId, scope).data;
-  const cases = useTestCases(dataId, scope).data;
-  const units = useUnitTests(dataId, scope).data;
-  const coverage = useCoverageReport(dataId, scope).data;
-  const run = useSandboxRun(dataId, scope).state;
   const openable = reachedStatus ?? status;
   const enabled = {
     analysis: true, 'test-plans': canOpenTestPlans(openable),
@@ -78,6 +72,13 @@ export function ProjectWorkspace({ active, status, reachedStatus, selector, chil
     coverage: canOpenCoverage(openable), traceability: canOpenTraceability(openable),
     report: canOpenReport(openable),
   };
+  const analysis = useAnalysis(project.id, project.status !== 'UPLOADED').data;
+  const rules = useBusinessRules(dataId, scope).data;
+  const plans = useTestPlans(dataId && enabled['test-plans'] ? dataId : 0, scope).data;
+  const cases = useTestCases(dataId && enabled['test-cases'] ? dataId : 0, scope).data;
+  const units = useUnitTests(dataId && enabled['unit-tests'] ? dataId : 0, scope).data;
+  const coverage = useCoverageReport(dataId && enabled.coverage ? dataId : 0, scope).data;
+  const run = useSandboxRun(dataId && enabled.coverage ? dataId : 0, scope).state;
   const current = getCurrentWorkflowStep(status);
   const traceability = useTraceability(enabled.traceability ? project.id : 0, scope).data;
   const generating: Partial<Record<WorkflowStepId, boolean>> = {

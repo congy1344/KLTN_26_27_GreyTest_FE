@@ -21,6 +21,7 @@ interface PackageFormState {
   name: string;
   price: number;
   cycle: string;
+  resetCycle: string;
   quotaLimit: number;
   batchConcurrency: number;
   featuresText: string;
@@ -53,6 +54,7 @@ export function AdminQuotasPage() {
       name: '',
       price: 0,
       cycle: 'MONTHLY',
+      resetCycle: 'WEEKLY',
       quotaLimit: 100,
       batchConcurrency: 2,
       featuresText: 'Sinh Test Plan\nSinh Test Case\nSinh Unit Test (JUnit 5)',
@@ -69,6 +71,7 @@ export function AdminQuotasPage() {
       name: pkg.name,
       price: pkg.price ?? 0,
       cycle: pkg.cycle || 'MONTHLY',
+      resetCycle: pkg.resetCycle || 'WEEKLY',
       quotaLimit: pkg.quotaLimit ?? 100,
       batchConcurrency: pkg.batchConcurrency ?? 2,
       featuresText: (pkg.features || []).join('\n'),
@@ -111,6 +114,7 @@ export function AdminQuotasPage() {
       name: modalPackage.name.trim(),
       price: Number(modalPackage.price) || 0,
       cycle: modalPackage.cycle,
+      resetCycle: modalPackage.resetCycle,
       quotaLimit: Number(modalPackage.quotaLimit) || 100,
       batchConcurrency: Number(modalPackage.batchConcurrency) || 2,
       features,
@@ -175,6 +179,20 @@ export function AdminQuotasPage() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
   };
 
+  const formatBillingCycle = (c?: string) => {
+    const cycle = (c || 'MONTHLY').toUpperCase();
+    if (cycle === 'WEEKLY') return language === 'vi' ? 'Hàng tuần (WEEKLY)' : 'Weekly';
+    if (cycle === 'YEARLY') return language === 'vi' ? 'Hàng năm (YEARLY)' : 'Yearly';
+    return language === 'vi' ? 'Hàng tháng (MONTHLY)' : 'Monthly';
+  };
+
+  const formatResetCycle = (c?: string) => {
+    const cycle = (c || 'WEEKLY').toUpperCase();
+    if (cycle === 'DAILY') return language === 'vi' ? 'hàng ngày' : 'daily';
+    if (cycle === 'MONTHLY') return language === 'vi' ? 'hàng tháng' : 'monthly';
+    return language === 'vi' ? 'hàng tuần' : 'weekly';
+  };
+
   return (
     <AdminShell>
       <div className="mb-4">
@@ -232,8 +250,11 @@ export function AdminQuotasPage() {
               </div>
 
               <h3 className="mt-3 font-sans text-xl font-bold text-heading">
-                {pkg.quotaLimit.toLocaleString()} requests / {pkg.cycle?.toLowerCase()}
+                {pkg.quotaLimit.toLocaleString()} requests
               </h3>
+              <p className="mt-0.5 text-xs font-semibold text-fg-brand-strong">
+                Hồi Quota {formatResetCycle(pkg.resetCycle)} • {formatBillingCycle(pkg.cycle)}
+              </p>
               <p className="mt-1 text-xs text-body-subtle">{pkg.description || pkg.name}</p>
 
               <div className="mt-4 border-t border-border-default-subtle pt-3 text-xs text-body-subtle space-y-1">
@@ -290,15 +311,20 @@ export function AdminQuotasPage() {
             </div>
             <div className="mt-4 divide-y divide-border-default-subtle">
               {(top.data ?? []).map((u, idx) => (
-                <div key={u.userId} className="flex items-center justify-between py-2 text-xs">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-softer font-sans tabular-nums text-xs font-bold text-fg-brand-strong">
+                <Link
+                  key={u.userId}
+                  to={`/admin/users/${u.userId}`}
+                  className="group flex min-w-0 items-center justify-between gap-3 py-2 text-xs hover:bg-neutral-secondary-soft/50 rounded-sm px-1.5 -mx-1.5 transition-colors focus:outline-none focus:ring-1 focus:ring-brand"
+                  title={language === 'vi' ? `Xem chi tiết người dùng: ${u.email}` : `View user details: ${u.email}`}
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-softer font-sans tabular-nums text-xs font-bold text-fg-brand-strong group-hover:bg-brand group-hover:text-on-brand transition-colors">
                       {idx + 1}
                     </span>
-                    <span className="font-medium text-heading">{u.email}</span>
+                    <span className="min-w-0 truncate font-medium text-heading group-hover:text-fg-brand-strong group-hover:underline" title={u.email}>{u.email}</span>
                   </div>
-                  <span className="font-sans tabular-nums font-bold text-heading">{u.totalLlmCalls} calls</span>
-                </div>
+                  <span className="shrink-0 font-sans tabular-nums font-bold text-heading">{u.totalLlmCalls} calls</span>
+                </Link>
               ))}
               {!top.data?.length && (
                 <p className="py-6 text-center text-xs text-body-subtle">
@@ -319,11 +345,6 @@ export function AdminQuotasPage() {
                   {language === 'vi' ? 'Quản lý danh mục gói dịch vụ & hạn mức Tier' : "Tier package management & policies"}
                 </h2>
               </div>
-              <p className="mt-0.5 text-xs text-body-subtle">
-                {language === 'vi'
-                  ? 'Cấu hình chi tiết hạn mức quota, độ song song, giá cước và tính năng của các gói dịch vụ.'
-                  : 'Configure quota allocation, concurrency, pricing and features for each subscription tier.'}
-              </p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -401,7 +422,7 @@ export function AdminQuotasPage() {
                           {pkg.quotaLimit.toLocaleString()}
                         </span>
                         <p className="text-xs text-body-subtle">
-                          requests / {pkg.cycle?.toLowerCase()}
+                          requests / hồi lại {formatResetCycle(pkg.resetCycle)}
                         </p>
                       </td>
 
@@ -423,14 +444,24 @@ export function AdminQuotasPage() {
                       </td>
 
                       <td className="p-3.5 border-r border-border-default-subtle whitespace-nowrap min-w-[120px]">
-                        <Link
-                          to={`/admin/users?tier=${pkg.code}`}
-                          className="inline-flex items-center gap-1.5 rounded-base border border-border-default bg-neutral-primary-soft px-2.5 py-1 font-sans tabular-nums text-xs font-bold text-fg-brand-strong hover:bg-brand-softer hover:border-border-brand-subtle transition-colors shadow-2xs whitespace-nowrap"
-                          title={language === 'vi' ? 'Xem danh sách tài khoản thuộc gói này' : 'View users in this tier'}
-                        >
-                          <Users size={13} className="shrink-0" />
-                          <span>{pkg.activeUsersCount ?? 0} tài khoản</span>
-                        </Link>
+                        {isSystem ? (
+                          <Link
+                            to={`/admin/users?tier=${pkg.code}`}
+                            className="inline-flex items-center gap-1.5 rounded-base border border-border-default bg-neutral-primary-soft px-2.5 py-1 font-sans tabular-nums text-xs font-bold text-fg-brand-strong hover:bg-brand-softer hover:border-border-brand-subtle transition-colors shadow-2xs whitespace-nowrap"
+                            title={language === 'vi' ? 'Xem danh sách tài khoản thuộc gói này' : 'View users in this tier'}
+                          >
+                            <Users size={13} className="shrink-0" />
+                            <span>{pkg.activeUsersCount ?? 0} tài khoản</span>
+                          </Link>
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-base border border-border-default bg-neutral-secondary-soft/60 px-2.5 py-1 font-sans tabular-nums text-xs font-semibold text-body-subtle whitespace-nowrap"
+                            title={language === 'vi' ? 'Gói tùy chỉnh chưa gắn trực tiếp vào bộ lọc tài khoản' : 'Custom tier package'}
+                          >
+                            <Users size={13} className="shrink-0" />
+                            <span>{pkg.activeUsersCount ?? 0} tài khoản</span>
+                          </span>
+                        )}
                       </td>
 
                       <td className="p-3.5 border-r border-border-default-subtle whitespace-nowrap min-w-[130px]">
@@ -439,7 +470,12 @@ export function AdminQuotasPage() {
                           onClick={() => setStatusToggleTarget(pkg)}
                           className="btn btn-ghost rounded-control p-0"
                           title={language === 'vi' ? 'Nhấp để đổi trạng thái sang Tạm dừng / Kích hoạt' : 'Click to toggle package status'}
-                        ><Tag variant="status" tone={pkg.active ? 'success' : 'neutral'} icon={CircleDot}><span>{pkg.active ? (language === 'vi' ? 'Kích hoạt' : 'ACTIVE') : (language === 'vi' ? 'Tạm dừng' : 'INACTIVE')}</span></Tag><span className="text-xs text-body-subtle underline ml-0.5">({language === 'vi' ? 'Đổi' : 'Change'})</span></button>
+                          aria-label={pkg.active ? (language === 'vi' ? 'Trạng thái: Kích hoạt' : 'Status: ACTIVE') : (language === 'vi' ? 'Trạng thái: Tạm dừng' : 'Status: INACTIVE')}
+                        >
+                          <Tag variant="status" tone={pkg.active ? 'success' : 'neutral'} icon={CircleDot}>
+                            <span>{pkg.active ? (language === 'vi' ? 'Kích hoạt' : 'ACTIVE') : (language === 'vi' ? 'Tạm dừng' : 'INACTIVE')}</span>
+                          </Tag>
+                        </button>
                       </td>
 
                       <td className="p-3.5 text-right">
@@ -558,12 +594,22 @@ export function AdminQuotasPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1 block font-semibold text-heading">Chu kỳ gia hạn</span>
+                <span className="mb-1 block font-semibold text-heading">Chu kỳ gia hạn (Billing Cycle)</span>
                 <SelectMenu
                   value={modalPackage.cycle}
                   onChange={(selectedValue) => setModalPackage({ ...modalPackage, cycle: selectedValue })}
                   aria-label={'Chu kỳ gia hạn'}
                   options={[{ value: String("MONTHLY"), label: "Hàng tháng (MONTHLY)" }, { value: String("WEEKLY"), label: "Hàng tuần (WEEKLY)" }, { value: String("YEARLY"), label: "Hàng năm (YEARLY)" }]}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block font-semibold text-heading">Chu kỳ làm mới Quota (Reset Cycle)</span>
+                <SelectMenu
+                  value={modalPackage.resetCycle}
+                  onChange={(selectedValue) => setModalPackage({ ...modalPackage, resetCycle: selectedValue })}
+                  aria-label={'Chu kỳ làm mới Quota'}
+                  options={[{ value: String("DAILY"), label: "Hàng ngày (DAILY)" }, { value: String("WEEKLY"), label: "Hàng tuần (WEEKLY)" }, { value: String("MONTHLY"), label: "Hàng tháng (MONTHLY)" }]}
                 />
               </label>
 

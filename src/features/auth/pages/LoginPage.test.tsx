@@ -29,10 +29,28 @@ const forgotPasswordMutationMock = vi.hoisted(() => ({
   data: null as any,
 }));
 
+const resetPasswordMutationMock = vi.hoisted(() => ({
+  mutate: vi.fn(),
+  reset: vi.fn(),
+  isPending: false,
+  error: null as any,
+}));
+
+const googleLoginMutationMock = vi.hoisted(() => ({
+  mutate: vi.fn(),
+  reset: vi.fn(),
+  isPending: false,
+  error: null as any,
+}));
+
 vi.mock('../hooks/useAuth', () => ({
   useLogin: () => loginMutationMock,
   useRegister: () => registerMutationMock,
   useForgotPassword: () => forgotPasswordMutationMock,
+  useResetPassword: () => resetPasswordMutationMock,
+  useGoogleLogin: () => googleLoginMutationMock,
+  useGoogleConfig: () => ({ data: { enabled: false, clientId: '' }, isLoading: false }),
+  useGithubConfig: () => ({ data: { enabled: true, clientId: 'mock-github-client-id', redirectUri: 'http://localhost:5173/auth/callback/github' }, isLoading: false }),
 }));
 
 function LocationDisplay() {
@@ -61,6 +79,10 @@ describe('LoginPage', () => {
     localStorage.clear();
     loginMutationMock.error = null;
     registerMutationMock.error = null;
+    forgotPasswordMutationMock.error = null;
+    forgotPasswordMutationMock.data = null;
+    resetPasswordMutationMock.error = null;
+    googleLoginMutationMock.error = null;
   });
 
   afterEach(() => {
@@ -167,5 +189,94 @@ describe('LoginPage', () => {
     expect(forgotPasswordMutationMock.mutate).toHaveBeenCalledWith({
       email: 'student@gmail.com',
     });
+  });
+
+  it('verifies 6-digit OTP and resets password on forgot password step 2', () => {
+    const { rerender } = render(
+      <ThemeProvider>
+        <MemoryRouter initialEntries={['/forgot-password']}>
+          <LocationDisplay />
+          <Routes>
+            <Route path="/forgot-password" element={<LoginPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    );
+
+    const emailInput = screen.getByLabelText('Email');
+    fireEvent.change(emailInput, { target: { value: 'student@gmail.com' } });
+    fireEvent.submit(emailInput.closest('form')!);
+    expect(forgotPasswordMutationMock.mutate).toHaveBeenCalledWith({ email: 'student@gmail.com' });
+
+    forgotPasswordMutationMock.data = {
+      message: 'Đã gửi mã OTP 6 chữ số tới student@gmail.com',
+      mailSent: false,
+      devOtp: '654321',
+    };
+
+    rerender(
+      <ThemeProvider>
+        <MemoryRouter initialEntries={['/forgot-password']}>
+          <LocationDisplay />
+          <Routes>
+            <Route path="/forgot-password" element={<LoginPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    );
+
+    expect(screen.getByTestId('forgot-password-dev-otp')).toHaveTextContent('654321');
+
+    fireEvent.change(screen.getByTestId('otp-input'), { target: { value: '654321' } });
+    fireEvent.change(screen.getByTestId('reset-new-password-input'), { target: { value: 'NewOtpPass123' } });
+    fireEvent.change(screen.getByTestId('reset-confirm-password-input'), { target: { value: 'NewOtpPass123' } });
+    fireEvent.submit(screen.getByTestId('verify-otp-submit').closest('form')!);
+
+    expect(resetPasswordMutationMock.mutate).toHaveBeenCalledWith(
+      {
+        email: 'student@gmail.com',
+        otp: '654321',
+        newPassword: 'NewOtpPass123',
+        confirmPassword: 'NewOtpPass123',
+      },
+      expect.any(Object)
+    );
+  });
+
+  it('blocks invalid OTP / mismatched confirm password and surfaces resend OTP errors on step 2', () => {
+    forgotPasswordMutationMock.data = {
+      message: 'Đã gửi mã OTP 6 chữ số tới student@gmail.com',
+      mailSent: true,
+    };
+    forgotPasswordMutationMock.error = {
+      isAxiosError: true,
+      response: {
+        status: 429,
+        data: { message: 'Vui lòng đợi 60 giây trước khi yêu cầu gửi lại mã OTP' },
+      },
+    };
+
+    renderLoginPage(['/forgot-password']);
+
+    // Lỗi khi resend OTP phải được hiển thị trên UI
+    expect(screen.getByRole('alert')).toHaveTextContent(/Vui lòng đợi 60 giây/i);
+
+    // OTP chưa đủ 6 số -> chặn submit
+    fireEvent.change(screen.getByTestId('otp-input'), { target: { value: '123' } });
+    fireEvent.change(screen.getByTestId('reset-new-password-input'), { target: { value: 'NewOtpPass123' } });
+    fireEvent.change(screen.getByTestId('reset-confirm-password-input'), { target: { value: 'DifferentPass' } });
+    fireEvent.submit(screen.getByTestId('verify-otp-submit').closest('form')!);
+
+    expect(screen.getByTestId('otp-validation-error')).toHaveTextContent(/6 chữ số/i);
+    expect(resetPasswordMutationMock.mutate).not.toHaveBeenCalled();
+  });
+
+  it('renders Google sign-in button and warns when GOOGLE_CLIENT_ID is missing', () => {
+    renderLoginPage(['/login']);
+
+    const googleBtn = screen.getByTestId('google-login-button');
+    expect(googleBtn).toBeInTheDocument();
+    fireEvent.click(googleBtn);
+    expect(screen.getByTestId('google-config-warning')).toBeInTheDocument();
   });
 });

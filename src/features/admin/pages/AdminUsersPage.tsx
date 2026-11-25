@@ -17,11 +17,20 @@ import { useLanguage } from '../../../shared/i18n/language';
 
 interface RoleTargetState { user: AdminUser; role: UserRole }
 
+const VALID_USER_TIERS: ReadonlySet<string> = new Set<UserTier>(['FREE', 'PLUS', 'PRO']);
+
+/** Chỉ nhận mã gói thuộc enum UserTier để tránh gửi tham số không hợp lệ lên Backend. */
+function parseUserTier(raw: string | null): UserTier | undefined {
+  const upper = raw?.trim().toUpperCase();
+  return upper && VALID_USER_TIERS.has(upper) ? (upper as UserTier) : undefined;
+}
+
 /** Danh sách quản trị người dùng với bộ lọc và thao tác tài khoản tập trung. */
 export function AdminUsersPage() {
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
-  const initialTier = (searchParams.get('tier')?.toUpperCase() as UserTier) || undefined;
+  const initialTier = parseUserTier(searchParams.get('tier'));
+  const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState<UserFilters>({
     page: 0,
     size: 10,
@@ -31,11 +40,20 @@ export function AdminUsersPage() {
   });
 
   useEffect(() => {
-    const tierParam = (searchParams.get('tier')?.toUpperCase() as UserTier) || undefined;
-    if (tierParam !== undefined) {
-      setFilters((prev) => ({ ...prev, tier: tierParam, page: 0 }));
-    }
+    const tierParam = parseUserTier(searchParams.get('tier'));
+    setFilters((prev) => (prev.tier === tierParam ? prev : { ...prev, tier: tierParam, page: 0 }));
   }, [searchParams]);
+
+  // Debounce từ khóa tìm kiếm để không bắn request liên tiếp mỗi phím gõ.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const normalized = searchInput || undefined;
+      setFilters((current) =>
+        (current.search || undefined) === normalized ? current : { ...current, search: normalized, page: 0 }
+      );
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const [roleTarget, setRoleTarget] = useState<RoleTargetState | null>(null);
   const [statusTarget, setStatusTarget] = useState<AdminUser | null>(null);
@@ -72,7 +90,7 @@ export function AdminUsersPage() {
   const renderSortableHeader = (field: string, label: string) => {
     const isActive = filters.sort === field;
     return (
-      <th className="font-semibold text-body-subtle text-xs p-3" scope="col">
+      <th className="font-semibold text-body-subtle text-xs p-2.5 whitespace-nowrap" scope="col">
         <button
           type="button"
           onClick={() => toggleSort(field)}
@@ -157,7 +175,6 @@ export function AdminUsersPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-heading">Quản lý người dùng</h2>
-          <p className="mt-1 text-sm text-body-subtle">Tìm kiếm tài khoản, kiểm soát quyền truy cập và hạn mức LLM tại một nơi.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -175,44 +192,44 @@ export function AdminUsersPage() {
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
-        <label className="relative"><Search className="absolute left-3 top-3 text-body-subtle" size={16} /><input aria-label="Tìm người dùng" className="form-input pl-9" placeholder="Tìm theo email hoặc họ tên" value={filters.search ?? ''} onChange={(event) => patch({ search: event.target.value })} /></label>
+        <label className="relative"><Search className="absolute left-3 top-3 text-body-subtle" size={16} /><input aria-label="Tìm người dùng" className="form-input pl-9" placeholder="Tìm theo email hoặc họ tên" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} /></label>
         <SelectMenu aria-label="Lọc role"
-              value={filters.role ?? ''}
-              onChange={(value) => patch({ role: value as UserRole | '' })}
-              className="w-full sm:w-auto sm:min-w-[160px]"
-              options={[{ value: "", label: "Tất cả vai trò" },
-                { value: "ADMIN", label: "Quản trị viên", tone: 'brand' },
-                { value: "USER", label: "Người dùng", tone: 'neutral' }]} />
+          value={filters.role ?? ''}
+          onChange={(value) => patch({ role: value as UserRole | '' })}
+          className="w-full sm:w-auto sm:min-w-[160px]"
+          options={[{ value: "", label: "Tất cả vai trò" },
+          { value: "ADMIN", label: "Quản trị viên", tone: 'brand' },
+          { value: "USER", label: "Người dùng", tone: 'neutral' }]} />
         <SelectMenu aria-label="Lọc gói tier"
-              value={filters.tier ?? ''}
-              onChange={(value) => patch({ tier: (value as UserTier) || undefined })}
-              className="w-full sm:w-auto sm:min-w-[160px]"
-              options={[{ value: "", label: "Tất cả gói" },
-                { value: "FREE", label: "Gói FREE", tone: 'neutral' },
-                { value: "PLUS", label: "Gói PLUS", tone: 'brand' },
-                { value: "PRO", label: "Gói PRO", tone: 'brand' }]} />
+          value={filters.tier ?? ''}
+          onChange={(value) => patch({ tier: (value as UserTier) || undefined })}
+          className="w-full sm:w-auto sm:min-w-[160px]"
+          options={[{ value: "", label: "Tất cả gói" },
+          { value: "FREE", label: "Gói FREE", tone: 'neutral' },
+          { value: "PLUS", label: "Gói PLUS", tone: 'brand' },
+          { value: "PRO", label: "Gói PRO", tone: 'brand' }]} />
         <SelectMenu aria-label="Lọc trạng thái"
-              value={filters.enabled ?? ''}
-              onChange={(value) => patch({ enabled: value as UserFilters['enabled'] })}
-              className="w-full sm:w-auto sm:min-w-[160px]"
-              options={[{ value: "", label: "Mọi trạng thái" },
-                { value: "true", label: "Đang hoạt động", tone: 'success' },
-                { value: "false", label: "Đã khóa", tone: 'danger' }]} />
+          value={filters.enabled ?? ''}
+          onChange={(value) => patch({ enabled: value as UserFilters['enabled'] })}
+          className="w-full sm:w-auto sm:min-w-[160px]"
+          options={[{ value: "", label: "Mọi trạng thái" },
+          { value: "true", label: "Đang hoạt động", tone: 'success' },
+          { value: "false", label: "Đã khóa", tone: 'danger' }]} />
         <SelectMenu aria-label="Sắp xếp"
-              value={`${filters.sort}:${filters.direction}`}
-              onChange={(value) => { const [sort, direction] = value.split(':'); patch({ sort, direction: direction as 'asc' | 'desc' }); }}
-              className="w-full sm:w-auto sm:min-w-[160px]"
-              options={[{ value: "createdAt:desc", label: "Mới nhất" },
-                { value: "createdAt:asc", label: "Cũ nhất" },
-                { value: "email:asc", label: "Email A đến Z" },
-                { value: "email:desc", label: "Email Z đến A" },
-                { value: "totalGenerationRequests:desc", label: "Lượt sinh test: Nhiều nhất" },
-                { value: "totalGenerationRequests:asc", label: "Lượt sinh test: Ít nhất" },
-                { value: "lastActivityAt:desc", label: "Hoạt động gần nhất" },
-                { value: "lastActivityAt:asc", label: "Hoạt động cũ nhất" },
-                { value: "quota:desc", label: "Quota LLM: Dùng nhiều nhất" },
-                { value: "quota:asc", label: "Quota LLM: Dùng ít nhất" }]} />
-        <button type="button" className="btn btn-secondary whitespace-nowrap" onClick={() => setFilters({ page: 0, size: 10, sort: 'createdAt', direction: 'desc' })}>Đặt lại</button>
+          value={`${filters.sort}:${filters.direction}`}
+          onChange={(value) => { const [sort, direction] = value.split(':'); patch({ sort, direction: direction as 'asc' | 'desc' }); }}
+          className="w-full sm:w-auto sm:min-w-[160px]"
+          options={[{ value: "createdAt:desc", label: "Mới nhất" },
+          { value: "createdAt:asc", label: "Cũ nhất" },
+          { value: "email:asc", label: "Email A đến Z" },
+          { value: "email:desc", label: "Email Z đến A" },
+          { value: "totalGenerationRequests:desc", label: "Lượt sinh test: Nhiều nhất" },
+          { value: "totalGenerationRequests:asc", label: "Lượt sinh test: Ít nhất" },
+          { value: "lastActivityAt:desc", label: "Hoạt động gần nhất" },
+          { value: "lastActivityAt:asc", label: "Hoạt động cũ nhất" },
+          { value: "quota:desc", label: "Quota LLM: Dùng nhiều nhất" },
+          { value: "quota:asc", label: "Quota LLM: Dùng ít nhất" }]} />
+        <button type="button" className="btn btn-secondary whitespace-nowrap" onClick={() => { setSearchInput(''); setFilters({ page: 0, size: 10, sort: 'createdAt', direction: 'desc' }); }}>Đặt lại</button>
       </div>
 
       {error && <p role="alert" className="mt-4 rounded-base bg-danger-soft p-3 text-sm text-fg-danger-strong">{getErrorMessage(error)}</p>}
@@ -224,84 +241,103 @@ export function AdminUsersPage() {
               {renderSortableHeader('fullName', 'Họ và tên')}
               {renderSortableHeader('email', 'Email')}
               {renderSortableHeader('createdAt', 'Ngày đăng ký')}
-              {renderSortableHeader('enabled', 'Trạng thái')}
               {renderSortableHeader('role', 'Vai trò')}
               {renderSortableHeader('tier', 'Gói')}
-              <th className="font-semibold text-body-subtle text-xs p-3 text-right">Thao tác</th>
+              <th className="font-semibold text-body-subtle text-xs p-2.5 text-right whitespace-nowrap">Thao tác</th>
             </tr>
           </thead>
           <tbody>{users.data?.content.map((user) => {
             const isSelf = currentUser?.id === user.id;
             return (
               <tr key={user.id} className="border-t border-border-default-subtle transition-colors hover:bg-neutral-secondary-soft/60">
-                <td className="p-3">
+                <td className="p-2.5">
                   <Tag>
                     #{user.id}
                   </Tag>
                 </td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-softer text-xs font-bold text-fg-brand-strong">
+                <td className="p-2.5 max-w-[160px] lg:max-w-[200px]">
+                  <div className="flex items-center gap-2 min-w-0 max-w-[160px] lg:max-w-[200px]">
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${user.enabled ? 'bg-brand-softer text-fg-brand-strong' : 'bg-danger-soft text-fg-danger-strong'}`}>
                       {(user.fullName || user.email).slice(0, 2)}
                     </span>
-                    <Link className="font-semibold text-heading hover:text-fg-brand-strong hover:underline" to={`/admin/users/${user.id}`}>
+                    <Link
+                      className="min-w-0 flex-1 truncate font-semibold text-heading hover:text-fg-brand-strong hover:underline"
+                      title={user.fullName || 'Chưa cập nhật tên'}
+                      to={`/admin/users/${user.id}`}
+                    >
                       {user.fullName || 'Chưa cập nhật tên'}
                     </Link>
                   </div>
                 </td>
-                <td className="p-3">
+                <td className="p-2.5 max-w-[170px] lg:max-w-[200px] truncate" title={user.email}>
                   <span className="font-sans text-xs text-body">{user.email}</span>
                 </td>
-                <td className="p-3">
-                  <div className="text-xs text-body">
-                    <p>{new Date(user.createdAt).toLocaleDateString('vi-VN')}</p>
-                    <p className="text-xs text-body-subtle">
+                <td className="p-2.5 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5 text-xs text-body font-sans tabular-nums">
+                    <span>{new Date(user.createdAt).toLocaleDateString('vi-VN')}</span>
+                    <span className="text-[11px] text-body-subtle">
                       {new Date(user.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                    </span>
                   </div>
                 </td>
-                <td className="p-3">
-                  <button
-                    type="button"
-                    disabled={isSelf || mutations.status.isPending}
-                    onClick={() => setStatusTarget(user)}
-                    className="btn btn-ghost rounded-control p-0"
-                    title={
-                      isSelf
-                        ? t('Không thể tự đổi trạng thái của mình', 'Cannot toggle own status')
-                        : user.enabled
-                        ? t('Nhấn để khóa tài khoản', 'Click to lock account')
-                        : t('Nhấn để mở khóa tài khoản', 'Click to activate account')
-                    }
-                  ><Tag variant="status" tone={user.enabled ? 'success' : 'danger'} icon={user.enabled ? UserCheck : UserX}><span>{user.enabled ? t('Hoạt động', 'Active') : t('Đã khóa', 'Locked')}</span></Tag></button>
-                </td>
-                <td className="p-3">
+                <td className="p-2.5">
                   <SelectMenu aria-label={`Vai trò của ${user.email}`}
-              value={user.role}
-              disabled={isSelf || mutations.role.isPending}
-              onChange={(value) => setRoleTarget({ user, role: value as UserRole })}
-              className="w-full sm:w-auto sm:min-w-[160px]"
-              options={[{ value: "USER", label: "Người dùng", tone: 'neutral' },
-                { value: "ADMIN", label: "Quản trị viên", tone: 'brand' }]} />
+                    value={user.role}
+                    disabled={isSelf || mutations.role.isPending}
+                    onChange={(value) => setRoleTarget({ user, role: value as UserRole })}
+                    className="w-full sm:w-auto sm:min-w-[115px]"
+                    options={[{ value: "USER", label: "Người dùng", tone: 'neutral' },
+                    { value: "ADMIN", label: "Quản trị viên", tone: 'brand' }]} />
                 </td>
-                <td className="p-3">
+                <td className="p-2.5 whitespace-nowrap">
                   <Tag variant="status" tone={user.tier === 'PRO' ? "brand" : user.tier === 'PLUS' ? "brand" : "neutral"} icon={CircleDot}>
                     <span>{user.tier || 'FREE'}</span>
                   </Tag>
                 </td>
-                <td className="p-3">
-                  <div className="flex justify-end gap-1.5 whitespace-nowrap">
+                <td className="p-2.5 text-right whitespace-nowrap">
+                  <div className="inline-flex items-center rounded-control border border-border-default bg-neutral-primary-soft p-0.5 shadow-2xs">
                     <Link
-                      className="btn btn-secondary whitespace-nowrap px-3 py-1 text-xs inline-flex items-center gap-1.5 shadow-2xs hover:bg-brand-softer hover:text-fg-brand-strong hover:border-border-brand-subtle transition-colors"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-control text-xs font-semibold text-heading hover:bg-brand-softer hover:text-fg-brand-strong transition-colors"
                       to={`/admin/users/${user.id}`}
                       title={t('Xem chi tiết, chỉnh sửa và quản lý tài khoản', 'View Details & Manage User')}
+                      aria-label={t('Chi tiết', 'Details')}
                     >
-                      <Eye size={13} />
-                      <span className="font-semibold">{t('Chi tiết', 'Details')}</span>
+                      <Eye size={14} />
                     </Link>
-                    <IconButton disabled={isSelf || mutations.deleteUser?.isPending}
-              onClick={() => setDeleteTarget(user)}
-              title={isSelf ? t('Không thể tự xóa chính mình', 'Cannot delete self') : t('Xóa tài khoản', 'Delete Account')} label={isSelf ? t('Không thể tự xóa chính mình', 'Cannot delete self') : t('Xóa tài khoản', 'Delete Account')} icon={Trash2} className="disabled:opacity-30 hover:bg-danger-soft hover:text-fg-danger-strong" />
+                    <span className="h-3.5 w-px bg-border-default-subtle" aria-hidden="true" />
+                    <IconButton
+                      disabled={isSelf || mutations.status.isPending}
+                      onClick={() => setStatusTarget(user)}
+                      title={
+                        isSelf
+                          ? t('Không thể tự đổi trạng thái của mình', 'Cannot toggle own status')
+                          : user.enabled
+                            ? t('Nhấn để khóa tài khoản', 'Click to lock account')
+                            : t('Nhấn để mở khóa tài khoản', 'Click to activate account')
+                      }
+                      label={
+                        isSelf
+                          ? t('Không thể tự đổi trạng thái của mình', 'Cannot toggle own status')
+                          : user.enabled
+                            ? t('Nhấn để khóa tài khoản', 'Click to lock account')
+                            : t('Nhấn để mở khóa tài khoản', 'Click to activate account')
+                      }
+                      icon={user.enabled ? UserX : UserCheck}
+                      className={
+                        user.enabled
+                          ? 'disabled:opacity-30 hover:!bg-warning-soft hover:!text-fg-warning'
+                          : 'disabled:opacity-30 text-fg-danger-strong hover:!bg-success-soft hover:!text-fg-success-strong'
+                      }
+                    />
+                    <span className="h-3.5 w-px bg-border-default-subtle" aria-hidden="true" />
+                    <IconButton
+                      disabled={isSelf || mutations.deleteUser?.isPending}
+                      onClick={() => setDeleteTarget(user)}
+                      title={isSelf ? t('Không thể tự xóa chính mình', 'Cannot delete self') : t('Xóa tài khoản', 'Delete Account')}
+                      label={isSelf ? t('Không thể tự xóa chính mình', 'Cannot delete self') : t('Xóa tài khoản', 'Delete Account')}
+                      icon={Trash2}
+                      className="disabled:opacity-30 hover:bg-danger-soft hover:text-fg-danger-strong"
+                    />
                   </div>
                 </td>
               </tr>

@@ -22,7 +22,10 @@ const actions: ActivityAction[] = [
 /** Nhật ký vận hành cô đọng, ưu tiên thông tin mà quản trị viên cần tra cứu. */
 export function AdminActivityPage() {
   const [searchParams] = useSearchParams();
-  const initialAction = (searchParams.get('action') as ActivityAction) || undefined;
+  const rawAction = searchParams.get('action')?.trim().toUpperCase();
+  const initialAction = rawAction && actions.includes(rawAction as ActivityAction)
+    ? (rawAction as ActivityAction)
+    : undefined;
   const initialUserSearch = searchParams.get('userSearch') || undefined;
 
   const [filters, setFilters] = useState<ActivityFilters>({
@@ -66,7 +69,6 @@ export function AdminActivityPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-heading">Nhật ký hoạt động</h2>
-          <p className="mt-1 text-sm text-body-subtle">Theo dõi thao tác quan trọng theo thời gian, người dùng và loại hoạt động.</p>
         </div>
 
         <div className="flex items-center rounded-base border border-border-default bg-neutral-primary p-0.5 text-xs shadow-2xs">
@@ -125,7 +127,7 @@ export function AdminActivityPage() {
             return <article key={item.id} className="grid gap-3 p-3 transition-colors hover:bg-neutral-secondary-soft/60 md:grid-cols-[150px_minmax(180px,1fr)_minmax(180px,1.1fr)_minmax(180px,1.3fr)] md:items-center">
               <div><p className="text-xs font-semibold text-heading">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</p><p className="mt-0.5 text-xs text-body-subtle">{new Date(item.createdAt).toLocaleTimeString('vi-VN')}</p></div>
               <div className="min-w-0"><p className="truncate text-sm font-semibold text-heading">{item.userEmail ?? `User #${item.userId}`}</p><p className="text-xs text-body-subtle">ID {item.userId}{item.projectId ? `, Project #${item.projectId}` : ''}</p></div>
-              <div><Tag variant="status" tone={isLlm ? "brand" : isAdmin ? "warning" : isLogin ? "success" : "brand"} icon={isLlm ? CircleDot : isAdmin ? Clock : isLogin ? CheckCircle2 : CircleDot}>{activityLabel(item.actionType)}</Tag></div>
+              <div><Tag variant="status" tone={isLlm ? "brand" : isAdmin ? "warning" : isLogin ? "success" : "brand"} icon={isLlm ? CircleDot : isAdmin ? Clock : isLogin ? CheckCircle2 : CircleDot}>{activityLabel(item.actionType, item.metadata)}</Tag></div>
               <p className="line-clamp-2 text-xs leading-relaxed text-body-subtle" title={formatActivityMetadata(item.metadata)}>{formatActivityMetadata(item.metadata)}</p>
             </article>;
           })}

@@ -6,16 +6,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppShell } from './AppShell';
 
 vi.mock('./QuotaMeter', () => ({ QuotaMeter: () => <button>Quota</button> }));
+vi.mock('./NotificationDropdown', () => ({ NotificationDropdown: () => <button>Notifications</button> }));
 vi.mock('./UserDropdownMenu', () => ({ UserDropdownMenu: () => <button>Account</button> }));
 afterEach(cleanup);
 
 describe('AppShell project navigation', () => {
-  it.each(['/projects', '/projects/new', '/projects/7/test-plans', '/settings'])('keeps only the logo, quota and account at %s', (path) => {
+  it.each(['/projects', '/projects/new', '/projects/7/test-plans', '/settings'])('keeps only the logo, quota, notifications and account at %s', (path) => {
     render(<MemoryRouter initialEntries={[path]}><AppShell><p>Content</p></AppShell></MemoryRouter>);
     const nav = within(screen.getByRole('navigation'));
     expect(nav.getAllByRole('link')).toHaveLength(1);
     expect(nav.getByRole('link', { name: 'GreyTest' })).toHaveAttribute('href', '/projects');
-    expect(nav.getAllByRole('button').map(button => button.textContent)).toEqual(['Quota', 'Account']);
+    expect(nav.getAllByRole('button').map(button => button.textContent)).toEqual(['Quota', 'Notifications', 'Account']);
     expect(screen.queryByTestId('nav-projects-link')).not.toBeInTheDocument();
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
     fireEvent.keyDown(document, { key: 'k', metaKey: true });

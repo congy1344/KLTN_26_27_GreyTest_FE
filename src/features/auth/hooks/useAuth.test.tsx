@@ -4,11 +4,16 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useAdminLogin, useLogin, useLogout, useRegister } from './useAuth';
-import { adminLogin, login, register } from '../api/auth-api';
+import { useAdminLogin, useGoogleLogin, useLogin, useLogout, useRegister } from './useAuth';
+import { adminLogin, googleLogin, login, register } from '../api/auth-api';
 
 vi.mock('../api/auth-api', () => ({
-  adminLogin: vi.fn(), login: vi.fn(), register: vi.fn(), fetchCurrentUser: vi.fn(),
+  adminLogin: vi.fn(),
+  googleLogin: vi.fn(),
+  login: vi.fn(),
+  register: vi.fn(),
+  fetchCurrentUser: vi.fn(),
+  fetchGoogleConfig: vi.fn(),
 }));
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
@@ -22,7 +27,9 @@ function setup() {
 
 describe('auth session cache isolation', () => {
   it.each([
-    ['login', useLogin, login], ['admin login', useAdminLogin, adminLogin], ['register', useRegister, register],
+    ['login', useLogin, login],
+    ['admin login', useAdminLogin, adminLogin],
+    ['register', useRegister, register],
   ] as const)('clears old user projects when %s succeeds', async (_name, useMutation, api) => {
     const { client, wrapper } = setup();
     const response = { token: 'new-jwt', user: { id: 2, email: 'new@greytest.dev', fullName: 'New User', role: 'USER' as const, tier: 'FREE' as const } };
@@ -34,6 +41,21 @@ describe('auth session cache isolation', () => {
     });
 
     await waitFor(() => expect(localStorage.getItem('greytest.token')).toBe('new-jwt'));
+    expect(client.getQueryData(['projects'])).toBeUndefined();
+    expect(client.getQueryData(['auth', 'me'])).toEqual(response.user);
+  });
+
+  it('clears old user projects when google login succeeds', async () => {
+    const { client, wrapper } = setup();
+    const response = { token: 'google-jwt', user: { id: 3, email: 'user@gmail.com', fullName: 'Google User', role: 'USER' as const, tier: 'FREE' as const } };
+    vi.mocked(googleLogin).mockResolvedValue(response);
+    const { result } = renderHook(() => useGoogleLogin(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ credential: 'google-id-token' });
+    });
+
+    await waitFor(() => expect(localStorage.getItem('greytest.token')).toBe('google-jwt'));
     expect(client.getQueryData(['projects'])).toBeUndefined();
     expect(client.getQueryData(['auth', 'me'])).toEqual(response.user);
   });

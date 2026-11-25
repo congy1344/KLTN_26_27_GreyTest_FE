@@ -10,6 +10,7 @@ import {
   Shield,
   User,
   Calendar,
+  Clock,
   AlertTriangle,
   Zap,
   Moon,
@@ -75,7 +76,8 @@ export function SettingsPage() {
   const tier = user?.tier ?? quota?.tier ?? 'FREE';
   const isPro = tier === 'PRO';
   const isPlus = tier === 'PLUS';
-  const isWeekly = isPro || isPlus;
+  const currentPkg = publicPackages?.find((p) => p.code.toUpperCase() === tier);
+  const userResetCycle = currentPkg?.resetCycle || (isPro || isPlus ? 'WEEKLY' : 'MONTHLY');
 
   const isCurrentFree = tier === 'FREE';
   const isCurrentPlus = tier === 'PLUS';
@@ -99,6 +101,13 @@ export function SettingsPage() {
     if (c === 'WEEKLY') return t('tuần', 'week');
     if (c === 'YEARLY') return t('năm', 'year');
     return t('tháng', 'month');
+  };
+
+  const formatResetCycleText = (resetCycle?: string) => {
+    const r = (resetCycle || 'WEEKLY').toUpperCase();
+    if (r === 'DAILY') return t('hàng ngày', 'daily');
+    if (r === 'MONTHLY') return t('hàng tháng', 'monthly');
+    return t('hàng tuần', 'weekly');
   };
 
   const formatDateVN = (dateStr?: string | null) => {
@@ -416,24 +425,49 @@ export function SettingsPage() {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-heading font-display">
-                    {isWeekly ? t('Hạn mức gọi AI tuần này', 'Weekly AI quota') : t('Hạn mức gọi AI tháng này', 'Monthly AI quota')}
+                    {userResetCycle === 'DAILY'
+                      ? t('Hạn mức gọi AI hôm nay', 'Daily AI quota')
+                      : userResetCycle === 'WEEKLY'
+                      ? t('Hạn mức gọi AI tuần này', 'Weekly AI quota')
+                      : t('Hạn mức gọi AI tháng này', 'Monthly AI quota')}
                   </h2>
                   <p className="text-xs text-body-subtle mt-0.5">
                     {t('1 lượt tương ứng với 2 Unit Test, 2 Test Case, 2 Test Plan hoặc 3 phương thức mã nguồn.', '1 credit corresponds to 2 Unit Tests, 2 Test Cases, 2 Test Plans, or 3 source methods.')}
                   </p>
                 </div>
                 {quota && (
-                  <div className="flex items-center gap-3 text-xs text-body-subtle">
-                    {formattedPeriodStart && (
+                  <div className="space-y-1 text-xs">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-subtle">
                       <span className="flex items-center gap-1">
-                        <Calendar size={13} /> {t('Ngày kích hoạt:', 'Started:')} {formattedPeriodStart}
+                        <Shield size={13} className="text-fg-brand shrink-0" />
+                        <span>{t('Thời hạn gói:', 'Plan validity:')}</span>
+                        <strong className="font-semibold text-heading">
+                          {isCurrentFree
+                            ? t('Vĩnh viễn (Miễn phí)', 'Permanent (Free)')
+                            : t('Duy trì liên tục (đến khi hủy gói)', 'Active until canceled')}
+                        </strong>
                       </span>
-                    )}
-                    {formattedResetDate && (
-                      <span className="flex items-center gap-1">
-                        <Calendar size={13} /> {t('Ngày kết thúc:', 'Ends:')} {formattedResetDate}
-                      </span>
-                    )}
+                      {formattedPeriodStart && (
+                        <span className="flex items-center gap-1">
+                          <Calendar size={13} className="text-body-subtle shrink-0" />
+                          <span>{t('Bắt đầu chu kỳ:', 'Cycle started:')}</span>
+                          <strong className="font-semibold text-heading">{formattedPeriodStart}</strong>
+                        </span>
+                      )}
+                      {formattedResetDate && (
+                        <span className="flex items-center gap-1">
+                          <Clock size={13} className="text-fg-brand shrink-0" />
+                          <span>{t('Tự động hồi phục lượt AI:', 'Quota resets on:')}</span>
+                          <strong className="font-semibold text-heading">{formattedResetDate}</strong>
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-body-subtle">
+                      {t(
+                        '* Ngày hồi phục lượt AI chỉ làm mới số lượt gọi AI về 0 theo chu kỳ, không phải ngày hết hạn của tài khoản.',
+                        '* The reset date only refreshes your AI credits to 0 for the new cycle; your plan remains active.'
+                      )}
+                    </p>
                   </div>
                 )}
               </div>
@@ -549,14 +583,14 @@ export function SettingsPage() {
                       <TierName tier="PLUS">{t('Gói tiêu chuẩn (PLUS)', 'Standard (PLUS)')}</TierName>
                       <div className="mt-2 flex items-baseline gap-1">
                         <span className="text-[22px] font-semibold text-heading">{plusPkg ? plusPkg.price.toLocaleString('vi-VN') + 'đ' : '—'}</span>
-                        <span className="text-xs text-body-subtle">/{formatCycleText(plusPkg?.cycle ?? 'WEEKLY')}</span>
+                        <span className="text-xs text-body-subtle">/{formatCycleText(plusPkg?.cycle ?? 'MONTHLY')}</span>
                       </div>
                       <p className="mt-2 text-xs text-body-subtle">
                         {plusPkg?.description ?? t('Dành cho nhóm phát triển mở rộng / dự án sprint nước rút', 'For scaling dev teams / sprint projects')}
                       </p>
                       <ul className="mt-4 space-y-2 text-xs text-body">
                         {(plusPkg?.features && plusPkg.features.length > 0 ? plusPkg.features : [
-                          plusPkg ? t(`${plusPkg.quotaLimit} lượt gọi AI`, `${plusPkg.quotaLimit} AI credits`) : t('Chưa có hạn mức', 'Quota unavailable'),
+                          plusPkg ? t(`${plusPkg.quotaLimit} lượt gọi AI (hồi lại ${formatResetCycleText(plusPkg.resetCycle)})`, `${plusPkg.quotaLimit} AI credits (resets ${formatResetCycleText(plusPkg.resetCycle)})`) : t('Chưa có hạn mức', 'Quota unavailable'),
                           plusPkg ? t(`Sinh tối đa ${plusPkg.batchConcurrency} batch đồng thời`, `Max ${plusPkg.batchConcurrency} concurrent batches`) : t('Chưa có dữ liệu', 'Data unavailable'),
                           t('Độ ưu tiên xử lý cao hơn gói Free', 'Higher priority queue than Free'),
                         ]).map((feat, idx) => (
@@ -600,7 +634,7 @@ export function SettingsPage() {
                       </p>
                       <ul className="mt-4 space-y-2 text-xs text-body">
                         {(proPkg?.features && proPkg.features.length > 0 ? proPkg.features : [
-                          proPkg ? t(`${proPkg.quotaLimit} lượt gọi AI`, `${proPkg.quotaLimit} AI credits`) : t('Chưa có hạn mức', 'Quota unavailable'),
+                          proPkg ? t(`${proPkg.quotaLimit} lượt gọi AI (hồi lại ${formatResetCycleText(proPkg.resetCycle)})`, `${proPkg.quotaLimit} AI credits (resets ${formatResetCycleText(proPkg.resetCycle)})`) : t('Chưa có hạn mức', 'Quota unavailable'),
                           proPkg ? t(`Sinh tối đa ${proPkg.batchConcurrency} batch đồng thời`, `Max ${proPkg.batchConcurrency} concurrent batches`) : t('Chưa có dữ liệu', 'Data unavailable'),
                           t('Toàn quyền truy cập JaCoCo Coverage Refinement', 'Full access to JaCoCo Coverage Refinement'),
                           t('Tạo test không giới hạn theo module', 'Unlimited generation by module'),

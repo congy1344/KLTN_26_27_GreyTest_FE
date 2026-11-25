@@ -2,6 +2,7 @@ import { QuotaMeter } from './QuotaMeter';
 import { BrandMark } from './BrandMark';
 import { Link } from 'react-router-dom';
 import { UserDropdownMenu } from './UserDropdownMenu';
+import { NotificationDropdown } from './NotificationDropdown';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -35,6 +36,7 @@ export function AppShell({
 
           <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-2.5 lg:flex-nowrap">
             <QuotaMeter />
+            <NotificationDropdown />
             <UserDropdownMenu logoutTo={logoutTo} />
           </div>
         </div>

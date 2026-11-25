@@ -5,7 +5,12 @@ import type { CreateTestCaseInput, UpdateTestCaseInput } from '../types';
 const key = (projectId: number, servicePath?: string) => ['test-cases', projectId, servicePath ?? 'auto'];
 
 export function useTestCases(projectId: number, servicePath?: string) {
-  return useQuery({ queryKey: key(projectId, servicePath), queryFn: () => fetchTestCases(projectId, servicePath), enabled: projectId > 0 });
+  return useQuery({
+    queryKey: key(projectId, servicePath),
+    queryFn: () => fetchTestCases(projectId, servicePath),
+    enabled: projectId > 0,
+    staleTime: 15_000,
+  });
 }
 
 export function useGenerateTestCases(projectId: number, servicePath?: string) {

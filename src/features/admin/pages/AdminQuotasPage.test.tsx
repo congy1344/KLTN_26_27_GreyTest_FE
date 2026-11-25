@@ -23,6 +23,7 @@ const mockTierPackages = [
     name: 'Gói Cơ Bản (Free)',
     price: 0,
     cycle: 'MONTHLY',
+    resetCycle: 'MONTHLY',
     quotaLimit: 100,
     batchConcurrency: 2,
     features: ['Sinh Test Plan', 'Sinh Test Case'],
@@ -35,6 +36,7 @@ const mockTierPackages = [
     name: 'Gói Nâng Cao (Plus)',
     price: 99000,
     cycle: 'WEEKLY',
+    resetCycle: 'WEEKLY',
     quotaLimit: 200,
     batchConcurrency: 3,
     features: ['3 batch song song'],
@@ -47,6 +49,7 @@ const mockTierPackages = [
     name: 'Gói Chuyên Nghiệp (Pro)',
     price: 299000,
     cycle: 'MONTHLY',
+    resetCycle: 'WEEKLY',
     quotaLimit: 300,
     batchConcurrency: 4,
     features: ['Toàn bộ tính năng phân tích sâu', 'JaCoCo Coverage Refinement'],
@@ -59,6 +62,7 @@ const mockTierPackages = [
     name: 'Gói Tùy Chỉnh Doanh Nghiệp',
     price: 999000,
     cycle: 'MONTHLY',
+    resetCycle: 'WEEKLY',
     quotaLimit: 1000,
     batchConcurrency: 8,
     features: ['Cụm server riêng', 'Dedicated SLA'],
@@ -139,6 +143,7 @@ describe('AdminQuotasPage', () => {
         data: expect.objectContaining({
           code: 'FREE',
           quotaLimit: 150,
+          resetCycle: 'MONTHLY',
         }),
       },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
@@ -173,6 +178,7 @@ describe('AdminQuotasPage', () => {
       expect.objectContaining({
         code: 'VIP',
         name: 'Gói VIP Doanh Nghiệp',
+        resetCycle: 'WEEKLY',
       }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
@@ -214,7 +220,7 @@ describe('AdminQuotasPage', () => {
       </MemoryRouter>,
     );
 
-    const statusBadgeBtns = screen.getAllByRole('button', { name: /KÍCH HOẠT.*Đổi/i });
+    const statusBadgeBtns = screen.getAllByRole('button', { name: /Trạng thái: Kích hoạt/i });
     expect(statusBadgeBtns.length).toBeGreaterThan(0);
     fireEvent.click(statusBadgeBtns[0]);
 

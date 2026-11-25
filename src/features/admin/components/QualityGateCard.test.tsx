@@ -41,6 +41,8 @@ describe('QualityGateCard', () => {
     expect(screen.getAllByText('84.6%')[0]).toBeInTheDocument();
     expect(screen.getAllByText('76.5%')[0]).toBeInTheDocument();
     expect(screen.getAllByText('45 tests')[0]).toBeInTheDocument();
+    expect(screen.getByText('Tổng số lượt BR')).toBeInTheDocument();
+    expect(screen.getAllByText('24')[0]).toBeInTheDocument();
   });
 
   it('renders pending status when no reports exist', () => {

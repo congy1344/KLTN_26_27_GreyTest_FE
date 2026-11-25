@@ -204,6 +204,7 @@ export interface TierPackage {
   description: string;
   active: boolean;
   activeUsersCount: number;
+  resetCycle?: string;
 }
 
 export interface SaveTierPackageRequest {
@@ -216,6 +217,7 @@ export interface SaveTierPackageRequest {
   features?: string[];
   description?: string;
   active?: boolean;
+  resetCycle?: string;
 }
 
 export type FeedbackStatus = 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED' | 'CLOSED';

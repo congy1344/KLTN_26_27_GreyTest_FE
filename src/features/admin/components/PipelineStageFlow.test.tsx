@@ -28,7 +28,7 @@ const mockOverview: AdminOverview = {
 
 describe('PipelineStageFlow', () => {
   it('renders all 4 Grey-box stages: BR, TP, TC, UT with live counts', () => {
-    render(
+    const { container } = render(
       <MemoryRouter>
         <LanguageProvider>
           <PipelineStageFlow overview={mockOverview} />
@@ -45,6 +45,7 @@ describe('PipelineStageFlow', () => {
     expect(screen.getByText('48 cases')).toBeInTheDocument();
     expect(screen.getByText('45 tests')).toBeInTheDocument();
     expect(screen.getByText(/Quy trình AI Grey-box|Grey-box AI Pipeline/i)).toBeInTheDocument();
+    expect(container.querySelector('.ring-2.ring-brand\\/30')).toBeNull();
   });
 
   it('highlights the passed activeStage correctly', () => {
@@ -59,5 +60,29 @@ describe('PipelineStageFlow', () => {
     const tcContainer = container.querySelector('.ring-2.ring-brand\\/30');
     expect(tcContainer).toBeInTheDocument();
     expect(tcContainer).toHaveTextContent('TC');
+  });
+
+  it('renders zero counts and empty indicator when stages have no data', () => {
+    const emptyOverview: AdminOverview = {
+      ...mockOverview,
+      totalBusinessRules: 0,
+      totalTestPlans: 0,
+      totalTestCases: 0,
+      totalUnitTests: 0,
+    };
+
+    render(
+      <MemoryRouter>
+        <LanguageProvider>
+          <PipelineStageFlow overview={emptyOverview} />
+        </LanguageProvider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('0 rules')).toBeInTheDocument();
+    expect(screen.getByText('0 plans')).toBeInTheDocument();
+    expect(screen.getByText('0 cases')).toBeInTheDocument();
+    expect(screen.getByText('0 tests')).toBeInTheDocument();
+    expect(screen.getAllByText(/Chưa có dữ liệu|No records/i)).toHaveLength(4);
   });
 });

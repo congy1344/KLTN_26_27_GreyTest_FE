@@ -16,6 +16,16 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   'vnpay.url': 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
 };
 
+const PRESET_AI_MODELS = new Set([
+  'gemini-1.5-pro',
+  'gemini-1.5-flash',
+  'gemini-2.0-flash',
+  'gpt-4o',
+  'gpt-4o-mini',
+  'o3-mini',
+  'o1',
+]);
+
 export function AdminSettingsPage() {
   const { language } = useLanguage();
   const [searchParams] = useSearchParams();
@@ -33,6 +43,15 @@ export function AdminSettingsPage() {
     ...(settingsQuery.data?.settings ?? {}),
     ...customValues,
   };
+
+  // Giữ model runtime custom từ server hiển thị trong dropdown ngay cả khi admin tạm chọn preset khác.
+  const runtimeActiveModels = Array.from(
+    new Set(
+      [settingsQuery.data?.settings?.['ai.model'], formValues['ai.model']]
+        .filter((model): model is string => typeof model === 'string' && model.length > 0)
+        .filter((model) => !PRESET_AI_MODELS.has(model)),
+    ),
+  );
 
   const handleChange = (key: string, value: string) => {
     setCustomValues((prev) => ({ ...prev, [key]: value }));
@@ -179,14 +198,25 @@ export function AdminSettingsPage() {
                       value={formValues['ai.model'] ?? 'gemini-1.5-pro'}
                       onChange={(e) => handleChange('ai.model', e.target.value)}
                     >
+                      {runtimeActiveModels.length > 0 && (
+                        <optgroup label="Runtime Active">
+                          {runtimeActiveModels.map((model) => (
+                            <option key={model} value={model}>
+                              {model} (Runtime Active)
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                       <optgroup label="Google Gemini">
                         <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Recommended)</option>
                         <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Fast)</option>
                         <option value="gemini-2.0-flash">Google Gemini 2.0 Flash</option>
                       </optgroup>
                       <optgroup label="OpenAI">
-                        <option value="gpt-4o">OpenAI GPT-4o</option>
-                        <option value="gpt-4o-mini">OpenAI GPT-4o Mini</option>
+                        <option value="gpt-4o">OpenAI GPT-4o (Chất lượng cao)</option>
+                        <option value="gpt-4o-mini">OpenAI GPT-4o Mini (Khuyên dùng)</option>
+                        <option value="o3-mini">OpenAI o3-mini (Reasoning Code)</option>
+                        <option value="o1">OpenAI o1 (Deep Reasoning)</option>
                       </optgroup>
                     </select>
                     <span className="mt-1 block text-xs text-body-subtle">

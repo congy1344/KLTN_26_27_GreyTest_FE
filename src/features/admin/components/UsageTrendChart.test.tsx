@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { UsageTrendChart } from './UsageTrendChart';
 
@@ -46,5 +46,35 @@ describe('UsageTrendChart', () => {
     );
     expect(screen.getByText('2025')).toBeInTheDocument();
     expect(screen.getByText('2026')).toBeInTheDocument();
+  });
+
+  it('handles mouse interactions and prevents default scroll behavior on click', () => {
+    render(
+      <UsageTrendChart
+        points={[
+          { bucket: '2026-10-21T00:00:00', total: 10 },
+          { bucket: '2026-10-22T00:00:00', total: 30 },
+        ]}
+      />
+    );
+
+    const firstPoint = screen.getByTitle('2026-10-21T00:00:00: 10');
+    expect(firstPoint).toBeInTheDocument();
+
+    // Verify mouseDown triggers preventDefault to stop horizontal auto-scroll
+    const mouseDownEvent = fireEvent.mouseDown(firstPoint);
+    expect(mouseDownEvent).toBe(false); // defaultPrevented returns false for fireEvent when prevented
+
+    // Verify hover interaction
+    fireEvent.mouseEnter(firstPoint);
+    expect(screen.getByText('10')).toBeInTheDocument();
+
+    fireEvent.mouseLeave(firstPoint);
+  });
+
+  it('renders single data point with column pillar representation', () => {
+    render(<UsageTrendChart points={[{ bucket: '2026-11-01T00:00:00', total: 195 }]} granularity="month" />);
+    expect(screen.getByTitle('2026-11-01T00:00:00: 195')).toBeInTheDocument();
+    expect(screen.getByText('T11/26')).toBeInTheDocument();
   });
 });

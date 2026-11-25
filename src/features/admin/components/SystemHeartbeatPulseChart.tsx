@@ -235,7 +235,7 @@ export function SystemHeartbeatPulseChart({
             setServerLogs((prev) => mergeAuthoritativeServerLogs(data.logs, prev));
           }
         })
-        .catch(() => {});
+        .catch(() => { });
 
       fetchEndpointAnalytics(win, 8)
         .then((ep) => {
@@ -243,7 +243,7 @@ export function SystemHeartbeatPulseChart({
             setEndpointAnalytics(ep);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
 
       // Khi SSE đang kết nối ổn định ở cửa sổ 1m, các dữ liệu overview/waf/alerts/logs/timeseries
       // đã được đẩy realtime qua SSE mỗi giây nên không gọi lặp lại qua REST polling.
@@ -259,7 +259,7 @@ export function SystemHeartbeatPulseChart({
               setServerLogs((prev) => mergeAuthoritativeServerLogs(res.content, prev));
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
 
       fetchWafStatus()
@@ -268,7 +268,7 @@ export function SystemHeartbeatPulseChart({
             setWafStatus(waf);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
 
       fetchTrafficOverview(win)
         .then((ov) => {
@@ -279,7 +279,7 @@ export function SystemHeartbeatPulseChart({
             prev === 'CONNECTING' || prev === 'RECONNECTING' || prev === 'DISCONNECTED' ? 'CONNECTED' : prev
           );
         })
-        .catch(() => {});
+        .catch(() => { });
 
       fetchTrafficTimeseries(win)
         .then((ts) => {
@@ -287,7 +287,7 @@ export function SystemHeartbeatPulseChart({
             setTimeseries(ts);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
 
       fetchTrafficAlerts(win)
         .then((al) => {
@@ -295,7 +295,7 @@ export function SystemHeartbeatPulseChart({
             setAlerts(al);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     } catch {
       setStreamState('DISCONNECTED');
       setDataState((prev) => (prev === 'LOADING' ? 'ERROR' : prev));
@@ -598,9 +598,10 @@ export function SystemHeartbeatPulseChart({
   const hasTrafficData = totalRequestsCount > 0 || serverLogs.length > 0;
   const effectiveDataState: MonitoringDataState = hasTrafficData ? 'AVAILABLE' : dataState === 'LOADING' ? 'NO_DATA' : dataState;
 
-  // Mức cảnh báo khách quan dựa trên RPS
-  const isAttackSpike = currentRpsValue >= 15 || displayRpm >= 150;
-  const isElevatedLoad = !isAttackSpike && (currentRpsValue >= 6 || displayRpm >= 60);
+  // Mức cảnh báo khách quan dựa trên RPS và yêu cầu thực tế bị chặn (HTTP 429)
+  // Chỉ cảnh báo spike khi thực sự có yêu cầu bị chặn do rate limit hoặc RPS cực cao (>= 50 req/s)
+  const isAttackSpike = effectiveRateLimited > 0 || currentRpsValue >= 50;
+  const isElevatedLoad = !isAttackSpike && (currentRpsValue >= 20 || (displayRpm >= 500 && currentRpsValue >= 10));
   const threatLevel: 'normal' | 'elevated' | 'spike' = isAttackSpike
     ? 'spike'
     : isElevatedLoad
@@ -1145,7 +1146,7 @@ export function SystemHeartbeatPulseChart({
       ERROR: 'LỖI',
     };
     return (
-      <Tag variant="status" tone={map[state]} icon={CircleDot}>
+      <Tag variant="status" tone={map[state]} icon={CircleDot} className="shrink-0 whitespace-nowrap">
         {language === 'vi' ? textVi[state] : state}
       </Tag>
     );
@@ -1165,19 +1166,11 @@ export function SystemHeartbeatPulseChart({
             <h3 className="text-sm font-bold text-heading flex flex-wrap items-center gap-2">
               <span>
                 {language === 'vi'
-                  ? 'Giám sát lưu lượng yêu cầu & quản trị tải hệ thống (Anti-DDoS)'
-                  : "Live request stream & system load management (anti-DDoS)"}
+                  ? 'Giám sát lưu lượng yêu cầu & quản trị tải hệ thống'
+                  : "Live request stream & system load management"}
               </span>
-              <Tag variant="status" tone="success" icon={CheckCircle2}>
-                <span>REALTIME</span>
-              </Tag>
               {renderConnectionBadge()}
             </h3>
-            <p className="text-xs text-body-subtle">
-              {language === 'vi'
-                ? 'Ghi nhận trực tiếp mọi yêu cầu HTTP từ client tới server Spring Boot, phân tích P95/P99 Latency, Endpoint Analytics và kiểm soát Rate Limiting.'
-                : 'Real-time HTTP traffic observability, P95/P99 latency metrics, endpoint analytics and automated rate limiting controls.'}
-            </p>
           </div>
         </div>
 
@@ -1193,11 +1186,10 @@ export function SystemHeartbeatPulseChart({
                 key={w.id}
                 type="button"
                 onClick={() => setSelectedWindow(w.id)}
-                className={`btn rounded-control px-2 py-1 font-mono text-xs font-bold transition-colors cursor-pointer ${
-                  selectedWindow === w.id
-                    ? 'bg-brand text-on-brand shadow-2xs'
-                    : 'text-body-subtle hover:text-heading'
-                }`}
+                className={`btn rounded-control px-2 py-1 font-mono text-xs font-bold transition-colors cursor-pointer ${selectedWindow === w.id
+                  ? 'bg-brand text-on-brand shadow-2xs'
+                  : 'text-body-subtle hover:text-heading'
+                  }`}
               >
                 {language === 'vi' ? w.labelVi : w.labelEn}
               </button>
@@ -1215,6 +1207,30 @@ export function SystemHeartbeatPulseChart({
               {wafStatus.rateLimitPerMinute} req/min/IP
             </span>
           </div>
+
+          {/* Enable / Disable Rate Limiter (with confirmation when disabling) */}
+          <button
+            type="button"
+            disabled={isTogglingWafActive}
+            onClick={() => {
+              if (wafStatus.active) {
+                setConfirmWafDisableOpen(true);
+              } else {
+                handleToggleWafActive(true);
+              }
+            }}
+            className="btn btn-secondary px-2.5 py-1 text-xs flex items-center gap-1.5 shadow-2xs hover:border-brand cursor-pointer"
+            title={wafStatus.active
+              ? (language === 'vi' ? 'Tạm thời tắt Rate Limit' : 'Disable Rate Limit')
+              : (language === 'vi' ? 'Kích hoạt lại Rate Limit' : 'Enable Rate Limit')}
+          >
+            {wafStatus.active ? <ShieldOff size={12} className="text-fg-warning" /> : <ShieldCheck size={12} className="text-fg-success-strong" />}
+            <span>
+              {wafStatus.active
+                ? (language === 'vi' ? 'Tắt Rate Limit' : 'Disable Rate Limit')
+                : (language === 'vi' ? 'Bật Rate Limit' : 'Enable Rate Limit')}
+            </span>
+          </button>
 
           <button
             type="button"
@@ -1273,10 +1289,6 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-semibold text-heading flex items-center gap-1.5">
-            <ShieldCheck size={14} className={wafStatus.underAttackMode ? 'text-fg-danger-strong' : 'text-fg-success-strong '} />
-            <span>{language === 'vi' ? `Giới hạn: Tối đa ${wafStatus.rateLimitPerMinute} req/phút/IP` : `Rate Limit: Max ${wafStatus.rateLimitPerMinute} req/min/IP`}</span>
-          </p>
           <span className="text-xs text-body-subtle">
             {language === 'vi'
               ? `Đã chặn +${effectiveRateLimited} yêu cầu vi phạm, ${wafStatus.activeBlockedIpCount} IP cách ly`
@@ -1285,11 +1297,11 @@ export function SystemHeartbeatPulseChart({
         </div>
       </div>
 
-      {/* SECTION A: TRAFFIC OVERVIEW (8 KPI CARDS) */}
-      <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 text-xs" data-testid="traffic-overview-kpis">
+      {/* SECTION A: TRAFFIC OVERVIEW (8 KPI CARDS - 2 HÀNG X 4 CỘT TRÊN DESKTOP) */}
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 text-xs" data-testid="traffic-overview-kpis">
         {/* KPI 1: Total Requests */}
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
-          <div className="flex items-center justify-between gap-1">
+        <div className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Tổng yêu cầu' : 'Total Requests'}
             </span>
@@ -1309,8 +1321,8 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* KPI 2: Current RPS */}
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
-          <div className="flex items-center justify-between gap-1">
+        <div className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Tốc độ hiện tại' : 'Current RPS'}
             </span>
@@ -1325,8 +1337,8 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* KPI 3: Average Latency */}
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
-          <div className="flex items-center justify-between gap-1">
+        <div className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Độ trễ trung bình' : 'Avg Latency'}
             </span>
@@ -1347,8 +1359,8 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* KPI 4: P95 Latency */}
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
-          <div className="flex items-center justify-between gap-1">
+        <div className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Độ trễ P95' : 'P95 Latency'}
             </span>
@@ -1369,8 +1381,8 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* KPI 5: P99 Latency */}
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
-          <div className="flex items-center justify-between gap-1">
+        <div className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Độ trễ P99' : 'P99 Latency'}
             </span>
@@ -1391,8 +1403,8 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* KPI 6: Error Rate */}
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
-          <div className="flex items-center justify-between gap-1">
+        <div className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Tỷ lệ lỗi' : 'Error Rate'}
             </span>
@@ -1413,8 +1425,8 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* KPI 7: Active Connections */}
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
-          <div className="flex items-center justify-between gap-1">
+        <div className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Kết nối hoạt động' : 'Active Conn'}
             </span>
@@ -1429,8 +1441,8 @@ export function SystemHeartbeatPulseChart({
         </div>
 
         {/* KPI 8: Rejected Requests */}
-        <div className="rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs">
-          <div className="flex items-center justify-between gap-1">
+        <div className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft p-3 text-heading space-y-1 shadow-2xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="text-xs font-semibold text-body-subtle">
               {language === 'vi' ? 'Bị từ chối (429)' : 'Rejected (429)'}
             </span>
@@ -1477,33 +1489,30 @@ export function SystemHeartbeatPulseChart({
               <button
                 type="button"
                 onClick={() => setVisibleSeries((s) => ({ ...s, success2xx: !s.success2xx }))}
-                className={`btn rounded-control px-1.5 py-0.5 border cursor-pointer ${
-                  visibleSeries.success2xx
-                    ? 'border-border-success-subtle bg-success-soft text-fg-success-strong  font-bold'
-                    : 'border-border-default  bg-neutral-secondary-soft  text-body-subtle '
-                }`}
+                className={`btn rounded-control px-1.5 py-0.5 border cursor-pointer ${visibleSeries.success2xx
+                  ? 'border-border-success-subtle bg-success-soft text-fg-success-strong  font-bold'
+                  : 'border-border-default  bg-neutral-secondary-soft  text-body-subtle '
+                  }`}
               >
                 {language === 'vi' ? '2xx Thành công' : '2xx Success'} ({overview?.successCount ?? 0})
               </button>
               <button
                 type="button"
                 onClick={() => setVisibleSeries((s) => ({ ...s, clientError4xx: !s.clientError4xx }))}
-                className={`btn rounded-control px-1.5 py-0.5 border cursor-pointer ${
-                  visibleSeries.clientError4xx
-                    ? 'border-border-warning-subtle bg-warning-soft text-fg-warning  font-bold'
-                    : 'border-border-default  bg-neutral-secondary-soft  text-body-subtle '
-                }`}
+                className={`btn rounded-control px-1.5 py-0.5 border cursor-pointer ${visibleSeries.clientError4xx
+                  ? 'border-border-warning-subtle bg-warning-soft text-fg-warning  font-bold'
+                  : 'border-border-default  bg-neutral-secondary-soft  text-body-subtle '
+                  }`}
               >
                 {language === 'vi' ? '4xx Lỗi Client' : '4xx Client'} ({overview?.clientErrorCount ?? 0})
               </button>
               <button
                 type="button"
                 onClick={() => setVisibleSeries((s) => ({ ...s, serverError5xx: !s.serverError5xx }))}
-                className={`btn rounded-control px-1.5 py-0.5 border cursor-pointer ${
-                  visibleSeries.serverError5xx
-                    ? 'border-border-danger-subtle bg-danger-soft text-fg-danger-strong  font-bold'
-                    : 'border-border-default  bg-neutral-secondary-soft  text-body-subtle '
-                }`}
+                className={`btn rounded-control px-1.5 py-0.5 border cursor-pointer ${visibleSeries.serverError5xx
+                  ? 'border-border-danger-subtle bg-danger-soft text-fg-danger-strong  font-bold'
+                  : 'border-border-default  bg-neutral-secondary-soft  text-body-subtle '
+                  }`}
               >
                 {language === 'vi' ? '5xx Lỗi Server' : '5xx Server'} ({overview?.serverErrorCount ?? 0})
               </button>
@@ -1763,7 +1772,7 @@ export function SystemHeartbeatPulseChart({
                 <Tag variant="status" tone="success" icon={CheckCircle2}>{serverLogs[0].method}</Tag>
                 <span className="text-heading">{serverLogs[0].uri}</span>
                 <span className={`text-xs ${serverLogs[0].status >= 400 ? 'text-fg-danger-strong ' : 'text-fg-success-strong '}`}>
-                 , {serverLogs[0].status} {serverLogs[0].status === 200 ? 'OK' : ''} ({serverLogs[0].durationMs}ms)
+                  , {serverLogs[0].status} {serverLogs[0].status === 200 ? 'OK' : ''} ({serverLogs[0].durationMs}ms)
                 </span>
               </span>
             ) : lastRequest ? (
@@ -1772,7 +1781,7 @@ export function SystemHeartbeatPulseChart({
                 <span className="text-heading">{lastRequest.url}</span>
                 {lastRequest.status && (
                   <span className={`text-xs ${lastRequest.isError ? 'text-fg-danger-strong ' : 'text-fg-success-strong '}`}>
-                   , {lastRequest.status} {lastRequest.status === 200 ? 'OK' : ''} ({lastRequest.durationMs ?? 0}ms)
+                    , {lastRequest.status} {lastRequest.status === 200 ? 'OK' : ''} ({lastRequest.durationMs ?? 0}ms)
                   </span>
                 )}
               </span>
@@ -1796,8 +1805,12 @@ export function SystemHeartbeatPulseChart({
               <ShieldAlert size={16} className="text-fg-danger-strong shrink-0" />
               <span className="font-bold">
                 {language === 'vi'
-                  ? 'CẢNH BÁO: Lưu lượng RPS vượt ngưỡng cao! Bộ giới hạn tần suất (Rate Limiter) đang kiểm soát các IP gửi vượt ngưỡng.'
-                  : 'ALERT: High RPS threshold exceeded! Automated rate limiting is enforcing IP quotas.'}
+                  ? (effectiveRateLimited > 0
+                    ? 'CẢNH BÁO: Lưu lượng RPS vượt ngưỡng! Đã phát hiện và chặn các yêu cầu vượt giới hạn (HTTP 429).'
+                    : 'CẢNH BÁO: Lưu lượng RPS tăng đột biến! Bộ giới hạn tần suất (Rate Limiter) đang kích hoạt giám sát tải cao.')
+                  : (effectiveRateLimited > 0
+                    ? 'ALERT: High RPS threshold exceeded! Blocking requests exceeding rate limits (HTTP 429).'
+                    : 'ALERT: Traffic spike detected! Rate Limiter is actively monitoring high system load.')}
               </span>
             </div>
             {effectiveRateLimited > 0 && (
@@ -1888,11 +1901,11 @@ export function SystemHeartbeatPulseChart({
               }}
               className="w-full sm:w-auto sm:min-w-[160px]"
               options={[{ value: "ALL", label: language === 'vi' ? 'Phương thức: Tất cả' : 'Method: ALL' },
-                { value: "GET", label: "GET" },
-                { value: "POST", label: "POST" },
-                { value: "PUT", label: "PUT" },
-                { value: "PATCH", label: "PATCH" },
-                { value: "DELETE", label: "DELETE" }]} />
+              { value: "GET", label: "GET" },
+              { value: "POST", label: "POST" },
+              { value: "PUT", label: "PUT" },
+              { value: "PATCH", label: "PATCH" },
+              { value: "DELETE", label: "DELETE" }]} />
 
             {/* Status Group Filter */}
             <SelectMenu aria-label={language === 'vi' ? 'Lọc trạng thái HTTP' : 'Filter HTTP Status'}
@@ -1903,10 +1916,10 @@ export function SystemHeartbeatPulseChart({
               }}
               className="w-full sm:w-auto sm:min-w-[160px]"
               options={[{ value: "ALL", label: language === 'vi' ? 'Trạng thái: Tất cả' : 'Status: ALL' },
-                { value: "2XX", label: language === 'vi' ? '2xx Thành công' : '2xx Success', tone: 'success' },
-                { value: "4XX", label: language === 'vi' ? '4xx Lỗi Client' : '4xx Client Err', tone: 'warning' },
-                { value: "5XX", label: language === 'vi' ? '5xx Lỗi Server' : '5xx Server Err', tone: 'danger' },
-                { value: "429", label: language === 'vi' ? '429 Giới hạn tần suất' : '429 Rate Limit', tone: 'warning' }]} />
+              { value: "2XX", label: language === 'vi' ? '2xx Thành công' : '2xx Success', tone: 'success' },
+              { value: "4XX", label: language === 'vi' ? '4xx Lỗi Client' : '4xx Client Err', tone: 'warning' },
+              { value: "5XX", label: language === 'vi' ? '5xx Lỗi Server' : '5xx Server Err', tone: 'danger' },
+              { value: "429", label: language === 'vi' ? '429 Giới hạn tần suất' : '429 Rate Limit', tone: 'warning' }]} />
 
             {/* Quick Filter Tabs */}
             <div className="flex items-center rounded-base border border-border-default bg-neutral-secondary-soft p-0.5 text-xs">
@@ -1918,11 +1931,10 @@ export function SystemHeartbeatPulseChart({
                     setLogFilter(tab);
                     setCurrentPage(0);
                   }}
-                  className={`btn rounded-control px-2 py-0.5 font-medium transition-colors cursor-pointer ${
-                    logFilter === tab
-                      ? 'bg-neutral-primary-soft  text-fg-success-strong  font-bold border border-border-default  shadow-2xs'
-                      : 'text-body  hover:text-heading '
-                  }`}
+                  className={`btn rounded-control px-2 py-0.5 font-medium transition-colors cursor-pointer ${logFilter === tab
+                    ? 'bg-neutral-primary-soft  text-fg-success-strong  font-bold border border-border-default  shadow-2xs'
+                    : 'text-body  hover:text-heading '
+                    }`}
                 >
                   {tab === 'all'
                     ? (language === 'vi' ? 'Tất cả' : 'All')
@@ -1938,11 +1950,10 @@ export function SystemHeartbeatPulseChart({
             <button
               type="button"
               onClick={handleToggleAutoScroll}
-              className={`btn flex h-7 items-center gap-1 rounded-control border px-2 text-xs font-medium transition-colors cursor-pointer ${
-                autoScroll
-                  ? 'border-border-success-subtle bg-success-soft text-fg-success-strong   font-bold'
-                  : 'border-border-default  bg-neutral-secondary-soft  text-body  hover:bg-neutral-secondary-soft hover:text-heading '
-              }`}
+              className={`btn flex h-7 items-center gap-1 rounded-control border px-2 text-xs font-medium transition-colors cursor-pointer ${autoScroll
+                ? 'border-border-success-subtle bg-success-soft text-fg-success-strong   font-bold'
+                : 'border-border-default  bg-neutral-secondary-soft  text-body  hover:bg-neutral-secondary-soft hover:text-heading '
+                }`}
               title={
                 autoScroll
                   ? language === 'vi'
@@ -1978,11 +1989,10 @@ export function SystemHeartbeatPulseChart({
             <button
               type="button"
               onClick={() => setBlacklistModalOpen(true)}
-              className={`btn flex h-7 items-center gap-1 rounded-control border px-2 text-xs font-medium transition-colors cursor-pointer ${
-                (wafStatus?.blockedIps ?? []).length > 0
-                  ? 'border-border-danger-subtle bg-danger-soft text-fg-danger-strong   hover:bg-danger-soft '
-                  : 'border-border-default  bg-neutral-secondary-soft  text-heading  hover:bg-neutral-secondary-soft hover:text-heading '
-              }`}
+              className={`btn flex h-7 items-center gap-1 rounded-control border px-2 text-xs font-medium transition-colors cursor-pointer ${(wafStatus?.blockedIps ?? []).length > 0
+                ? 'border-border-danger-subtle bg-danger-soft text-fg-danger-strong   hover:bg-danger-soft '
+                : 'border-border-default  bg-neutral-secondary-soft  text-heading  hover:bg-neutral-secondary-soft hover:text-heading '
+                }`}
               title={language === 'vi' ? 'Quản lý danh sách IP bị khóa / Khóa IP thủ công' : 'Manage Blocked IPs'}
             >
               <UserX size={11} className={(wafStatus?.blockedIps ?? []).length > 0 ? 'text-fg-danger-strong ' : 'text-body-subtle '} />
@@ -2004,11 +2014,10 @@ export function SystemHeartbeatPulseChart({
             <button
               type="button"
               onClick={() => toggleSort('timestamp')}
-              className={`btn inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 cursor-pointer ${
-                sortField === 'timestamp'
-                  ? 'bg-neutral-secondary-soft  text-fg-success-strong  font-bold border border-border-default '
-                  : 'hover:text-heading '
-              }`}
+              className={`btn inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 cursor-pointer ${sortField === 'timestamp'
+                ? 'bg-neutral-secondary-soft  text-fg-success-strong  font-bold border border-border-default '
+                : 'hover:text-heading '
+                }`}
             >
               <span>{language === 'vi' ? 'Thời gian' : 'Timestamp'}</span>
               <ArrowUpDown size={10} />
@@ -2016,11 +2025,10 @@ export function SystemHeartbeatPulseChart({
             <button
               type="button"
               onClick={() => toggleSort('durationMs')}
-              className={`btn inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 cursor-pointer ${
-                sortField === 'durationMs'
-                  ? 'bg-neutral-secondary-soft  text-fg-success-strong  font-bold border border-border-default '
-                  : 'hover:text-heading '
-              }`}
+              className={`btn inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 cursor-pointer ${sortField === 'durationMs'
+                ? 'bg-neutral-secondary-soft  text-fg-success-strong  font-bold border border-border-default '
+                : 'hover:text-heading '
+                }`}
             >
               <span>{language === 'vi' ? 'Độ trễ' : 'Latency'}</span>
               <ArrowUpDown size={10} />
@@ -2028,11 +2036,10 @@ export function SystemHeartbeatPulseChart({
             <button
               type="button"
               onClick={() => toggleSort('status')}
-              className={`btn inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 cursor-pointer ${
-                sortField === 'status'
-                  ? 'bg-neutral-secondary-soft  text-fg-success-strong  font-bold border border-border-default '
-                  : 'hover:text-heading '
-              }`}
+              className={`btn inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 cursor-pointer ${sortField === 'status'
+                ? 'bg-neutral-secondary-soft  text-fg-success-strong  font-bold border border-border-default '
+                : 'hover:text-heading '
+                }`}
             >
               <span>{language === 'vi' ? 'Mã trạng thái' : 'HTTP Status'}</span>
               <ArrowUpDown size={10} />
@@ -2130,10 +2137,10 @@ export function SystemHeartbeatPulseChart({
 
                   <div className="flex items-center gap-1 shrink-0">
                     <IconButton onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedRequest(log);
-                      }}
-              title={language === 'vi' ? 'Xem chi tiết request' : 'View request detail'} label={language === 'vi' ? 'Xem chi tiết request' : 'View request detail'} icon={Eye} className="hover:text-fg-success-strong" />
+                      e.stopPropagation();
+                      setSelectedRequest(log);
+                    }}
+                      title={language === 'vi' ? 'Xem chi tiết request' : 'View request detail'} label={language === 'vi' ? 'Xem chi tiết request' : 'View request detail'} icon={Eye} className="hover:text-fg-success-strong" />
 
                     {blockedIpSet.has(cleanIp(log.clientIp)) ? (
                       <button
@@ -2150,10 +2157,10 @@ export function SystemHeartbeatPulseChart({
                       </button>
                     ) : (
                       <IconButton onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmBlockIpTarget(cleanIp(log.clientIp));
-                        }}
-              title={language === 'vi' ? `Khóa IP ${cleanIp(log.clientIp)} (Ban IP 15 phút)` : `Ban IP ${cleanIp(log.clientIp)}`} label={language === 'vi' ? `Khóa IP ${cleanIp(log.clientIp)} (Ban IP 15 phút)` : `Ban IP ${cleanIp(log.clientIp)}`} icon={UserX} className="hover:text-fg-danger-strong hover:bg-danger-soft" />
+                        e.stopPropagation();
+                        setConfirmBlockIpTarget(cleanIp(log.clientIp));
+                      }}
+                        title={language === 'vi' ? `Khóa IP ${cleanIp(log.clientIp)} (Ban IP 15 phút)` : `Ban IP ${cleanIp(log.clientIp)}`} label={language === 'vi' ? `Khóa IP ${cleanIp(log.clientIp)} (Ban IP 15 phút)` : `Ban IP ${cleanIp(log.clientIp)}`} icon={UserX} className="hover:text-fg-danger-strong hover:bg-danger-soft" />
                     )}
                   </div>
                 </div>
@@ -2222,27 +2229,24 @@ export function SystemHeartbeatPulseChart({
               <button
                 type="button"
                 onClick={() => setAnalyticsTab('volume')}
-                className={`btn rounded-control px-2 py-0.5 font-semibold cursor-pointer ${
-                  analyticsTab === 'volume' ? 'bg-neutral-primary text-fg-brand-strong shadow-2xs' : 'text-body-subtle'
-                }`}
+                className={`btn rounded-control px-2 py-0.5 font-semibold cursor-pointer ${analyticsTab === 'volume' ? 'bg-neutral-primary text-fg-brand-strong shadow-2xs' : 'text-body-subtle'
+                  }`}
               >
                 {language === 'vi' ? 'Top lưu lượng' : 'Top Volume'}
               </button>
               <button
                 type="button"
                 onClick={() => setAnalyticsTab('latency')}
-                className={`btn rounded-control px-2 py-0.5 font-semibold cursor-pointer ${
-                  analyticsTab === 'latency' ? 'bg-neutral-primary text-fg-brand-strong shadow-2xs' : 'text-body-subtle'
-                }`}
+                className={`btn rounded-control px-2 py-0.5 font-semibold cursor-pointer ${analyticsTab === 'latency' ? 'bg-neutral-primary text-fg-brand-strong shadow-2xs' : 'text-body-subtle'
+                  }`}
               >
                 {language === 'vi' ? 'Độ trễ cao nhất' : 'Highest Latency'}
               </button>
               <button
                 type="button"
                 onClick={() => setAnalyticsTab('errors')}
-                className={`btn rounded-control px-2 py-0.5 font-semibold cursor-pointer ${
-                  analyticsTab === 'errors' ? 'bg-neutral-primary text-fg-brand-strong shadow-2xs' : 'text-body-subtle'
-                }`}
+                className={`btn rounded-control px-2 py-0.5 font-semibold cursor-pointer ${analyticsTab === 'errors' ? 'bg-neutral-primary text-fg-brand-strong shadow-2xs' : 'text-body-subtle'
+                  }`}
               >
                 {language === 'vi' ? 'Tỷ lệ lỗi cao nhất' : 'Highest Error Rate'}
               </button>
@@ -2431,54 +2435,29 @@ export function SystemHeartbeatPulseChart({
                   <span>{!wafStatus.active ? 'WAF DISABLED' : wafStatus.underAttackMode ? 'UNDER ATTACK ACTIVE' : 'WAF ACTIVE'}</span>
                 </Tag>
               </h4>
-              <p className="text-xs text-body-subtle">
-                {language === 'vi'
-                  ? 'Tự động kiểm soát lưu lượng, chặn IP gửi dồn dập (HTTP 429) và ghi nhận Audit Log cho mọi thao tác cấu hình.'
-                  : 'Automated traffic control, rate-limiting aggressive IPs (HTTP 429) with full admin audit logging.'}
-              </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Enable / Disable Rate Limiter (with confirmation when disabling) */}
-            <button
-              type="button"
-              disabled={isTogglingWafActive}
-              onClick={() => {
-                if (wafStatus.active) {
-                  setConfirmWafDisableOpen(true);
-                } else {
-                  handleToggleWafActive(true);
-                }
-              }}
-              className="btn btn-secondary px-2.5 py-1.5 text-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              {wafStatus.active ? <ShieldOff size={13} className="text-fg-warning" /> : <ShieldCheck size={13} className="text-fg-success-strong" />}
-              <span>
-                {wafStatus.active
-                  ? (language === 'vi' ? 'Tắt Rate Limit' : 'Disable Rate Limit')
-                  : (language === 'vi' ? 'Bật Rate Limit' : 'Enable Rate Limit')}
-              </span>
-            </button>
-
-            {/* Under Attack Mode Button */}
-            <button
-              type="button"
-              onClick={handleToggleAttackMode}
-              disabled={isTogglingAttackMode}
-              className={`btn flex items-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-bold transition-colors shadow-sm cursor-pointer ${
-                wafStatus.underAttackMode
+            {/* Tạm ẩn nút Kích hoạt Chế độ Khẩn cấp (Under Attack) theo yêu cầu người dùng */}
+            {false && (
+              <button
+                type="button"
+                onClick={handleToggleAttackMode}
+                disabled={isTogglingAttackMode}
+                className={`btn flex items-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-bold transition-colors shadow-sm cursor-pointer ${wafStatus.underAttackMode
                   ? 'bg-danger text-on-brand hover:bg-danger border border-border-danger-subtle'
                   : 'border border-border-default bg-neutral-primary hover:border-danger hover:text-fg-danger-strong text-heading'
-              }`}
-            >
-              <ShieldAlert size={14} />
-              <span>
-                {wafStatus.underAttackMode
-                  ? (language === 'vi' ? '🛡️ Đang bật bảo vệ khẩn cấp' : '🛡️ UNDER ATTACK ACTIVE')
-                  : (language === 'vi' ? 'Kích hoạt Chế độ Khẩn cấp (Under Attack)' : 'Activate Under Attack Mode')}
-              </span>
-            </button>
+                  }`}
+              >
+                <ShieldAlert size={14} />
+                <span>
+                  {wafStatus.underAttackMode
+                    ? (language === 'vi' ? '🛡️ Đang bật bảo vệ khẩn cấp' : '🛡️ UNDER ATTACK ACTIVE')
+                    : (language === 'vi' ? 'Kích hoạt Chế độ Khẩn cấp (Under Attack)' : 'Activate Under Attack Mode')}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -2498,11 +2477,10 @@ export function SystemHeartbeatPulseChart({
                   key={lim}
                   type="button"
                   onClick={() => handleChangeRateLimit(lim)}
-                  className={`btn rounded-control px-1.5 py-0.5 text-xs font-mono cursor-pointer border ${
-                    wafStatus.rateLimitPerMinute === lim
-                      ? 'bg-brand-soft text-fg-brand-strong font-bold border-brand'
-                      : 'border-border-default hover:border-border-brand-subtle text-body-subtle'
-                  }`}
+                  className={`btn rounded-control px-1.5 py-0.5 text-xs font-mono cursor-pointer border ${wafStatus.rateLimitPerMinute === lim
+                    ? 'bg-brand-soft text-fg-brand-strong font-bold border-brand'
+                    : 'border-border-default hover:border-border-brand-subtle text-body-subtle'
+                    }`}
                 >
                   {lim}
                 </button>

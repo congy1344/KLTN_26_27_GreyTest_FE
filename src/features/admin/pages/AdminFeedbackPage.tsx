@@ -212,11 +212,6 @@ export function AdminFeedbackPage() {
           <h1 className="mt-1 text-2xl font-bold text-heading sm:text-3xl">
             {language === 'vi' ? 'Quản lý phản hồi & ý kiến người dùng' : "User feedback & support desk"}
           </h1>
-          <p className="mt-1 text-xs text-body-subtle">
-            {language === 'vi'
-              ? 'Theo dõi, phân loại và phản hồi các đánh giá, báo cáo lỗi từ người dùng trên toàn hệ thống.'
-              : 'Review, triage and resolve user inquiries, ratings, and issue reports across GreyTest.'}
-          </p>
         </div>
 
         <button

@@ -11,6 +11,7 @@ const originalAdapter = apiClient.defaults.adapter;
 afterEach(() => {
   apiClient.defaults.adapter = originalAdapter;
   localStorage.clear();
+  sessionStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -61,7 +62,7 @@ describe('JWT session rejection', () => {
     window.removeEventListener('auth-expired', expired);
   });
 
-  it.each(['/auth/login', '/auth/admin/login', '/auth/register'])
+  it.each(['/auth/login', '/auth/admin/login', '/auth/register', '/auth/github'])
     ('does not treat invalid credentials at %s as session expiry', async (url) => {
       localStorage.setItem('greytest.token', 'active-jwt');
       apiClient.defaults.adapter = unauthorizedAdapter();
@@ -70,6 +71,37 @@ describe('JWT session rejection', () => {
 
       expect(localStorage.getItem('greytest.token')).toBe('active-jwt');
     });
+
+  it('omits stale Authorization header on /auth/github in login mode and includes it in link mode', async () => {
+    localStorage.setItem('greytest.token', 'stale-admin-jwt');
+    let capturedAuth: unknown;
+    apiClient.defaults.adapter = async (config) => {
+      capturedAuth = config.headers?.get('Authorization');
+      return { config, status: 200, statusText: 'OK', headers: new AxiosHeaders(), data: {} };
+    };
+
+    sessionStorage.setItem('github_oauth_mode', 'login');
+    await apiClient.post('/auth/github', { code: 'abc' });
+    expect(capturedAuth).toBeUndefined();
+
+    sessionStorage.setItem('github_oauth_mode', 'link');
+    await apiClient.post('/auth/github', { code: 'abc' });
+    expect(capturedAuth).toBe('Bearer stale-admin-jwt');
+
+    localStorage.removeItem('greytest.token');
+    await expect(apiClient.post('/auth/github', { code: 'abc' })).rejects.toMatchObject({
+      code: 'AUTH_SESSION_CHANGED',
+    });
+  });
+
+  it('clears expired token when /auth/github returns 401 in link mode', async () => {
+    localStorage.setItem('greytest.token', 'expired-jwt');
+    sessionStorage.setItem('github_oauth_mode', 'link');
+    apiClient.defaults.adapter = unauthorizedAdapter();
+
+    await expect(apiClient.post('/auth/github', { code: 'abc' })).rejects.toBeInstanceOf(AxiosError);
+    expect(localStorage.getItem('greytest.token')).toBeNull();
+  });
 
   it.each([null, 'new-jwt'])('prevents a pending mutation restoring private data after session changes to %s', async (nextToken) => {
     const client = new QueryClient();

@@ -31,6 +31,7 @@ export function useProjectServices(id: number, enabled = true) {
     queryKey: ['project-services', id],
     queryFn: () => fetchProjectServices(id),
     enabled: id > 0 && enabled,
+    staleTime: 60_000,
   });
 }
 
@@ -63,6 +64,7 @@ export function useAnalysis(projectId: number, enabled = true) {
     queryKey: ['analysis', projectId],
     queryFn: () => fetchAnalysis(projectId),
     enabled: projectId > 0 && enabled,
+    staleTime: 60_000,
   });
 }
 
@@ -71,6 +73,7 @@ export function useExistingTests(projectId: number, enabled = true) {
     queryKey: ['existing-tests', projectId],
     queryFn: () => fetchExistingTests(projectId),
     enabled: projectId > 0 && enabled,
+    staleTime: 60_000,
   });
 }
 
