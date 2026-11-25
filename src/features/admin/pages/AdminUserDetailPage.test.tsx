@@ -117,7 +117,7 @@ describe('AdminUserDetailPage', () => {
     expect(screen.getByText('Windows (Chrome)')).toBeInTheDocument();
   });
 
-  it('opens tier modal and updates user subscription tier', () => {
+  it('renders user tier badge without quick-edit button and updates tier via edit modal', () => {
     render(
       <MemoryRouter initialEntries={['/admin/users/10']}>
         <ThemeProvider>
@@ -130,17 +130,25 @@ describe('AdminUserDetailPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByTitle('Nhấn để nâng cấp hoặc đổi gói Tier'));
-    expect(screen.getByText("Cập nhật gói Tier dịch vụ")).toBeInTheDocument();
+    expect(screen.queryByTitle('Nhấn để nâng cấp hoặc đổi gói Tier')).not.toBeInTheDocument();
+    expect(screen.getByText('Gói PLUS')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Gói dịch vụ' }));
-    fireEvent.click(screen.getByRole('option', { name: 'PRO - 300 lượt gọi/tháng, 4 batch, JaCoCo Refinement' }));
+    fireEvent.click(screen.getByRole('button', { name: /Chỉnh sửa/i }));
+    expect(screen.getByText("Chỉnh sửa tài khoản")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu gói Tier' }));
-    expect(screen.getByText('Xác nhận thay đổi gói Tier?')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận đổi gói' }));
-    expect(mockTierMutate).toHaveBeenCalledWith(
-      { id: 10, tier: 'PRO' },
+    fireEvent.click(screen.getByRole('button', { name: 'Hạng tài khoản' }));
+    fireEvent.click(screen.getByRole('option', { name: 'PRO' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    expect(screen.getByText('Xác nhận lưu thay đổi tài khoản?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận lưu' }));
+    expect(mockUpdateMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 10,
+        data: expect.objectContaining({
+          tier: 'PRO',
+        }),
+      }),
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
   });
@@ -276,5 +284,54 @@ describe('AdminUserDetailPage', () => {
     const lockBtn = screen.getByTitle('Không thể tự khóa tài khoản của chính mình');
     expect(lockBtn).toBeInTheDocument();
     expect(lockBtn).toBeDisabled();
+  });
+
+  it('paginates login history and recent activities when records exceed page size', () => {
+    currentUserDetail = {
+      ...mockUserDetail,
+      loginHistory: Array.from({ length: 8 }, (_, i) => ({
+        id: 100 + i,
+        timestamp: '2026-08-23T10:00:00Z',
+        ip: `192.168.1.${i + 1}`,
+        userAgent: 'Mozilla/5.0 Chrome',
+        device: `Device-${i + 1}`,
+        portal: 'WEB',
+        status: 'SUCCESS',
+      })),
+      recentActivities: Array.from({ length: 7 }, (_, i) => ({
+        id: 200 + i,
+        actionType: 'GENERATE_TESTS',
+        createdAt: '2026-08-23T11:00:00Z',
+        projectId: i + 1,
+        metadata: { items: 5 },
+      })),
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/admin/users/10']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <Routes>
+              <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
+            </Routes>
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // Initial page shows first 5 items
+    expect(screen.getByText('192.168.1.1')).toBeInTheDocument();
+    expect(screen.getByText('192.168.1.5')).toBeInTheDocument();
+    expect(screen.queryByText('192.168.1.6')).not.toBeInTheDocument();
+    expect(screen.getByText(/Trang 1 \/ 2 \(8 phiên\)/)).toBeInTheDocument();
+
+    // Click next page in login history
+    const nextButtons = screen.getAllByRole('button', { name: 'Trang sau' });
+    fireEvent.click(nextButtons[0]);
+
+    expect(screen.queryByText('192.168.1.1')).not.toBeInTheDocument();
+    expect(screen.getByText('192.168.1.6')).toBeInTheDocument();
+    expect(screen.getByText('192.168.1.8')).toBeInTheDocument();
+    expect(screen.getByText(/Trang 2 \/ 2 \(8 phiên\)/)).toBeInTheDocument();
   });
 });

@@ -76,6 +76,9 @@ describe('AdminDashboardPage', () => {
     expect(screen.getAllByText('120')[0]).toBeInTheDocument();
     expect(screen.getAllByText('890')[0]).toBeInTheDocument();
     expect(screen.getByText('tester@greytest.dev')).toBeInTheDocument();
+    expect(screen.getByText('Cổng kết nối AI')).toBeInTheDocument();
+    expect(screen.getByText('Bộ phân tích mã nguồn')).toBeInTheDocument();
+    expect(screen.getAllByText('Hoạt động').length).toBeGreaterThanOrEqual(4);
   });
 
   it('renders navigable KPI cards pointing to corresponding admin sections', () => {
@@ -91,6 +94,9 @@ describe('AdminDashboardPage', () => {
 
     const userLinks = screen.getAllByRole('link').filter((l) => l.getAttribute('href') === '/admin/users');
     expect(userLinks.length).toBeGreaterThanOrEqual(1);
+
+    const topUserDetailLink = screen.getByRole('link', { name: /tester@greytest\.dev/i });
+    expect(topUserDetailLink).toHaveAttribute('href', '/admin/users/1');
 
     const jobsLink = screen.getAllByRole('link').find((l) => l.getAttribute('href') === '/admin/jobs');
     expect(jobsLink).toBeInTheDocument();

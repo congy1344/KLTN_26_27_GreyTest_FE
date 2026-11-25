@@ -115,5 +115,30 @@ describe('AdminActivityPage', () => {
       }),
     );
   });
+
+  it('sanitizes invalid URL action params and normalizes valid action params', () => {
+    render(
+      <MemoryRouter initialEntries={['/admin/activity?action=INVALID_ACTION']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AdminActivityPage />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+    expect(capturedFilters).toEqual(expect.objectContaining({ action: undefined }));
+
+    cleanup();
+    render(
+      <MemoryRouter initialEntries={['/admin/activity?action=user_login']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AdminActivityPage />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+    expect(capturedFilters).toEqual(expect.objectContaining({ action: 'USER_LOGIN' }));
+  });
 });
 

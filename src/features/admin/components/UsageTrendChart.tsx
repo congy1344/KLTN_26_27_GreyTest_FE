@@ -109,9 +109,9 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
 
   return (
     <div className="space-y-3">
-      {/* Quick stats banner */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-4 text-body-subtle">
+      {/* Quick stats banner (Cố định chiều cao và không gian badge để chống nhảy khung hình khi hover) */}
+      <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2 text-xs min-h-[52px] sm:min-h-[28px]">
+        <div className="flex items-center gap-4 text-body-subtle shrink-0">
           <span className="flex items-center gap-1.5 font-medium">
             <span className="h-2 w-2 rounded-full bg-brand" />
             <span>Tổng: <strong className="text-heading font-sans tabular-nums font-bold">{totalSum.toLocaleString()}</strong> lượt</span>
@@ -120,30 +120,43 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
             <span className="h-2 w-2 rounded-full bg-success" />
             <span>Đỉnh cao: <strong className="text-heading font-sans tabular-nums font-bold">{rawMax.toLocaleString()}</strong></span>
           </span>
-          <span className="hidden sm:inline-flex items-center gap-1.5 font-medium">
+          <span className="hidden sm:inline-flex lg:hidden xl:inline-flex items-center gap-1.5 font-medium">
             <span className="h-2 w-2 rounded-full bg-brand-softer" />
             <span>Trung bình: <strong className="text-heading font-sans tabular-nums font-bold">{avgVal.toLocaleString()}</strong></span>
           </span>
         </div>
 
-        {activePoint && (
-          <div className="rounded-control bg-brand-softer px-2.5 py-0.5 text-xs font-semibold text-fg-brand-strong">
-            {formatFullBucket(activePoint.point.bucket, granularity)}: <span className="font-sans tabular-nums font-bold">{activePoint.point.total}</span> lượt
+        <div className="flex items-center justify-start sm:justify-end min-w-0 flex-1 min-h-[24px]">
+          <div
+            className={`max-w-full truncate whitespace-nowrap rounded-control bg-brand-softer px-2.5 py-0.5 text-xs font-semibold text-fg-brand-strong transition-opacity duration-150 ${
+              activePoint ? 'opacity-100' : 'opacity-0 pointer-events-none select-none'
+            }`}
+            aria-hidden={!activePoint}
+          >
+            {activePoint ? (
+              <>
+                {formatFullBucket(activePoint.point.bucket, granularity)}:{' '}
+                <span className="font-sans tabular-nums font-bold">{activePoint.point.total}</span> lượt
+              </>
+            ) : (
+              <span>&nbsp;</span>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* SVG Line / Area Graph */}
-      <div className="relative w-full overflow-x-auto rounded-base border border-border-default bg-neutral-primary-soft/40 p-2">
+      {/* SVG Line / Area Graph (overflow-hidden và w-full để biểu đồ luôn vừa khít, không bao giờ xuất hiện thanh cuộn ngang gây lệch sang phải khi click) */}
+      <div className="relative w-full overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft/40 p-2">
         <svg aria-hidden="true"
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="h-56 w-full min-w-[800px] select-none"
+          className="h-56 w-full select-none"
           preserveAspectRatio="none"
         >
           <defs>
-            <filter id="glowHalo" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="var(--brand)" floodOpacity="0.35" />
-            </filter>
+            <linearGradient id="trendAreaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="var(--brand)" stopOpacity="0.02" />
+            </linearGradient>
           </defs>
 
           {/* Grid lines (horizontal) */}
@@ -203,11 +216,35 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
             0
           </text>
 
+          {/* Single point column pillar representation */}
+          {coords.length === 1 && (
+            <g>
+              <rect
+                x={coords[0].x - 24}
+                y={coords[0].y}
+                width={48}
+                height={Math.max(2, bottomY - coords[0].y)}
+                rx={4}
+                style={{ fill: 'var(--brand)' }}
+                fillOpacity={0.18}
+              />
+              <line
+                x1={coords[0].x}
+                y1={bottomY}
+                x2={coords[0].x}
+                y2={coords[0].y}
+                style={{ stroke: 'var(--brand)' }}
+                strokeDasharray="3 3"
+                strokeWidth="1.5"
+              />
+            </g>
+          )}
+
           {/* Area fill under curve */}
           {areaD && (
             <path
               d={areaD}
-              style={{ fill: 'var(--brand)' }} fillOpacity={0.1}
+              fill="url(#trendAreaGradient)"
             />
           )}
 
@@ -215,12 +252,10 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
           <path
             d={lineD}
             fill="none"
-            stroke="currentColor"
-            className="text-brand"
+            style={{ stroke: 'var(--brand)' }}
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            filter="url(#glowHalo)"
           />
 
           {/* Active point vertical guideline */}
@@ -293,8 +328,12 @@ export function UsageTrendChart({ points, granularity = 'day' }: UsageTrendChart
               tabIndex={0}
               role="button"
               aria-label={`${formatFullBucket(c.point.bucket, granularity)}: ${c.point.total} lượt`}
-              className="pointer-events-auto flex-1 h-full cursor-pointer group relative flex flex-col justify-end items-center focus:outline-none focus:ring-1 focus:ring-brand"
+              className="pointer-events-auto flex-1 h-full cursor-pointer group relative flex flex-col justify-end items-center focus:outline-none"
               title={`${c.point.bucket}: ${c.point.total}`}
+              onMouseDown={(e) => {
+                // Ngăn chặn trình duyệt tự động scroll ngang (focus scroll) khi nhấn vào điểm
+                e.preventDefault();
+              }}
               onMouseEnter={() => setHoveredIndex(i)}
               onMouseLeave={() => setHoveredIndex(null)}
               onFocus={() => setHoveredIndex(i)}

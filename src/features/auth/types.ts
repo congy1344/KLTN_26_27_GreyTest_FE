@@ -9,6 +9,7 @@ export interface AuthUser {
   phoneNumber?: string | null;
   gender?: string | null;
   dateOfBirth?: string | null;
+  githubUsername?: string | null;
 }
 
 export interface LoginResponse {
@@ -33,12 +34,50 @@ export interface ForgotPasswordResponse {
   message: string;
   mailSent: boolean;
   resetUrl?: string | null;
+  devOtp?: string | null;
 }
 
 export interface ResetPasswordRequest {
-  token: string;
+  token?: string;
+  email?: string;
+  otp?: string;
   newPassword: string;
   confirmPassword: string;
+}
+
+export interface GoogleLoginRequest {
+  credential: string;
+}
+
+export interface GoogleConfigResponse {
+  enabled: boolean;
+  clientId: string;
+}
+
+export interface GithubConfigResponse {
+  enabled: boolean;
+  clientId: string;
+  redirectUri: string;
+}
+
+export interface GithubLoginRequest {
+  code: string;
+}
+
+export interface GithubRepo {
+  id: number;
+  name: string;
+  fullName: string;
+  htmlUrl: string;
+  cloneUrl: string;
+  defaultBranch: string;
+  isPrivate: boolean;
+  description: string;
+}
+
+export interface GithubImportRequest {
+  cloneUrl: string;
+  branch?: string;
 }
 
 export interface ChangePasswordRequest {
@@ -56,6 +95,7 @@ export interface UpdateProfileRequest {
   phoneNumber?: string | null;
   gender?: string | null;
   dateOfBirth?: string | null;
+  githubUsername?: string | null;
 }
 
 export interface UserQuota {

@@ -16,11 +16,15 @@ vi.mock('../../auth/hooks/useAuth', () => ({
 const mockUpdate = vi.fn();
 const mockRefetch = vi.fn();
 
+const mockSettingsState = vi.hoisted(() => ({
+  aiModel: 'gemini-1.5-pro',
+}));
+
 vi.mock('../hooks/useAdmin', () => ({
   useSystemSettings: () => ({
     data: {
       settings: {
-        'ai.model': 'gemini-1.5-pro',
+        'ai.model': mockSettingsState.aiModel,
         'ai.batch_concurrency': '4',
         'vnpay.tmn_code': 'CGXZLS0Z',
         'vnpay.url': 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
@@ -52,6 +56,7 @@ vi.mock('../hooks/useAdmin', () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  mockSettingsState.aiModel = 'gemini-1.5-pro';
 });
 
 describe('AdminSettingsPage', () => {
@@ -142,6 +147,22 @@ describe('AdminSettingsPage', () => {
 
     expect(screen.getByText('Service Health View')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Lưu Cấu Hình Hệ Thống/i })).not.toBeInTheDocument();
+  });
+
+  it('displays non-preset runtime model identifier instead of falling back to first preset', () => {
+    mockSettingsState.aiModel = 'gpt-6-luna';
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AdminSettingsPage />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const select = screen.getByDisplayValue('gpt-6-luna (Runtime Active)');
+    expect(select).toHaveValue('gpt-6-luna');
   });
 });
 

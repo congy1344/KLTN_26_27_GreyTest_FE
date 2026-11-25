@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { AxiosError } from 'axios';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AdminJobsPage } from './AdminJobsPage';
@@ -41,18 +42,24 @@ const mockActiveJobs = [
 ];
 
 const mockCancel = vi.fn();
-
 const mockRetry = vi.fn();
+const mockCancelReset = vi.fn();
+const mockRetryReset = vi.fn();
+const mockErrorState = vi.hoisted(() => ({
+  cancelError: null as Error | null,
+  retryError: null as Error | null,
+}));
 
 vi.mock('../hooks/useAdmin', () => ({
   useActiveJobs: () => ({
     data: mockActiveJobs,
     isLoading: false,
     isFetching: false,
+    error: null,
     refetch: vi.fn(),
   }),
   useAdminUserMutations: () => ({
-    cancelJob: { mutate: mockCancel, isPending: false, error: null },
+    cancelJob: { mutate: mockCancel, isPending: false, error: mockErrorState.cancelError, reset: mockCancelReset },
   }),
   useJobHistory: () => ({
     data: {
@@ -76,17 +83,23 @@ vi.mock('../hooks/useAdmin', () => ({
     },
     isLoading: false,
     isFetching: false,
+    error: null,
     refetch: vi.fn(),
   }),
   useJobRetryMutation: () => ({
     mutate: mockRetry,
     isPending: false,
+    error: mockErrorState.retryError,
+    reset: mockRetryReset,
   }),
   useServiceHealth: () => ({ data: { application: 'UP' }, isFetching: false, refetch: vi.fn() }),
 }));
 
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
+  mockErrorState.cancelError = null;
+  mockErrorState.retryError = null;
 });
 
 describe('AdminJobsPage', () => {
@@ -186,5 +199,46 @@ describe('AdminJobsPage', () => {
       { projectId: 5, stage: 'UNIT_TEST' },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
+  });
+
+  it('closes cancel dialog on error and displays active tab error banner', () => {
+    mockErrorState.cancelError = new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
+      status: 400,
+      statusText: 'Bad Request',
+      headers: {},
+      config: {} as never,
+      data: { message: 'Cancel failed' },
+    });
+    mockErrorState.retryError = new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
+      status: 400,
+      statusText: 'Bad Request',
+      headers: {},
+      config: {} as never,
+      data: { message: 'Retry failed' },
+    });
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AdminJobsPage />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Cancel failed');
+
+    const cancelButtons = screen.getAllByRole('button', { name: /Hủy/i });
+    fireEvent.click(cancelButtons[0]);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('open');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hủy tác vụ' }));
+    act(() => mockCancel.mock.calls[0][1].onError());
+    expect(dialog).not.toHaveAttribute('open');
+
+    fireEvent.click(screen.getByRole('button', { name: /Lịch sử thực thi/i }));
+    expect(mockCancelReset).toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Retry failed');
   });
 });

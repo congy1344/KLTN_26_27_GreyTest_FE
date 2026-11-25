@@ -34,6 +34,7 @@ describe('SystemHeartbeatPulseChart (Admin System Management)', () => {
     expect(screen.getAllByText(/100 req\/min\/IP/i).length).toBeGreaterThanOrEqual(1);
 
     // Management action buttons
+    expect(screen.getByRole('button', { name: /Tắt Rate Limit/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tạm dừng/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Làm mới/i })).toBeInTheDocument();
 
@@ -169,33 +170,16 @@ describe('SystemHeartbeatPulseChart (Admin System Management)', () => {
     expect(screen.getByText(/LATEST REQUEST:/i)).toBeInTheDocument();
   });
 
-  it('renders DDoS protection panel and toggles under attack mode', async () => {
-    vi.spyOn(adminApi, 'toggleUnderAttackMode').mockResolvedValue({
-      active: true,
-      underAttackMode: true,
-      rateLimitPerMinute: 30,
-      burstLimitPerSecond: 15,
-      totalBlockedRequests: 0,
-      activeBlockedIpCount: 0,
-      blockedIps: [],
-    });
-
+  it('renders DDoS protection panel and controls rate limits', async () => {
     renderWithProviders(<SystemHeartbeatPulseChart serverThreadCount={25} serverActiveConnections={1} />);
 
     // DDoS defense panel header
     expect(screen.getByText(/Biện Pháp Bảo Vệ & Phòng Thủ DDoS \/ Spam \(WAF Layer 7\)/i)).toBeInTheDocument();
     expect(screen.getByText(/WAF ACTIVE/i)).toBeInTheDocument();
 
-    // Toggle Under Attack Mode button
-    const attackBtn = screen.getByRole('button', { name: /Kích hoạt Chế độ Khẩn cấp \(Under Attack\)/i });
-    expect(attackBtn).toBeInTheDocument();
-
-    await act(async () => {
-      fireEvent.click(attackBtn);
-      vi.runOnlyPendingTimers();
-    });
-
-    expect(screen.getByRole('button', { name: /ĐANG BẬT BẢO VỆ KHẨN CẤP/i })).toBeInTheDocument();
+    // Nút Under Attack tạm ẩn theo yêu cầu
+    expect(screen.queryByRole('button', { name: /Kích hoạt Chế độ Khẩn cấp \(Under Attack\)/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Activate Under Attack Mode/i })).not.toBeInTheDocument();
 
     // Rate limit presets
     expect(screen.getByRole('button', { name: '30' })).toBeInTheDocument();

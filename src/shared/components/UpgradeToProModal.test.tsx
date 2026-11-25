@@ -119,7 +119,7 @@ describe('UpgradeToProModal', () => {
     expect(screen.getByText('Gói chuyên nghiệp (PRO)')).toBeInTheDocument();
     expect(screen.getByText('Gói thấp hơn gói PRO hiện tại')).toBeInTheDocument();
     expect(screen.getByText('Đang sử dụng')).toBeInTheDocument();
-    expect(screen.getByText(/Gói hiện tại, Gia hạn thêm 1 tuần/i)).toBeInTheDocument();
+    expect(screen.getByText(/Gói hiện tại, Gia hạn thêm 1 (tháng|tuần)/i)).toBeInTheDocument();
   });
 
   it('displays clear active plan indicator when user is currently on PLUS tier', () => {
@@ -132,7 +132,7 @@ describe('UpgradeToProModal', () => {
     // Kiểm tra hiển thị gói hiện tại
     expect(screen.getByText('Gói tiêu chuẩn (PLUS)')).toBeInTheDocument();
     expect(screen.getByText('Đang sử dụng')).toBeInTheDocument();
-    expect(screen.getByText(/Gói hiện tại, Gia hạn thêm 1 tuần/i)).toBeInTheDocument();
+    expect(screen.getByText(/Gói hiện tại, Gia hạn thêm 1 (tháng|tuần)/i)).toBeInTheDocument();
   });
 
   it('hides PLUS card and auto-selects PRO when PLUS is paused by admin', () => {

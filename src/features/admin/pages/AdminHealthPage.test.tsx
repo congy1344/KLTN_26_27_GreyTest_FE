@@ -53,15 +53,15 @@ describe('AdminHealthPage', () => {
     expect(screen.getByRole('heading', { level: 1, name: /Trạng Thái Dịch Vụ & Giám Sát Hệ Thống/i })).toBeInTheDocument();
     expect(screen.getByText(/Quay lại Dashboard/i)).toBeInTheDocument();
 
-    // Tab links to switch between parameters and health
-    expect(screen.getAllByRole('link', { name: /Cấu hình Tham số/i }).length).toBeGreaterThanOrEqual(1);
+    // Navigation links in shell (Cấu hình Tham số tạm thời ẩn)
+    expect(screen.queryByRole('link', { name: /Cấu hình Tham số/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Trạng thái Dịch vụ/i }).length).toBeGreaterThanOrEqual(1);
 
-    // Core services cards
-    expect(screen.getByText('Spring Boot REST API')).toBeInTheDocument();
-    expect(screen.getByText('PostgreSQL database')).toBeInTheDocument();
-    expect(screen.getByText(/Cổng Kết Nối AI/i)).toBeInTheDocument();
-    expect(screen.getByText('JavaParser AST engine')).toBeInTheDocument();
+    // Core services cards removed per request
+    expect(screen.queryByText('Spring Boot REST API')).not.toBeInTheDocument();
+    expect(screen.queryByText('PostgreSQL database')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cổng Kết Nối AI/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('JavaParser AST engine')).not.toBeInTheDocument();
 
     // Live heartbeat chart & terminal log
     expect(screen.getByText(/server-access\.log/i)).toBeInTheDocument();

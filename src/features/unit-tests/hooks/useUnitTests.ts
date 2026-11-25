@@ -5,7 +5,12 @@ const key = (projectId: number, servicePath?: string) => ['unit-tests', projectI
 const filesKey = (projectId: number, servicePath?: string) => ['unit-test-files', projectId, servicePath ?? 'auto'];
 
 export function useUnitTests(projectId: number, servicePath?: string) {
-  return useQuery({ queryKey: key(projectId, servicePath), queryFn: () => fetchUnitTests(projectId, servicePath), enabled: projectId > 0 });
+  return useQuery({
+    queryKey: key(projectId, servicePath),
+    queryFn: () => fetchUnitTests(projectId, servicePath),
+    enabled: projectId > 0,
+    staleTime: 15_000,
+  });
 }
 
 export function useUnitTestFiles(projectId: number, servicePath?: string) {

@@ -20,6 +20,7 @@ export function useBusinessRules(projectId: number, servicePath?: string) {
     queryKey: rulesKey(projectId, servicePath),
     queryFn: () => fetchBusinessRules(projectId, servicePath),
     enabled: projectId > 0,
+    staleTime: 15_000,
   });
 }
 

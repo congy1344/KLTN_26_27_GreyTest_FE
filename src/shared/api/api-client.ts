@@ -49,7 +49,14 @@ export function getLiveRequestMetrics() {
 apiClient.interceptors.request.use((config) => {
   config.headers['Accept-Language'] = getLanguage();
   const token = localStorage.getItem('greytest.token');
-  if (token) {
+  // Đăng nhập GitHub từ /login không gửi kèm token cũ; liên kết GitHub từ dự án bắt buộc còn phiên đăng nhập.
+  const isGithubAuth = config.url?.split('?')[0] === '/auth/github';
+  const isGithubLink =
+    isGithubAuth && typeof sessionStorage !== 'undefined' && sessionStorage.getItem('github_oauth_mode') === 'link';
+  if (isGithubLink && !token) {
+    throw sessionChangedError();
+  }
+  if (token && (!isGithubAuth || isGithubLink)) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
@@ -95,9 +102,18 @@ apiClient.interceptors.request.use((config) => {
 });
 
 function isLoginRequest(config?: InternalAxiosRequestConfig) {
-  return ['/auth/login', '/auth/admin/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'].includes(
-    config?.url?.split('?')[0] ?? ''
-  );
+  const path = config?.url?.split('?')[0] ?? '';
+  if (path === '/auth/github') return !config?.headers?.get('Authorization');
+  return [
+    '/auth/login',
+    '/auth/admin/login',
+    '/auth/register',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+    '/auth/google',
+    '/auth/google-config',
+    '/auth/github-config',
+  ].includes(path);
 }
 
 function belongsToPreviousSession(config?: InternalAxiosRequestConfig) {

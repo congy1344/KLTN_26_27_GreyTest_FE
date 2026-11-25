@@ -62,27 +62,34 @@ export function UpgradeToProModal({
   const isProActive = !hasPackages || Boolean(proPkg);
 
   const formatCycle = (cycle?: string) => {
-    if (!cycle) return '/tuần';
+    if (!cycle) return '/tháng';
     const c = cycle.toUpperCase();
     if (c === 'WEEKLY') return '/tuần';
     if (c === 'YEARLY') return '/năm';
     return '/tháng';
   };
 
+  const formatResetCycleText = (resetCycle?: string) => {
+    const r = (resetCycle || 'WEEKLY').toUpperCase();
+    if (r === 'DAILY') return t('hồi lại hàng ngày', 'resets daily');
+    if (r === 'MONTHLY') return t('hồi lại hàng tháng', 'resets monthly');
+    return t('hồi lại hàng tuần', 'resets weekly');
+  };
+
   const plusPrice = plusPkg ? `${plusPkg.price.toLocaleString('vi-VN')}đ` : '10.000đ';
-  const plusCycle = formatCycle(plusPkg?.cycle ?? 'WEEKLY');
+  const plusCycle = formatCycle(plusPkg?.cycle ?? 'MONTHLY');
   const plusLimit = plusPkg ? `${plusPkg.quotaLimit} lượt gọi AI` : '200 lượt gọi AI';
   const plusConcurrency = plusPkg ? `Sinh tối đa ${plusPkg.batchConcurrency} batch đồng thời` : 'Sinh tối đa 3 batch đồng thời';
-  const plusExtraFeatures = (plusPkg?.features ?? ['Hồi lại hàng tuần']).filter(
-    (f) => !f.toLowerCase().includes('lượt gọi') && !f.toLowerCase().includes('batch')
+  const plusExtraFeatures = (plusPkg?.features ?? ['Ưu tiên xử lý hàng đợi tác vụ']).filter(
+    (f) => !f.toLowerCase().includes('lượt gọi') && !f.toLowerCase().includes('batch') && !f.toLowerCase().includes('hồi lại')
   );
 
   const proPrice = proPkg ? `${proPkg.price.toLocaleString('vi-VN')}đ` : '20.000đ';
-  const proCycle = formatCycle(proPkg?.cycle ?? 'WEEKLY');
+  const proCycle = formatCycle(proPkg?.cycle ?? 'MONTHLY');
   const proLimit = proPkg ? `${proPkg.quotaLimit} lượt gọi AI` : '300 lượt gọi AI';
   const proConcurrency = proPkg ? `Sinh tối đa ${proPkg.batchConcurrency} batch đồng thời` : 'Sinh tối đa 4 batch đồng thời';
-  const proExtraFeatures = (proPkg?.features ?? ['Hồi lại hàng tuần']).filter(
-    (f) => !f.toLowerCase().includes('lượt gọi') && !f.toLowerCase().includes('batch')
+  const proExtraFeatures = (proPkg?.features ?? ['Vòng lặp JaCoCo Refinement tự cải thiện độ bao phủ']).filter(
+    (f) => !f.toLowerCase().includes('lượt gọi') && !f.toLowerCase().includes('batch') && !f.toLowerCase().includes('hồi lại')
   );
 
   const [internalOpen, setInternalOpen] = useState(false);
@@ -316,7 +323,7 @@ export function UpgradeToProModal({
               <ul className="space-y-1.5 text-xs text-heading">
                 <li className="flex items-center gap-1.5 font-medium">
                   <Check size={13} className="shrink-0 text-fg-brand-strong" />
-                  <span><strong>{plusPkg ? plusLimit : t('Chưa có dữ liệu', 'Data unavailable')}</strong> {plusPkg ? plusCycle : ''}</span>
+                  <span><strong>{plusPkg ? plusLimit : t('Chưa có dữ liệu', 'Data unavailable')}</strong> ({formatResetCycleText(plusPkg?.resetCycle)})</span>
                 </li>
                 {plusExtraFeatures.map((feat, idx) => (
                   <li key={idx} className="flex items-center gap-1.5 text-body-subtle">
@@ -398,7 +405,7 @@ export function UpgradeToProModal({
               <ul className="space-y-1.5 text-xs text-heading">
                 <li className="flex items-center gap-1.5 font-medium">
                   <Check size={13} className="shrink-0 text-fg-brand-strong" />
-                  <span><strong>{proPkg ? proLimit : t('Chưa có dữ liệu', 'Data unavailable')}</strong> {proPkg ? proCycle : ''}</span>
+                  <span><strong>{proPkg ? proLimit : t('Chưa có dữ liệu', 'Data unavailable')}</strong> ({formatResetCycleText(proPkg?.resetCycle)})</span>
                 </li>
                 {proExtraFeatures.map((feat, idx) => (
                   <li key={idx} className="flex items-center gap-1.5 text-body-subtle">

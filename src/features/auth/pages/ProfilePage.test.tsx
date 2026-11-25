@@ -171,11 +171,13 @@ describe('ProfilePage', () => {
     expect(screen.getByText('180')).toBeInTheDocument();
     expect(screen.getByText('40%')).toBeInTheDocument();
 
-    // Kiểm tra hiển thị Ngày kích hoạt và Ngày kết thúc chu kỳ cho gói PRO
+    // Kiểm tra hiển thị Thời hạn gói, Bắt đầu chu kỳ và Ngày tự động hồi phục lượt AI
     expect(screen.getAllByText('1/10/2026').length).toBeGreaterThan(0);
     expect(screen.getAllByText('8/10/2026').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Ngày kích hoạt:/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Ngày kết thúc:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Thời hạn gói:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Bắt đầu chu kỳ:/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Tự động hồi phục lượt AI:/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/không phải ngày hết hạn của tài khoản/i)).toBeInTheDocument();
 
     // Đối với Pro, không có nút kêu gọi nâng cấp
     expect(screen.queryByRole('button', { name: /^Nâng cấp gói$/i })).not.toBeInTheDocument();

@@ -11,6 +11,7 @@ import { CoveragePage } from './features/coverage/pages/CoveragePage';
 import { TraceabilityPage } from './features/traceability/pages/TraceabilityPage';
 import { ReportPage } from './features/report/pages/ReportPage';
 import { LoginPage } from './features/auth/pages/LoginPage';
+import { GithubCallbackPage } from './features/auth/pages/GithubCallbackPage';
 import { LandingPage } from './features/landing/pages/LandingPage';
 import { ResetPasswordPage } from './features/auth/pages/ResetPasswordPage';
 import { useCurrentUser } from './features/auth/hooks/useAuth';
@@ -79,6 +80,7 @@ export default function App() {
         <Route path="/register" element={<LoginPage />} />
         <Route path="/forgot-password" element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/auth/callback/github" element={<GithubCallbackPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
         <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />

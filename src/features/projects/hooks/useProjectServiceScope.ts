@@ -4,10 +4,11 @@ import { useProjectServices } from './useProjects';
 export function useProjectServiceScope(projectId: number, enabled = true) {
   const query = useProjectServices(projectId, enabled);
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedPath = searchParams.get('servicePath');
+  const requestedPath = searchParams.get('servicePath')?.trim() || undefined;
   const services = query.data ?? [];
-  const selected = services.find((service) => service.servicePath === requestedPath)
-    ?? services[0];
+  const selected = services.find((service) => service.servicePath === requestedPath) ?? services[0];
+
+  const servicePath = selected?.servicePath ?? requestedPath;
 
   const select = (servicePath: string) => {
     const next = new URLSearchParams(searchParams);
@@ -20,7 +21,7 @@ export function useProjectServiceScope(projectId: number, enabled = true) {
     ...query,
     services,
     selected,
-    servicePath: selected?.servicePath,
+    servicePath,
     requiresSelection: false,
     select,
   };

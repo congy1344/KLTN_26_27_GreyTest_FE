@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, CheckCircle2, CircleDot, Clock, Database, HeartPulse, RefreshCw, Server, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, CircleDot, Clock, RefreshCw } from 'lucide-react';
 import { Tag } from '../../../shared/components/Tag';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -54,23 +54,6 @@ export function AdminHealthPage() {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const renderServiceBadge = (status: string | undefined) => {
-    const s = status ?? 'UNKNOWN';
-    const isOk = s === 'UP' || s === 'ONLINE' || s === 'READY' || s === 'IN_PROCESS';
-    const label =
-      s === 'UP' || s === 'ONLINE'
-        ? (language === 'vi' ? 'Hoạt động' : 'Up')
-        : s === 'READY' || s === 'IN_PROCESS'
-          ? (language === 'vi' ? 'Sẵn sàng' : 'Ready')
-          : (language === 'vi' ? 'Ngừng hoạt động' : 'Down');
-
-    return (
-      <Tag variant="status" tone={isOk ? 'success' : s === 'DOWN' ? 'danger' : 'warning'} icon={isOk ? CheckCircle2 : Clock}>
-        <span>{label}</span>
-      </Tag>
-    );
-  };
 
   const isAllHealthy =
     healthQuery.data?.application === 'UP' &&
@@ -128,65 +111,6 @@ export function AdminHealthPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Service Cards */}
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Spring Boot REST API */}
-            <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="flex h-9 w-9 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong">
-                  <Server size={18} />
-                </span>
-                {renderServiceBadge(healthQuery.data?.application)}
-              </div>
-              <h3 className="mt-3 text-sm font-bold text-heading">Spring Boot REST API</h3>
-              <p className="mt-1 text-xs text-body-subtle">
-                Cổng: 8080, Java 17 LTS, Flyway V30
-              </p>
-            </div>
-
-            {/* PostgreSQL Database */}
-            <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="flex h-9 w-9 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong">
-                  <Database size={18} />
-                </span>
-                {renderServiceBadge(healthQuery.data?.database)}
-              </div>
-              <h3 className="mt-3 text-sm font-bold text-heading">PostgreSQL database</h3>
-              <p className="mt-1 text-xs text-body-subtle">
-                Cơ sở dữ liệu người dùng & tiến trình
-              </p>
-            </div>
-
-            {/* AI Gateway */}
-            <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="flex h-9 w-9 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong">
-                  <Zap size={18} />
-                </span>
-                {renderServiceBadge(healthQuery.data?.llmGateway)}
-              </div>
-              <h3 className="mt-3 text-sm font-bold text-heading">Cổng kết nối AI (LLM)</h3>
-              <p className="mt-1 text-xs text-body-subtle">
-                VietAPI / Google Gemini, Pool Key sẵn sàng
-              </p>
-            </div>
-
-            {/* JavaParser AST */}
-            <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="flex h-9 w-9 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong">
-                  <HeartPulse size={18} />
-                </span>
-                {renderServiceBadge(healthQuery.data?.javaParser)}
-              </div>
-              <h3 className="mt-3 text-sm font-bold text-heading">JavaParser AST engine</h3>
-              <p className="mt-1 text-xs text-body-subtle">
-                Trích xuất AST & Phân tích cấu trúc mã nguồn
-              </p>
-            </div>
-          </section>
-
           {/* Live HTTP Traffic & Anti-DDoS Stream Chart */}
           <SystemHeartbeatPulseChart
             serverThreadCount={healthQuery.data?.threadCount}
@@ -217,7 +141,7 @@ export function AdminHealthPage() {
                   <span>{formatUptime(liveUptime ?? healthQuery.data?.uptimeSeconds, language)}</span>
                 </p>
                 <p className="text-xs text-body-subtle">
-                  {language === 'vi' ? 'Máy chủ chạy ổn định, thời gian đếm giây thực tế' : 'Server operating continuously with live seconds count'}
+                  {language === 'vi' ? 'Máy chủ chạy ổn định' : 'Server operating continuously'}
                 </p>
               </div>
 
