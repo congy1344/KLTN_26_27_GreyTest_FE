@@ -1,9 +1,16 @@
 import { apiClient } from '../../../shared/api/api-client';
+import type { Project } from '../../projects/types';
 import type {
   AuthUser,
   ChangePasswordRequest,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
+  GithubConfigResponse,
+  GithubImportRequest,
+  GithubLoginRequest,
+  GithubRepo,
+  GoogleConfigResponse,
+  GoogleLoginRequest,
   LoginRequest,
   LoginResponse,
   PasswordActionResponse,
@@ -16,6 +23,70 @@ import type {
 export async function login(request: LoginRequest): Promise<LoginResponse> {
   const { data } = await apiClient.post<LoginResponse>('/auth/login', request);
   return data;
+}
+
+/** Lấy cấu hình Google Sign-In từ Backend */
+export async function fetchGoogleConfig(): Promise<GoogleConfigResponse> {
+  const { data } = await apiClient.get<GoogleConfigResponse>('/auth/google-config');
+  return data;
+}
+
+/** Đăng nhập bằng Google Identity Services credential (ID Token) */
+export async function googleLogin(request: GoogleLoginRequest): Promise<LoginResponse> {
+  const { data } = await apiClient.post<LoginResponse>('/auth/google', request);
+  return data;
+}
+
+/** Lấy cấu hình GitHub OAuth từ Backend */
+export async function fetchGithubConfig(): Promise<GithubConfigResponse> {
+  const { data } = await apiClient.get<GithubConfigResponse>('/auth/github-config');
+  return data;
+}
+
+/** Đăng nhập hoặc liên kết bằng GitHub authorization code */
+export async function githubLogin(request: GithubLoginRequest): Promise<LoginResponse> {
+  const { data } = await apiClient.post<LoginResponse>('/auth/github', request);
+  return data;
+}
+
+/** Lấy danh sách GitHub repositories của người dùng hiện tại */
+export async function fetchGithubRepos(): Promise<GithubRepo[]> {
+  const { data } = await apiClient.get<GithubRepo[]>('/github/repos');
+  return data;
+}
+
+/** Import repository từ GitHub vào danh sách dự án */
+export async function importGithubRepo(request: GithubImportRequest): Promise<Project> {
+  const { data } = await apiClient.post<Project>('/github/import', request);
+  return data;
+}
+
+/** Ngắt kết nối tài khoản GitHub khỏi tài khoản GreyTest hiện tại */
+export async function disconnectGithub(): Promise<AuthUser> {
+  const { data } = await apiClient.delete<AuthUser>('/github/disconnect');
+  return data;
+}
+
+/** Tạo state chống CSRF vào sessionStorage và dựng URL cấp quyền GitHub OAuth */
+export function buildGithubAuthorizeUrl(
+  config: GithubConfigResponse,
+  redirectAfterPath: string,
+  mode: 'login' | 'link' = 'login'
+): string {
+  const bytes = new Uint8Array(16);
+  const state =
+    globalThis.crypto?.randomUUID?.() ??
+    (globalThis.crypto?.getRandomValues(bytes),
+      Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join(''));
+  const safeRedirect = redirectAfterPath.startsWith('/') && !redirectAfterPath.startsWith('//')
+    ? redirectAfterPath
+    : '/projects';
+  sessionStorage.setItem('github_oauth_state', state);
+  sessionStorage.setItem('github_redirect_after', safeRedirect);
+  sessionStorage.setItem('github_oauth_mode', mode);
+  const redirectUri = encodeURIComponent(config.redirectUri || `${window.location.origin}/auth/callback/github`);
+  const scope = encodeURIComponent('read:user user:email repo');
+  return `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(config.clientId)}&redirect_uri=${redirectUri}&scope=${scope}&state=${encodeURIComponent(state)}&prompt=select_account`;
 }
 
 export async function adminLogin(request: LoginRequest): Promise<LoginResponse> {

@@ -41,6 +41,7 @@ export interface PublicTierPackage {
   features: string[];
   description: string;
   active: boolean;
+  resetCycle?: string;
 }
 
 export async function fetchPublicTierPackages(): Promise<PublicTierPackage[]> {

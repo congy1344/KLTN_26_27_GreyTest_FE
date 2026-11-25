@@ -9,7 +9,7 @@ interface PipelineStageFlowProps {
   activeStage?: 'BUSINESS_RULE' | 'TEST_PLAN' | 'TEST_CASE' | 'UNIT_TEST';
 }
 
-export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: PipelineStageFlowProps) {
+export function PipelineStageFlow({ overview, activeStage }: PipelineStageFlowProps) {
   const { language } = useLanguage();
   const navigate = useNavigate();
 
@@ -56,7 +56,7 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
       key: 'UNIT_TEST',
       short: 'UT',
       action: 'GENERATE_UNIT_TEST',
-      name: language === 'vi' ? 'Sinh Unit Test (JUnit 5)' : 'JUnit 5 Generation',
+      name: language === 'vi' ? 'Sinh Unit Test' : 'Unit Tests Generation',
       desc: language === 'vi' ? 'Mockito & AssertJ Code' : 'Synthesized Test Classes',
       count: `${utCount.toLocaleString()} tests`,
       hasData: utCount > 0,
@@ -84,11 +84,6 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
           <h3 className="mt-1 text-lg sm:text-xl font-extrabold text-heading">
             {language === 'vi' ? 'Trạng thái tiến trình BR → TP → TC → UT' : 'Pipeline Progression: BR → TP → TC → UT'}
           </h3>
-          <p className="mt-0.5 text-xs text-body-subtle">
-            {language === 'vi'
-              ? 'Tiến trình trích xuất quy tắc nghiệp vụ từ AST đến sinh mã nguồn Unit Test JUnit 5 hoàn chỉnh trên toàn hệ thống.'
-              : 'End-to-end Grey-box progression from AST business rules to executable JUnit 5 test classes.'}
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <Tag variant="status" tone="brand" icon={CircleDot}>
@@ -97,7 +92,7 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stages.map((stage, idx) => {
           const Icon = stage.icon;
           const isLast = idx === stages.length - 1;
@@ -115,18 +110,18 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
                 }
               }}
               title={language === 'vi' ? `Xem nhật ký tác vụ ${stage.name}` : `View ${stage.name} job logs`}
-              className={`group relative flex flex-col justify-between rounded-base border p-4 sm:p-5 transition-colors cursor-pointer select-none ${
-                isActive
-                  ? 'border-brand bg-brand-softer/30 shadow-xs ring-2 ring-brand/30'
-                  : 'border-border-default-subtle bg-neutral-secondary-soft/60 hover:bg-neutral-secondary-soft hover:border-brand/60 hover:shadow-xs'
-              }`}
+              className={`group relative flex h-full min-w-0 flex-col justify-between rounded-base border p-4 sm:p-5 transition-colors cursor-pointer select-none ${isActive
+                ? 'border-brand bg-brand-softer/30 shadow-xs ring-2 ring-brand/30'
+                : 'border-border-default-subtle bg-neutral-secondary-soft/60 hover:border-brand hover:bg-brand-softer/30 hover:shadow-xs hover:ring-2 hover:ring-brand/30'
+                }`}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-control bg-brand-softer text-sm font-sans font-semibold text-fg-brand-strong group-hover:bg-brand-soft transition-colors">
+              {/* Giữ chiều cao tối thiểu vùng tiêu đề để đường kẻ chân thẻ thẳng hàng khi tên giai đoạn xuống 2 dòng */}
+              <div className="flex min-h-[2.75rem] items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control bg-brand-softer text-sm font-sans font-semibold text-fg-brand-strong group-hover:bg-brand-soft transition-colors">
                     {stage.short}
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="text-sm sm:text-base font-bold text-heading group-hover:text-fg-brand-strong transition-colors">
                       {stage.name}
                     </h4>
@@ -136,13 +131,14 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
                 <Icon size={18} className="text-body-subtle shrink-0 mt-0.5" />
               </div>
 
-              <div className="mt-4 flex items-center justify-between border-t border-border-default-subtle pt-2.5 text-xs">
+              {/* Cố định chân thẻ 2 dòng để đường kẻ ngang thẳng hàng ngay cả ở viewport 1280px–1366px */}
+              <div className="mt-4 flex flex-col items-start gap-1 border-t border-border-default-subtle pt-2.5 text-xs">
                 <div>
-                  <span className="font-sans tabular-nums text-base sm:text-lg font-extrabold text-heading">
+                  <span className="whitespace-nowrap font-sans tabular-nums text-base sm:text-lg font-extrabold text-heading">
                     {stage.count}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 font-sans text-xs font-semibold text-fg-brand-strong group-hover:underline">
+                <div className="flex items-center gap-1 whitespace-nowrap font-sans text-xs font-semibold text-fg-brand-strong group-hover:underline">
                   {stage.hasData ? (
                     <>
                       <CheckCircle2 size={13} className="text-fg-success-strong" />
@@ -159,7 +155,7 @@ export function PipelineStageFlow({ overview, activeStage = 'UNIT_TEST' }: Pipel
               </div>
 
               {!isLast && (
-                <div className="hidden md:absolute -right-3 top-1/2 -translate-y-1/2 z-10 text-body-subtle pointer-events-none">
+                <div className="hidden xl:block xl:absolute -right-3 top-1/2 -translate-y-1/2 z-10 text-body-subtle pointer-events-none">
                   <ChevronRight size={18} />
                 </div>
               )}

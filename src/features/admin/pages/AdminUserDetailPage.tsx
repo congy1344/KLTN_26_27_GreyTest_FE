@@ -2,7 +2,7 @@ import { SelectMenu } from '../../../shared/components/SelectMenu';
 import { Activity, AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, CircleDot, Crown, FolderKanban, Gauge, Lock, LogIn, Mail, Monitor, Pencil, RefreshCw, RotateCcw, Save, ShieldCheck, Smartphone, TestTube2, Unlock, UserRound, X, Zap } from 'lucide-react';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Tag } from '../../../shared/components/Tag';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -17,16 +17,65 @@ import { useLanguage } from '../../../shared/i18n/language';
 import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import type { UpdateUserRequest, UserRole, UserTier } from '../types';
 
+const LOGIN_HISTORY_PAGE_SIZE = 5;
+const RECENT_ACTIVITIES_PAGE_SIZE = 5;
+const PROJECTS_PAGE_SIZE = 5;
+
+function paginateList<T>(items: T[], page: number, pageSize: number) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, Math.max(0, totalPages - 1));
+  const start = safePage * pageSize;
+  return { slice: items.slice(start, start + pageSize), safePage, totalPages };
+}
+
+function CardPagination({
+  safePage,
+  totalPages,
+  countText,
+  language,
+  onPageChange,
+}: {
+  safePage: number;
+  totalPages: number;
+  countText?: string;
+  language: string;
+  onPageChange: (updater: (p: number) => number) => void;
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border-default-subtle pt-2.5 text-xs text-body-subtle">
+      <span>
+        {language === 'vi'
+          ? `Trang ${safePage + 1} / ${totalPages}${countText ? ` (${countText})` : ''}`
+          : `Page ${safePage + 1} of ${totalPages}${countText ? ` (${countText})` : ''}`}
+      </span>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          disabled={safePage <= 0}
+          onClick={() => onPageChange((p) => Math.max(p - 1, 0))}
+          className="btn btn-secondary px-2.5 py-1 text-xs rounded-control disabled:opacity-50"
+        >
+          {language === 'vi' ? 'Trang trước' : 'Previous'}
+        </button>
+        <button
+          type="button"
+          disabled={safePage + 1 >= totalPages}
+          onClick={() => onPageChange((p) => p + 1)}
+          className="btn btn-secondary px-2.5 py-1 text-xs rounded-control disabled:opacity-50"
+        >
+          {language === 'vi' ? 'Trang sau' : 'Next'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Hồ sơ quản trị tổng hợp thông tin tài khoản, gói tier, quota, dự án và lịch sử gần nhất. */
 export function AdminUserDetailPage() {
   const { t, language } = useLanguage();
   const id = Number(useParams().id);
   const query = useAdminUser(id);
   const mutations = useAdminUserMutations();
-
-  // Tier change state
-  const [tierModalOpen, setTierModalOpen] = useState(false);
-  const [selectedTier, setSelectedTier] = useState<UserTier>('FREE');
 
   // Quota edit state
   const [quotaModalOpen, setQuotaModalOpen] = useState(false);
@@ -48,13 +97,42 @@ export function AdminUserDetailPage() {
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   // Edit action confirmation dialogs
-  const [confirmTierOpen, setConfirmTierOpen] = useState(false);
   const [confirmQuotaOpen, setConfirmQuotaOpen] = useState(false);
   const [confirmEditOpen, setConfirmEditOpen] = useState(false);
 
   // Status toggle confirmation
   const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
   const [lockReason, setLockReason] = useState('');
+
+  // Phân trang danh sách lịch sử đăng nhập, hoạt động và dự án
+  const [loginPage, setLoginPage] = useState(0);
+  const [activityPage, setActivityPage] = useState(0);
+  const [projectPage, setProjectPage] = useState(0);
+
+  // Đặt lại trang khi chuyển sang người dùng khác
+  useEffect(() => {
+    setLoginPage(0);
+    setActivityPage(0);
+    setProjectPage(0);
+  }, [id]);
+
+  const loginHistoryList = query.data?.loginHistory ?? [];
+  const { slice: paginatedLoginHistory, safePage: safeLoginPage, totalPages: loginTotalPages } = useMemo(
+    () => paginateList(loginHistoryList, loginPage, LOGIN_HISTORY_PAGE_SIZE),
+    [loginHistoryList, loginPage],
+  );
+
+  const activitiesList = query.data?.recentActivities ?? [];
+  const { slice: paginatedActivities, safePage: safeActivityPage, totalPages: activityTotalPages } = useMemo(
+    () => paginateList(activitiesList, activityPage, RECENT_ACTIVITIES_PAGE_SIZE),
+    [activitiesList, activityPage],
+  );
+
+  const projectsList = query.data?.projects ?? [];
+  const { slice: paginatedProjects, safePage: safeProjectPage, totalPages: projectTotalPages } = useMemo(
+    () => paginateList(projectsList, projectPage, PROJECTS_PAGE_SIZE),
+    [projectsList, projectPage],
+  );
 
   const user = query.data?.user;
   const { data: currentUser } = useCurrentUser();
@@ -96,30 +174,6 @@ export function AdminUserDetailPage() {
         query.refetch();
       },
       onError: () => setConfirmEditOpen(false),
-    });
-  };
-
-  const handleOpenTierModal = () => {
-    if (!user) return;
-    setSelectedTier(user.tier || 'FREE');
-    setTierModalOpen(true);
-  };
-
-  const handleSaveTier = (e: FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setConfirmTierOpen(true);
-  };
-
-  const handleConfirmSaveTier = () => {
-    if (!user) return;
-    mutations.tier.mutate({ id: user.id, tier: selectedTier }, {
-      onSuccess: () => {
-        setConfirmTierOpen(false);
-        setTierModalOpen(false);
-        query.refetch();
-      },
-      onError: () => setConfirmTierOpen(false),
     });
   };
 
@@ -229,18 +283,10 @@ export function AdminUserDetailPage() {
                   <span>{formatSemanticLabel(user.role, language)}</span>
                 </Tag>
 
-                {/* Tier Badge with Quick Edit */}
-                <button
-                  type="button"
-                  onClick={handleOpenTierModal}
-                  className="btn btn-ghost rounded-control p-0"
-                  title="Nhấn để nâng cấp hoặc đổi gói Tier"
-                >
-                  <Tag variant="status" tone={user.tier === 'PRO' || user.tier === 'PLUS' ? 'brand' : 'neutral'} icon={user.tier === 'PRO' ? Crown : Zap}>
-                    <span>Gói {user.tier || 'FREE'}</span>
-                  </Tag>
-                  <Pencil size={13} aria-hidden="true" />
-                </button>
+                {/* Tier Badge */}
+                <Tag variant="status" tone={user.tier === 'PRO' || user.tier === 'PLUS' ? 'brand' : 'neutral'} icon={user.tier === 'PRO' ? Crown : Zap}>
+                  <span>Gói {user.tier || 'FREE'}</span>
+                </Tag>
 
                 {/* Edit User Button */}
                 <button
@@ -396,9 +442,12 @@ export function AdminUserDetailPage() {
 
               {/* Projects Card */}
               <GlassCard>
-                <h3 className="font-semibold text-heading">Dự án đã liên kết</h3>
+                <div className="flex items-center justify-between border-b border-border-default pb-3">
+                  <h3 className="font-semibold text-heading">Dự án đã liên kết</h3>
+                  <span className="text-xs text-body-subtle font-sans tabular-nums">{projectsList.length} dự án</span>
+                </div>
                 <div className="mt-4 space-y-2.5">
-                  {query.data.projects.map((project) => (
+                  {paginatedProjects.map((project) => (
                     <div key={project.id} className="rounded-base border border-border-default p-3 flex justify-between items-center bg-neutral-primary-soft">
                       <div>
                         <p className="font-semibold text-heading text-xs">{project.name}</p>
@@ -409,10 +458,19 @@ export function AdminUserDetailPage() {
                       </Tag>
                     </div>
                   ))}
-                  {!query.data.projects.length && (
+                  {!projectsList.length && (
                     <EmptyState icon={FolderKanban} title="Chưa có dự án" minHeight="min-h-[140px]" />
                   )}
                 </div>
+
+                {projectsList.length > PROJECTS_PAGE_SIZE && (
+                  <CardPagination
+                    safePage={safeProjectPage}
+                    totalPages={projectTotalPages}
+                    language={language}
+                    onPageChange={setProjectPage}
+                  />
+                )}
               </GlassCard>
             </div>
 
@@ -456,7 +514,7 @@ export function AdminUserDetailPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-default-subtle">
-                      {(query.data.loginHistory ?? []).map((lh) => {
+                      {paginatedLoginHistory.map((lh) => {
                         const isSuccess = lh.status === 'SUCCESS' || lh.status === 'ACTIVE';
                         const isMobile = lh.device?.toLowerCase().includes('mobile') || lh.device?.toLowerCase().includes('android') || lh.device?.toLowerCase().includes('iphone');
 
@@ -507,7 +565,7 @@ export function AdminUserDetailPage() {
                     </tbody>
                   </table>
 
-                  {(!query.data.loginHistory || query.data.loginHistory.length === 0) && (
+                  {(!loginHistoryList.length) && (
                     <div className="py-6 text-center">
                       <EmptyState
                         icon={LogIn}
@@ -517,13 +575,25 @@ export function AdminUserDetailPage() {
                       />
                     </div>
                   )}
-                  {query.data.loginHistory && query.data.loginHistory.length > 0 && (
+
+                  {loginHistoryList.length > LOGIN_HISTORY_PAGE_SIZE && (
+                    <CardPagination
+                      safePage={safeLoginPage}
+                      totalPages={loginTotalPages}
+                      countText={language === 'vi' ? `${loginHistoryList.length} phiên` : `${loginHistoryList.length} sessions`}
+                      language={language}
+                      onPageChange={setLoginPage}
+                    />
+                  )}
+
+                  {loginHistoryList.length > 0 && (
                     <div className="mt-3 border-t border-border-default-subtle pt-2.5 text-right">
                       <Link
                         to={`/admin/activity?action=USER_LOGIN&userSearch=${encodeURIComponent(query.data.user.email)}`}
                         className="inline-flex items-center gap-1 text-xs font-semibold text-fg-brand-strong hover:underline"
                       >
-                        <span>Tra cứu toàn bộ lịch sử đăng nhập tại Nhật ký hoạt động</span><ArrowRight size={14} aria-hidden="true" />
+                        <span>{language === 'vi' ? 'Tra cứu toàn bộ lịch sử đăng nhập tại Nhật ký hoạt động' : 'Search all login history in Activity Logs'}</span>
+                        <ArrowRight size={14} aria-hidden="true" />
                       </Link>
                     </div>
                   )}
@@ -542,11 +612,11 @@ export function AdminUserDetailPage() {
                   </Link>
                 </div>
                 <div className="mt-4 space-y-1 divide-y divide-border-default-subtle">
-                  {query.data.recentActivities.map((item) => (
+                  {paginatedActivities.map((item) => (
                     <div key={item.id} className="flex gap-3 p-3 hover:bg-neutral-secondary-soft/50 rounded-base transition-colors">
                       <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" />
                       <div>
-                        <p className="text-xs font-semibold text-heading">{activityLabel(item.actionType)}</p>
+                        <p className="text-xs font-semibold text-heading">{activityLabel(item.actionType, item.metadata)}</p>
                         <p className="mt-0.5 text-xs text-body-subtle">
                           {new Date(item.createdAt).toLocaleString('vi-VN')}
                           {item.projectId ? `, Project #${item.projectId}` : ''}
@@ -559,61 +629,23 @@ export function AdminUserDetailPage() {
                       </div>
                     </div>
                   ))}
-                  {!query.data.recentActivities.length && (
+                  {!activitiesList.length && (
                     <EmptyState icon={Activity} title="Chưa có hoạt động" minHeight="min-h-[220px]" />
                   )}
                 </div>
+
+                {activitiesList.length > RECENT_ACTIVITIES_PAGE_SIZE && (
+                  <CardPagination
+                    safePage={safeActivityPage}
+                    totalPages={activityTotalPages}
+                    countText={language === 'vi' ? `${activitiesList.length} hoạt động` : `${activitiesList.length} activities`}
+                    language={language}
+                    onPageChange={setActivityPage}
+                  />
+                )}
               </GlassCard>
             </div>
           </div>
-
-          {/* Modal Đổi Gói Tier */}
-          {tierModalOpen && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-primary/75 px-4 backdrop-blur-sm"
-              onMouseDown={(e) => e.target === e.currentTarget && setTierModalOpen(false)}
-            >
-              <form style={{ boxShadow: 'var(--shadow-lg)' }} onSubmit={handleSaveTier} className="w-full max-w-sm rounded-base border border-border-default bg-neutral-primary-soft p-5 shadow-lg">
-                <div className="flex items-center justify-between border-b border-border-default pb-3">
-                  <div className="flex items-center gap-2 text-fg-brand-strong">
-                    <Crown size={16} />
-                    <h3 className="text-sm font-bold text-heading">Cập nhật gói Tier dịch vụ</h3>
-                  </div>
-                  <IconButton onClick={() => setTierModalOpen(false)} label="Đóng" icon={X} />
-                </div>
-
-                <div className="mt-4 space-y-3 text-xs">
-                  <p className="text-body-subtle">
-                    Chọn gói dịch vụ muốn áp dụng cho <strong>{user.email}</strong>:
-                  </p>
-                  <label className="block">
-                    <SelectMenu
-                      value={selectedTier}
-                      onChange={(selectedValue) => setSelectedTier(selectedValue as UserTier)}
-                      aria-label={'Gói dịch vụ'}
-                      options={[{ value: String("FREE"), label: "FREE - 100 lượt gọi/tháng, 2 batch song song" }, { value: String("PLUS"), label: "PLUS - 200 lượt gọi/tuần, 4 batch song song" }, { value: String("PRO"), label: "PRO - 300 lượt gọi/tháng, 8 batch, JaCoCo Refinement" }]}
-                    />
-                  </label>
-                </div>
-
-                {mutations.tier?.error && (
-                  <p role="alert" className="mt-3 text-xs text-fg-danger-strong bg-danger-soft p-2.5 rounded-base">
-                    {getErrorMessage(mutations.tier.error)}
-                  </p>
-                )}
-
-                <div className="mt-6 flex justify-end gap-2">
-                  <button type="button" className="btn btn-secondary text-xs" onClick={() => setTierModalOpen(false)}>
-                    Hủy
-                  </button>
-                  <button type="submit" className="btn btn-brand text-xs flex items-center gap-1" disabled={mutations.tier.isPending}>
-                    <Save size={13} />
-                    <span>Lưu gói Tier</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
 
           {/* Modal Sửa Quota */}
           {quotaModalOpen && (
@@ -867,25 +899,6 @@ export function AdminUserDetailPage() {
               </form>
             </div>
           )}
-
-          {/* Confirm Đổi Gói Tier */}
-          <ConfirmDialog
-            open={confirmTierOpen}
-            variant="brand"
-            title={language === 'vi' ? 'Xác nhận thay đổi gói Tier?' : 'Confirm Subscription Tier Change?'}
-            description={
-              user
-                ? language === 'vi'
-                  ? `Bạn có chắc muốn chuyển tài khoản ${user.email} sang gói ${selectedTier}? Thay đổi này sẽ cập nhật trực tiếp giới hạn gọi LLM và luồng xử lý.`
-                  : `Are you sure you want to change subscription tier for ${user.email} to ${selectedTier}?`
-                : ''
-            }
-            confirmLabel={language === 'vi' ? 'Xác nhận đổi gói' : 'Confirm Change'}
-            cancelLabel={language === 'vi' ? 'Hủy' : 'Cancel'}
-            pending={mutations.tier.isPending}
-            onCancel={() => setConfirmTierOpen(false)}
-            onConfirm={handleConfirmSaveTier}
-          />
 
           {/* Confirm Sửa Quota */}
           <ConfirmDialog

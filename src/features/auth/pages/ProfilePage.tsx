@@ -692,17 +692,38 @@ export function ProfilePage() {
               </p>
             </div>
             {quota && (
-              <div className="flex items-center gap-3 text-xs text-body-subtle">
-                {formattedPeriodStart && (
+              <div className="space-y-1 text-xs">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-subtle">
                   <span className="flex items-center gap-1">
-                    <Calendar size={13} /> {t('Ngày kích hoạt:', 'Started:')} <span>{formattedPeriodStart}</span>
+                    <Shield size={13} className="text-fg-brand shrink-0" />
+                    <span>{t('Thời hạn gói:', 'Plan validity:')}</span>
+                    <strong className="font-semibold text-heading">
+                      {isCurrentFree
+                        ? t('Vĩnh viễn (Miễn phí)', 'Permanent (Free)')
+                        : t('Duy trì liên tục (đến khi hủy gói)', 'Active until canceled')}
+                    </strong>
                   </span>
-                )}
-                {formattedResetDate && (
-                  <span className="flex items-center gap-1">
-                    <Calendar size={13} /> {t('Ngày kết thúc:', 'Ends:')} <span>{formattedResetDate}</span>
-                  </span>
-                )}
+                  {formattedPeriodStart && (
+                    <span className="flex items-center gap-1">
+                      <Calendar size={13} className="text-body-subtle shrink-0" />
+                      <span>{t('Bắt đầu chu kỳ:', 'Cycle started:')}</span>
+                      <strong className="font-semibold text-heading">{formattedPeriodStart}</strong>
+                    </span>
+                  )}
+                  {formattedResetDate && (
+                    <span className="flex items-center gap-1">
+                      <Clock size={13} className="text-fg-brand shrink-0" />
+                      <span>{t('Tự động hồi phục lượt AI:', 'Quota resets on:')}</span>
+                      <strong className="font-semibold text-heading">{formattedResetDate}</strong>
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-body-subtle">
+                  {t(
+                    '* Ngày hồi phục lượt AI chỉ làm mới số lượt gọi AI về 0 theo chu kỳ, không phải ngày hết hạn của tài khoản.',
+                    '* The reset date only refreshes your AI credits to 0 for the new cycle; your plan remains active.'
+                  )}
+                </p>
               </div>
             )}
           </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatActivityMetadata } from './activity-presentation';
+import { activityLabel, formatActivityMetadata } from './activity-presentation';
 
 describe('formatActivityMetadata', () => {
   it('shows previous and new roles instead of a legacy role', () => {
@@ -21,5 +21,17 @@ describe('formatActivityMetadata', () => {
   it('keeps legacy metadata readable', () => {
     expect(formatActivityMetadata({ targetUserId: 9, enabled: true, role: 'ADMIN' }))
       .toBe('Tài khoản #9 · Đã mở khóa · Vai trò ADMIN');
+  });
+
+  it('formats feedback status and admin sub-action labels accurately', () => {
+    expect(activityLabel('ADMIN_STATUS_CHANGE', { action: 'UPDATE_FEEDBACK_STATUS' }))
+      .toBe('Xử lý phản hồi người dùng');
+    expect(activityLabel('ADMIN_STATUS_CHANGE', { action: 'BLOCK_IP' }))
+      .toBe('Chặn địa chỉ IP (WAF)');
+    expect(activityLabel('ADMIN_STATUS_CHANGE'))
+      .toBe('Đổi trạng thái tài khoản');
+
+    expect(formatActivityMetadata({ action: 'UPDATE_FEEDBACK_STATUS', id: 13, status: 'RESOLVED' }))
+      .toBe('Trạng thái: Đã giải quyết · Phản hồi #13');
   });
 });

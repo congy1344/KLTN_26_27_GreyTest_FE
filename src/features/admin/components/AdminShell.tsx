@@ -12,8 +12,6 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
-  Search,
-  Sliders,
   Users,
   X,
 } from 'lucide-react';
@@ -28,6 +26,50 @@ import { ThemeToggle } from '../../../shared/components/ThemeToggle';
 interface AdminShellProps {
   children: ReactNode;
 }
+
+interface AdminNavItem {
+  to: string;
+  end?: boolean;
+  icon: typeof Gauge;
+  labelVi: string;
+  labelEn: string;
+  showHealthDot?: boolean;
+}
+
+const ADMIN_NAV_GROUPS: ReadonlyArray<{ titleVi: string; titleEn: string; items: readonly AdminNavItem[] }> = [
+  {
+    titleVi: 'Tổng quan',
+    titleEn: 'Overview',
+    items: [
+      { to: '/admin', end: true, icon: Gauge, labelVi: 'Dashboard tổng quan', labelEn: 'Dashboard Overview' },
+    ],
+  },
+  {
+    titleVi: 'Vận hành kiểm thử AI',
+    titleEn: 'AI & Test Operations',
+    items: [
+      { to: '/admin/jobs', icon: Layers, labelVi: 'Hàng đợi sinh test', labelEn: 'Test Gen Jobs' },
+      { to: '/admin/ai-providers', icon: Cpu, labelVi: 'Cổng AI & Model key', labelEn: 'AI Providers & Keys' },
+      { to: '/admin/quotas', icon: BarChart3, labelVi: 'Hạn ngạch & quota', labelEn: 'Usage & Quotas' },
+    ],
+  },
+  {
+    titleVi: 'Quản trị người dùng',
+    titleEn: 'Administration',
+    items: [
+      { to: '/admin/users', icon: Users, labelVi: 'Danh sách người dùng', labelEn: 'User Accounts' },
+      { to: '/admin/feedback', icon: MessageSquareText, labelVi: 'Phản hồi người dùng', labelEn: 'User Feedbacks' },
+      { to: '/admin/activity', icon: Activity, labelVi: 'Nhật ký hoạt động', labelEn: 'Audit Activity Logs' },
+    ],
+  },
+  {
+    titleVi: 'Hệ thống',
+    titleEn: 'System',
+    items: [
+      { to: '/admin/health', icon: HeartPulse, labelVi: 'Trạng thái dịch vụ', labelEn: 'Service Health', showHealthDot: true },
+    ],
+  },
+];
 
 export function AdminShell({ children }: AdminShellProps) {
   const { data: user } = useCurrentUser();
@@ -83,20 +125,6 @@ export function AdminShell({ children }: AdminShellProps) {
               </span>
             </div>
           </Link>
-
-          {/* Quick search input */}
-          <div className="relative hidden xl:block">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-body-subtle" />
-            <input
-              type="text"
-              readOnly
-              placeholder={language === 'vi' ? 'Tìm nhanh dự án, tác vụ, user... (Ctrl+K)' : 'Quick search... (Ctrl+K)'}
-              className="form-input h-10 w-72 rounded-control border border-border-default bg-neutral-secondary-soft pl-9 pr-9 text-xs sm:text-sm text-heading placeholder:text-body-subtle focus:border-brand focus:outline-hidden"
-            />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded-base border border-border-default bg-neutral-primary-soft px-2 py-0.5 text-xs font-sans font-semibold text-body-subtle">
-              ⌘K
-            </kbd>
-          </div>
         </div>
 
         {/* Right side controls */}
@@ -149,42 +177,15 @@ export function AdminShell({ children }: AdminShellProps) {
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-border-default bg-neutral-primary-soft p-5 shadow-md z-30">
           <nav className="space-y-1.5">
-            <NavLink end to="/admin" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
-              <Gauge size={18} />
-              <span>{language === 'vi' ? 'Dashboard tổng quan' : 'Dashboard Overview'}</span>
-            </NavLink>
-            <NavLink to="/admin/jobs" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
-              <Layers size={18} />
-              <span>{language === 'vi' ? 'Hàng đợi sinh test' : 'Test Gen Jobs'}</span>
-            </NavLink>
-            <NavLink to="/admin/ai-providers" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
-              <Cpu size={18} />
-              <span>{language === 'vi' ? 'Cổng AI & Model key' : 'AI Providers & Keys'}</span>
-            </NavLink>
-            <NavLink to="/admin/quotas" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
-              <BarChart3 size={18} />
-              <span>{language === 'vi' ? 'Hạn ngạch & quota' : 'Usage & Quotas'}</span>
-            </NavLink>
-            <NavLink to="/admin/users" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
-              <Users size={18} />
-              <span>{language === 'vi' ? 'Danh sách người dùng' : 'User Accounts'}</span>
-            </NavLink>
-            <NavLink to="/admin/feedback" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
-              <MessageSquareText size={18} />
-              <span>{language === 'vi' ? 'Phản hồi người dùng' : 'User Feedbacks'}</span>
-            </NavLink>
-            <NavLink to="/admin/activity" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
-              <Activity size={18} />
-              <span>{language === 'vi' ? 'Nhật ký hoạt động' : 'Audit Activity Logs'}</span>
-            </NavLink>
-            <NavLink to="/admin/health" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
-              <HeartPulse size={18} />
-              <span>{language === 'vi' ? 'Trạng thái dịch vụ' : 'Service Health'}</span>
-            </NavLink>
-            <NavLink to="/admin/settings" onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
-              <Sliders size={18} />
-              <span>{language === 'vi' ? 'Cấu hình tham số' : 'System Settings'}</span>
-            </NavLink>
+            {ADMIN_NAV_GROUPS.flatMap((g) => g.items).map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink key={item.to} end={'end' in item ? item.end : undefined} to={item.to} onClick={() => setMobileMenuOpen(false)} className={mobileNavItemClass}>
+                  <Icon size={18} />
+                  <span>{language === 'vi' ? item.labelVi : item.labelEn}</span>
+                </NavLink>
+              );
+            })}
           </nav>
           <div className="mt-5 pt-4 border-t border-border-default-subtle">
             <Link
@@ -207,81 +208,30 @@ export function AdminShell({ children }: AdminShellProps) {
           aria-label="Admin Navigation"
         >
           <div className="space-y-4">
-            {/* Group 1: OVERVIEW */}
-            <div>
-              <p className="px-3 text-xs font-semibold text-body-subtle pb-1 pt-1">
-                {language === 'vi' ? 'Tổng quan' : 'Overview'}
-              </p>
-              <nav className="space-y-1">
-                <NavLink end to="/admin" className={navItemClass}>
-                  <Gauge size={17} />
-                  <span>{language === 'vi' ? 'Dashboard tổng quan' : 'Dashboard Overview'}</span>
-                </NavLink>
-              </nav>
-            </div>
-
-            {/* Group 2: AI & TEST OPS */}
-            <div>
-              <p className="px-3 text-xs font-semibold text-body-subtle pb-1 pt-1">
-                {language === 'vi' ? 'Vận hành kiểm thử AI' : 'AI & Test Operations'}
-              </p>
-              <nav className="space-y-1">
-                <NavLink to="/admin/jobs" className={navItemClass}>
-                  <Layers size={17} />
-                  <span>{language === 'vi' ? 'Hàng đợi sinh test' : 'Test Gen Jobs'}</span>
-                </NavLink>
-                <NavLink to="/admin/ai-providers" className={navItemClass}>
-                  <Cpu size={17} />
-                  <span>{language === 'vi' ? 'Cổng AI & Model key' : 'AI Providers & Keys'}</span>
-                </NavLink>
-                <NavLink to="/admin/quotas" className={navItemClass}>
-                  <BarChart3 size={17} />
-                  <span>{language === 'vi' ? 'Hạn ngạch & quota' : 'Usage & Quotas'}</span>
-                </NavLink>
-              </nav>
-            </div>
-
-            {/* Group 3: ADMINISTRATION */}
-            <div>
-              <p className="px-3 text-xs font-semibold text-body-subtle pb-1 pt-1">
-                {language === 'vi' ? 'Quản trị người dùng' : 'Administration'}
-              </p>
-              <nav className="space-y-1">
-                <NavLink to="/admin/users" className={navItemClass}>
-                  <Users size={17} />
-                  <span>{language === 'vi' ? 'Danh sách người dùng' : 'User Accounts'}</span>
-                </NavLink>
-                <NavLink to="/admin/feedback" className={navItemClass}>
-                  <MessageSquareText size={17} />
-                  <span>{language === 'vi' ? 'Phản hồi người dùng' : 'User Feedbacks'}</span>
-                </NavLink>
-                <NavLink to="/admin/activity" className={navItemClass}>
-                  <Activity size={17} />
-                  <span>{language === 'vi' ? 'Nhật ký hoạt động' : 'Audit Activity Logs'}</span>
-                </NavLink>
-              </nav>
-            </div>
-
-            {/* Group 4: SYSTEM */}
-            <div>
-              <p className="px-3 text-xs font-semibold text-body-subtle pb-1 pt-1">
-                {language === 'vi' ? 'Hệ thống' : 'System'}
-              </p>
-              <nav className="space-y-1">
-                <NavLink to="/admin/health" className={navItemClass}>
-                  <HeartPulse size={17} />
-                  <span>{language === 'vi' ? 'Trạng thái dịch vụ' : 'Service Health'}</span>
-                  <span
-                    className={`ml-auto h-2 w-2 rounded-full ${isHealthy ? 'bg-success' : 'bg-warning'}`}
-                    title={isHealthy ? 'Tất cả dịch vụ hoạt động tốt' : 'Có cảnh báo'}
-                  />
-                </NavLink>
-                <NavLink to="/admin/settings" className={navItemClass}>
-                  <Sliders size={17} />
-                  <span>{language === 'vi' ? 'Cấu hình tham số' : 'System Settings'}</span>
-                </NavLink>
-              </nav>
-            </div>
+            {ADMIN_NAV_GROUPS.map((group) => (
+              <div key={group.titleEn}>
+                <p className="px-3 text-xs font-semibold text-body-subtle pb-1 pt-1">
+                  {language === 'vi' ? group.titleVi : group.titleEn}
+                </p>
+                <nav className="space-y-1">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <NavLink key={item.to} end={'end' in item ? item.end : undefined} to={item.to} className={navItemClass}>
+                        <Icon size={17} />
+                        <span>{language === 'vi' ? item.labelVi : item.labelEn}</span>
+                        {'showHealthDot' in item && item.showHealthDot && (
+                          <span
+                            className={`ml-auto h-2 w-2 rounded-full ${isHealthy ? 'bg-success' : 'bg-warning'}`}
+                            title={isHealthy ? 'Tất cả dịch vụ hoạt động tốt' : 'Có cảnh báo'}
+                          />
+                        )}
+                      </NavLink>
+                    );
+                  })}
+                </nav>
+              </div>
+            ))}
           </div>
 
           {/* Compact Single-line Sidebar Footer */}

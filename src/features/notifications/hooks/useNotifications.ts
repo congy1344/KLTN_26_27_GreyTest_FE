@@ -38,9 +38,9 @@ export function useNotifications() {
     queryKey: ['user', 'notifications'],
     queryFn: fetchUserNotifications,
     enabled: Boolean(localStorage.getItem('greytest.token')),
-    refetchInterval: 3_000, // Tự động refetch mỗi 3 giây khi tab đang active để cập nhật phản hồi admin realtime
-    refetchOnWindowFocus: true,
-    staleTime: 1_000,
+    refetchInterval: 60_000, // Tự động kiểm tra định kỳ 60 giây khi idle
+    refetchOnWindowFocus: false, // Tắt tự động refetch mỗi khi chuyển tab để tránh spam API
+    staleTime: 30_000,
   });
 
   // Lắng nghe tín hiệu đồng bộ giữa các tab hoặc từ các mutation phản hồi

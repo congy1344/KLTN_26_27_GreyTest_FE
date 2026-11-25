@@ -2,7 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminUsersPage } from './AdminUsersPage';
 import type { AdminUser } from '../types';
@@ -68,10 +68,13 @@ describe('AdminUsersPage', () => {
     expect(screen.getByRole('columnheader', { name: 'Họ và tên' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Email' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Ngày đăng ký' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Trạng thái' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Trạng thái' })).not.toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Vai trò' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Gói' })).toBeInTheDocument();
     expect(screen.getByText('FREE')).toBeInTheDocument();
+    const userLink = screen.getByRole('link', { name: 'Test User' });
+    expect(userLink).toHaveAttribute('href', '/admin/users/9');
+    expect(userLink).toHaveAttribute('title', 'Test User');
     expect(screen.getByRole('link', { name: /Chi tiết/i })).toHaveAttribute('href', '/admin/users/9');
   });
 
@@ -172,5 +175,83 @@ describe('AdminUsersPage', () => {
       expect.objectContaining({ id: 9, enabled: false }),
       expect.objectContaining({ onSettled: expect.any(Function) })
     );
+
+    // Test unlocking when user is disabled
+    userState.user = { ...userState.user, enabled: false };
+    cleanup();
+    render(<MemoryRouter><AdminUsersPage /></MemoryRouter>);
+    const unlockBtn = screen.getByTitle('Nhấn để mở khóa tài khoản');
+    fireEvent.click(unlockBtn);
+    expect(screen.getByText('Xác nhận mở khóa tài khoản')).toBeInTheDocument();
+    const unlockDialog = screen.getByRole('dialog', { name: 'Xác nhận mở khóa tài khoản' });
+    fireEvent.click(within(unlockDialog).getByRole('button', { name: 'Mở khóa' }));
+    expect(mutations.status).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 9, enabled: true }),
+      expect.objectContaining({ onSettled: expect.any(Function) })
+    );
+  });
+
+  it('ignores non-enum tier query parameter, syncs cleared URL params, and keeps valid UserTier filter', () => {
+    render(
+      <MemoryRouter initialEntries={['/admin/users?tier=CUSTOM_TIER']}>
+        <AdminUsersPage />
+      </MemoryRouter>
+    );
+    expect(userState.lastFilters.tier).toBeUndefined();
+
+    cleanup();
+    render(
+      <MemoryRouter initialEntries={['/admin/users?tier=PRO']}>
+        <Routes>
+          <Route
+            path="/admin/users"
+            element={<><Link to="/admin/users">ClearTierNav</Link><AdminUsersPage /></>}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(userState.lastFilters.tier).toBe('PRO');
+
+    // Khi điều hướng lại về /admin/users không có query ?tier, filter tier phải được xóa về undefined.
+    fireEvent.click(screen.getByRole('link', { name: 'ClearTierNav' }));
+    expect(userState.lastFilters.tier).toBeUndefined();
+
+    cleanup();
+    render(
+      <MemoryRouter>
+        <AdminUsersPage />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Lọc gói tier' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Gói PRO' }));
+    expect(userState.lastFilters.tier).toBe('PRO');
+  });
+
+  it('debounces search input by 250ms and resets search filter via Đặt lại button', () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <MemoryRouter>
+          <AdminUsersPage />
+        </MemoryRouter>
+      );
+
+      const searchInput = screen.getByLabelText('Tìm người dùng');
+      fireEvent.change(searchInput, { target: { value: 'admin' } });
+
+      // Trước khi hết 250ms debounce, filter search chưa được áp dụng để tránh spam request.
+      expect(userState.lastFilters.search).toBeUndefined();
+
+      act(() => {
+        vi.advanceTimersByTime(250);
+      });
+      expect(userState.lastFilters.search).toBe('admin');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Đặt lại' }));
+      expect(searchInput).toHaveValue('');
+      expect(userState.lastFilters.search).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

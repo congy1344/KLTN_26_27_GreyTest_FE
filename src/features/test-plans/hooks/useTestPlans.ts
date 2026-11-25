@@ -15,7 +15,9 @@ function plansKey(projectId: number, servicePath?: string) {
 
 function invalidateProject(queryClient: ReturnType<typeof useQueryClient>, projectId: number, servicePath?: string) {
   return Promise.all([
-    queryClient.invalidateQueries({ queryKey: plansKey(projectId, servicePath) }),
+    queryClient.invalidateQueries({
+      queryKey: servicePath ? plansKey(projectId, servicePath) : ['test-plans', projectId],
+    }),
     queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
     queryClient.invalidateQueries({ queryKey: ['project-services', projectId] }),
   ]);
@@ -26,6 +28,7 @@ export function useTestPlans(projectId: number, servicePath?: string) {
     queryKey: plansKey(projectId, servicePath),
     queryFn: () => fetchTestPlans(projectId, servicePath),
     enabled: projectId > 0,
+    staleTime: 15_000,
   });
 }
 

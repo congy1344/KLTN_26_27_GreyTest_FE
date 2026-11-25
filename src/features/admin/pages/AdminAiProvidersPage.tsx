@@ -159,11 +159,6 @@ export function AdminAiProvidersPage() {
         <h1 className="mt-1 text-2xl font-bold text-heading sm:text-3xl">
           {language === 'vi' ? 'Cổng mô hình AI & bể khóa xoay vòng' : "AI providers & dynamic key management"}
         </h1>
-        <p className="mt-1 text-xs text-body-subtle">
-          {language === 'vi'
-            ? 'Quản lý khóa API, giới hạn token từng giai đoạn và theo dõi số liệu gọi mô hình được áp dụng trực tiếp vào dự án.'
-            : 'Manage API key pool, stage token limits, and view LLM inference metrics directly connected to project runtime.'}
-        </p>
       </div>
 
       {keyError && (
@@ -240,7 +235,7 @@ export function AdminAiProvidersPage() {
               </p>
             </div>
             <p className="mt-2 text-xs text-body-subtle border-t border-border-default-subtle pt-2">
-              {aiConfig.data?.batchConcurrency ?? 4} {language === 'vi' ? 'luồng chạy song song (GREYTEST_LLM_BATCH_CONCURRENCY)' : 'concurrent batches'}
+              {aiConfig.data?.batchConcurrency ?? 4} {language === 'vi' ? 'luồng chạy song song' : 'concurrent batches'}
             </p>
           </div>
         </section>
@@ -446,17 +441,22 @@ export function AdminAiProvidersPage() {
           </div>
           <div className="mt-4 space-y-2">
             {(topUsers.data ?? []).map((u, i) => (
-              <div key={u.userId} className="flex items-center justify-between rounded-base border border-border-default-subtle bg-neutral-secondary-soft/40 p-3 text-xs">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-softer font-sans tabular-nums text-xs font-bold text-fg-brand-strong">
+              <Link
+                key={u.userId}
+                to={`/admin/users/${u.userId}`}
+                className="group flex min-w-0 items-center justify-between gap-3 rounded-base border border-border-default-subtle bg-neutral-secondary-soft/40 p-3 text-xs hover:!border-brand hover:bg-neutral-secondary-soft transition-colors focus:outline-none focus:ring-1 focus:ring-brand"
+                title={language === 'vi' ? `Xem chi tiết người dùng: ${u.email}` : `View user details: ${u.email}`}
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-softer font-sans tabular-nums text-xs font-bold text-fg-brand-strong group-hover:bg-brand group-hover:text-on-brand transition-colors">
                     {i + 1}
                   </span>
-                  <span className="font-semibold text-heading">{u.email}</span>
+                  <span className="min-w-0 truncate font-semibold text-heading group-hover:text-fg-brand-strong group-hover:underline" title={u.email}>{u.email}</span>
                 </div>
-                <div className="font-sans tabular-nums font-bold text-heading">
+                <div className="shrink-0 font-sans tabular-nums font-bold text-heading">
                   {u.totalLlmCalls?.toLocaleString()} <span className="font-normal text-body-subtle">calls</span>
                 </div>
-              </div>
+              </Link>
             ))}
             {!topUsers.data?.length && (
               <p className="py-4 text-center text-xs text-body-subtle">
@@ -574,26 +574,34 @@ export function AdminAiProvidersPage() {
                         {
                           id: 'gpt-4o-mini',
                           name: 'gpt-4o-mini',
-                          badge: 'Khuyên dùng',
-                          desc: 'Tốc độ cao, tối ưu quota, chuẩn cú pháp Spring Boot JUnit 5.',
+                          badge: language === 'vi' ? 'Khuyên dùng' : 'Recommended',
+                          desc: language === 'vi'
+                            ? 'Tốc độ cao, tối ưu quota, chuẩn cú pháp Spring Boot JUnit 5.'
+                            : 'High speed, optimal quota, standard Spring Boot JUnit 5 syntax.',
                         },
                         {
                           id: 'gpt-4o',
                           name: 'gpt-4o',
-                          badge: 'Chất lượng cao',
-                          desc: 'Khả năng phân tích AST và logic phức tạp mạnh mẽ nhất.',
+                          badge: language === 'vi' ? 'Chất lượng cao' : 'High Quality',
+                          desc: language === 'vi'
+                            ? 'Khả năng phân tích AST và logic phức tạp mạnh mẽ nhất.'
+                            : 'Strongest AST analysis and complex logic processing capability.',
                         },
                         {
-                          id: 'gpt-4-turbo',
-                          name: 'gpt-4-turbo',
-                          badge: 'Reasoning',
-                          desc: 'Mô hình reasoning chuyên sâu cho các ca kiểm thử phức tạp.',
+                          id: 'o3-mini',
+                          name: 'o3-mini',
+                          badge: 'Reasoning (Code)',
+                          desc: language === 'vi'
+                            ? 'Mô hình suy luận thế hệ mới tối ưu chuyên sâu cho coding và logic kiểm thử.'
+                            : 'Next-gen reasoning model specialized for coding and test logic.',
                         },
                         {
-                          id: 'gpt-3.5-turbo',
-                          name: 'gpt-3.5-turbo',
-                          badge: 'Tiết kiệm',
-                          desc: 'Chi phí token thấp, phù hợp các bài kiểm thử cơ bản.',
+                          id: 'o1',
+                          name: 'o1',
+                          badge: 'Deep Reasoning',
+                          desc: language === 'vi'
+                            ? 'Mô hình suy luận cấp cao nhất, giải quyết bài toán phức tạp và edge cases chuyên sâu.'
+                            : 'Flagship reasoning model for complex reasoning and deep edge cases.',
                         },
                       ].map((item) => (
                         <div

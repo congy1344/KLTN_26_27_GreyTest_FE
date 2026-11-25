@@ -1,11 +1,22 @@
 import { AlertCircle, CheckCircle2, CircleDot, ShieldCheck } from 'lucide-react';
 import { Tag } from '../../../shared/components/Tag';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useLanguage } from '../../../shared/i18n/language';
 import type { AdminOverview } from '../types';
 
 interface QualityGateCardProps {
   overview?: AdminOverview;
+}
+
+interface ConditionMetric {
+  id: string;
+  name: string;
+  displayTitle: ReactNode;
+  threshold: string;
+  actual: string;
+  status: string;
+  note: string;
 }
 
 export function QualityGateCard({ overview }: QualityGateCardProps) {
@@ -27,10 +38,17 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
   const isNoData = !hasReports;
   const isOverallPassed = hasReports && isLinePass && isBranchPass;
 
-  const conditions = [
+  const conditions: ConditionMetric[] = [
     {
       id: 'unit-tests',
       name: language === 'vi' ? 'Tổng số Unit Test đã sinh' : 'Unit Tests Generated',
+      displayTitle: language === 'vi' ? (
+        <span className="inline-block whitespace-normal 2xl:whitespace-nowrap">
+          Tổng số Unit Test đã&nbsp;sinh
+        </span>
+      ) : (
+        'Unit Tests Generated'
+      ),
       threshold: language === 'vi' ? '> 0 test' : '> 0 tests',
       actual: hasTests ? `${unitTests.toLocaleString()} tests` : '—',
       status: hasTests ? 'PASSED' : 'PENDING',
@@ -39,6 +57,16 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
     {
       id: 'line-coverage',
       name: language === 'vi' ? 'Độ bao phủ dòng mã nguồn (JaCoCo Line)' : 'JaCoCo Line Coverage',
+      displayTitle: language === 'vi' ? (
+        <>
+          <span>Độ bao phủ dòng mã nguồn</span>
+          <span className="block text-[11px] font-normal text-body-subtle sm:text-xs sm:font-semibold">
+            (JaCoCo Line)
+          </span>
+        </>
+      ) : (
+        'JaCoCo Line Coverage'
+      ),
       threshold: '≥ 80.0%',
       actual: lineCoverage != null ? `${lineCoverage}%` : '—',
       status: lineCoverage != null ? (isLinePass ? 'PASSED' : 'FAILED') : 'PENDING',
@@ -47,6 +75,16 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
     {
       id: 'branch-coverage',
       name: language === 'vi' ? 'Độ bao phủ rẽ nhánh (JaCoCo Branch)' : 'JaCoCo Branch Coverage',
+      displayTitle: language === 'vi' ? (
+        <>
+          <span>Độ bao phủ rẽ nhánh</span>
+          <span className="block text-[11px] font-normal text-body-subtle sm:text-xs sm:font-semibold">
+            (JaCoCo Branch)
+          </span>
+        </>
+      ) : (
+        'JaCoCo Branch Coverage'
+      ),
       threshold: '≥ 70.0%',
       actual: branchCoverage != null ? `${branchCoverage}%` : '—',
       status: branchCoverage != null ? (isBranchPass ? 'PASSED' : 'FAILED') : 'PENDING',
@@ -54,13 +92,10 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
     },
     {
       id: 'rule-traceability',
-      name: language === 'vi' ? 'Độ phủ truy vết Business Rules' : 'Business Rules Traceability',
+      name: language === 'vi' ? 'Tổng số lượt BR' : 'Business Rules Extracted',
+      displayTitle: language === 'vi' ? 'Tổng số lượt BR' : 'Business Rules Extracted',
       threshold: language === 'vi' ? 'Liên kết TP' : 'Traced in TP',
-      actual: businessRules > 0 && testPlans > 0
-        ? `${businessRules} rules`
-        : businessRules > 0
-          ? `${businessRules} rules`
-          : '—',
+      actual: businessRules > 0 ? `${businessRules.toLocaleString()}` : '—',
       status: businessRules > 0 && testPlans > 0 ? 'PASSED' : businessRules > 0 ? 'WARNING' : 'PENDING',
       note: businessRules > 0 && testPlans > 0
         ? (language === 'vi' ? `${testPlans} Test Plans` : `${testPlans} Plans linked`)
@@ -71,6 +106,13 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
     {
       id: 'generation-requests',
       name: language === 'vi' ? 'Tổng lượt yêu cầu sinh AI' : 'Total Generation Runs',
+      displayTitle: language === 'vi' ? (
+        <span className="inline-block whitespace-normal 2xl:whitespace-nowrap">
+          Tổng lượt yêu cầu sinh&nbsp;AI
+        </span>
+      ) : (
+        'Total Generation Runs'
+      ),
       threshold: language === 'vi' ? '> 0 lượt' : '> 0 runs',
       actual: overview?.totalGenerationRequests != null ? `${overview.totalGenerationRequests.toLocaleString()}` : '—',
       status: (overview?.totalGenerationRequests ?? 0) > 0 ? 'PASSED' : 'PENDING',
@@ -85,13 +127,12 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
       <div className="flex flex-wrap items-center justify-between gap-5 border-b border-border-default pb-6">
         <div className="flex items-center gap-5">
           <div
-            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-base transition-colors ${
-              isNoData
-                ? 'bg-neutral-secondary text-body-subtle border border-border-default'
-                : isOverallPassed
-                  ? 'bg-success-soft text-fg-success-strong border border-border-success-subtle'
-                  : 'bg-danger-soft text-fg-danger-strong border border-border-danger-subtle'
-            }`}
+            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-base transition-colors ${isNoData
+              ? 'bg-neutral-secondary text-body-subtle border border-border-default'
+              : isOverallPassed
+                ? 'bg-success-soft text-fg-success-strong border border-border-success-subtle'
+                : 'bg-danger-soft text-fg-danger-strong border border-border-danger-subtle'
+              }`}
           >
             <ShieldCheck size={36} strokeWidth={2.4} />
           </div>
@@ -124,29 +165,35 @@ export function QualityGateCard({ overview }: QualityGateCardProps) {
       </div>
 
       {/* 5 Prominent Metric Tiles with Large Numbers */}
-      <div className="mt-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-6 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-5">
         {conditions.map((cond) => (
-          <div key={cond.id} className="flex flex-col justify-between rounded-base border border-border-default-subtle bg-neutral-secondary-soft/60 p-4 sm:p-5 transition-colors hover:border-border-default hover:shadow-2xs">
+          <div key={cond.id} className="flex h-full min-w-0 flex-col justify-between rounded-base border border-border-default-subtle bg-neutral-secondary-soft/60 p-3.5 sm:p-4 transition-colors hover:border-border-default hover:shadow-2xs">
             <div>
-              <p className="text-xs sm:text-sm font-bold text-heading min-h-[2.5rem] leading-snug" title={cond.name}>
-                {cond.name}
-              </p>
+              <div className="text-xs sm:text-[13px] font-bold text-heading min-h-[2.5rem] leading-snug" title={cond.name}>
+                {cond.displayTitle}
+              </div>
               <div className="mt-2 flex items-baseline justify-between">
                 <span className="font-sans tabular-nums text-2xl sm:text-3xl font-extrabold text-heading">
                   {cond.actual}
                 </span>
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-1 border-t border-border-default-subtle/80 pt-2 text-xs sm:text-xs text-body-subtle font-medium">
-              <span>{language === 'vi' ? 'Chuẩn' : 'Req'}: {cond.threshold}</span>
+            {/* Cố định chân thẻ 2 dòng đơn (truncate) để đường kẻ ngang thẳng hàng tuyệt đối ở cả 5 ô */}
+            <div className="mt-3 flex min-w-0 flex-col gap-1 border-t border-border-default-subtle/80 pt-2.5 text-xs text-body-subtle font-medium">
               <span
-                className={`font-sans text-xs sm:text-xs font-bold ${
-                  cond.status === 'PASSED'
-                    ? 'text-fg-success-strong'
-                    : cond.status === 'FAILED'
-                      ? 'text-fg-danger-strong'
-                      : 'text-body-subtle'
-                }`}
+                className="truncate"
+                title={`${language === 'vi' ? 'Chuẩn' : 'Req'}: ${cond.threshold}`}
+              >
+                {language === 'vi' ? 'Chuẩn' : 'Req'}: {cond.threshold}
+              </span>
+              <span
+                title={cond.note}
+                className={`truncate font-sans text-xs font-bold ${cond.status === 'PASSED'
+                  ? 'text-fg-success-strong'
+                  : cond.status === 'FAILED'
+                    ? 'text-fg-danger-strong'
+                    : 'text-body-subtle'
+                  }`}
               >
                 {cond.note}
               </span>

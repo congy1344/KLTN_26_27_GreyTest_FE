@@ -2,6 +2,7 @@ import { AlertCircle, ArrowLeft, CheckCircle2, CircleDot, Clock, History, Layers
 import { Tag } from '../../../shared/components/Tag';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { getErrorMessage } from '../../../shared/api/api-client';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { AdminShell } from '../components/AdminShell';
 import { useActiveJobs, useAdminUserMutations, useJobHistory, useJobRetryMutation } from '../hooks/useAdmin';
@@ -112,6 +113,15 @@ export function AdminJobsPage() {
 
   const [cancelTarget, setCancelTarget] = useState<ActiveJob | null>(null);
   const [retryTarget, setRetryTarget] = useState<JobHistoryItem | null>(null);
+  const queryError = viewMode === 'ACTIVE' ? activeQuery.error : historyQuery.error;
+  const actionError = viewMode === 'ACTIVE' ? mutations.cancelJob?.error : retryMutation.error;
+  const pageError = actionError || queryError;
+
+  const switchViewMode = (mode: 'ACTIVE' | 'HISTORY') => {
+    setViewMode(mode);
+    mutations.cancelJob?.reset?.();
+    retryMutation.reset?.();
+  };
 
   const jobs = activeQuery.data ?? [];
   const historyPageData = historyQuery.data;
@@ -153,11 +163,6 @@ export function AdminJobsPage() {
           <h1 className="mt-1 text-2xl font-bold text-heading sm:text-3xl">
             {language === 'vi' ? 'Hàng đợi & tiến trình sinh test' : "Test generation jobs monitor"}
           </h1>
-          <p className="mt-1 text-xs text-body-subtle">
-            {language === 'vi'
-              ? 'Theo dõi hàng đợi tác vụ AI theo thời gian thực và lịch sử các đợt thực thi kiểm thử.'
-              : 'Real-time active queue and execution history of AI test generation jobs.'}
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -165,7 +170,7 @@ export function AdminJobsPage() {
           <div className="flex items-center rounded-base border border-border-default bg-neutral-primary p-0.5 text-xs shadow-2xs">
             <button
               type="button"
-              onClick={() => setViewMode('ACTIVE')}
+              onClick={() => switchViewMode('ACTIVE')}
               className={`btn rounded-control px-3 py-1.5 font-semibold transition-colors flex items-center gap-1.5 ${
                 viewMode === 'ACTIVE'
                   ? 'bg-brand text-on-brand shadow-2xs'
@@ -180,7 +185,7 @@ export function AdminJobsPage() {
             </button>
             <button
               type="button"
-              onClick={() => setViewMode('HISTORY')}
+              onClick={() => switchViewMode('HISTORY')}
               className={`btn rounded-control px-3 py-1.5 font-semibold transition-colors flex items-center gap-1.5 ${
                 viewMode === 'HISTORY'
                   ? 'bg-brand text-on-brand shadow-2xs'
@@ -226,6 +231,12 @@ export function AdminJobsPage() {
           );
         })}
       </div>
+
+      {pageError && (
+        <p role="alert" className="mb-4 rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-xs font-semibold text-fg-danger-strong">
+          {getErrorMessage(pageError)}
+        </p>
+      )}
 
       {viewMode === 'ACTIVE' ? (
         <>
@@ -496,6 +507,7 @@ export function AdminJobsPage() {
             { projectId: cancelTarget.projectId, stage: cancelTarget.stage },
             {
               onSuccess: () => setCancelTarget(null),
+              onError: () => setCancelTarget(null),
             }
           );
         }}
@@ -522,7 +534,7 @@ export function AdminJobsPage() {
             {
               onSuccess: () => {
                 setRetryTarget(null);
-                setViewMode('ACTIVE');
+                switchViewMode('ACTIVE');
               },
               onError: () => setRetryTarget(null),
             }
