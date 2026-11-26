@@ -45,8 +45,11 @@ export function useApproveTestCases(projectId: number, servicePath?: string) {
         if (!old || typeof old !== 'object') return old;
         return { ...old, status: 'CASE_APPROVED' };
       });
-      client.invalidateQueries({ queryKey: ['project-services', projectId] });
-      return client.invalidateQueries({ queryKey: ['project', projectId] });
+      // Chờ cả trạng thái service làm mới xong: trang Unit Test đọc trạng thái service, nếu còn "chờ duyệt" sẽ đẩy ngược về Test Case.
+      return Promise.all([
+        client.invalidateQueries({ queryKey: ['project-services', projectId] }),
+        client.invalidateQueries({ queryKey: ['project', projectId] }),
+      ]);
     },
   });
 }

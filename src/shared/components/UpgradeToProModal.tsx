@@ -76,17 +76,17 @@ export function UpgradeToProModal({
     return t('hồi lại hàng tuần', 'resets weekly');
   };
 
-  const plusPrice = plusPkg ? `${plusPkg.price.toLocaleString('vi-VN')}đ` : '10.000đ';
+  const plusPrice = plusPkg ? `${plusPkg.price.toLocaleString('vi-VN')}đ` : '40.000đ';
   const plusCycle = formatCycle(plusPkg?.cycle ?? 'MONTHLY');
-  const plusLimit = plusPkg ? `${plusPkg.quotaLimit} lượt gọi AI` : '200 lượt gọi AI';
+  const plusLimit = plusPkg ? `${plusPkg.quotaLimit} lượt gọi AI` : '600 lượt gọi AI';
   const plusConcurrency = plusPkg ? `Sinh tối đa ${plusPkg.batchConcurrency} batch đồng thời` : 'Sinh tối đa 4 batch đồng thời';
   const plusExtraFeatures = (plusPkg?.features ?? ['Ưu tiên xử lý hàng đợi tác vụ']).filter(
     (f) => !f.toLowerCase().includes('lượt gọi') && !f.toLowerCase().includes('batch') && !f.toLowerCase().includes('hồi lại')
   );
 
-  const proPrice = proPkg ? `${proPkg.price.toLocaleString('vi-VN')}đ` : '20.000đ';
+  const proPrice = proPkg ? `${proPkg.price.toLocaleString('vi-VN')}đ` : '80.000đ';
   const proCycle = formatCycle(proPkg?.cycle ?? 'MONTHLY');
-  const proLimit = proPkg ? `${proPkg.quotaLimit} lượt gọi AI` : '300 lượt gọi AI';
+  const proLimit = proPkg ? `${proPkg.quotaLimit} lượt gọi AI` : '1.500 lượt gọi AI';
   const proConcurrency = proPkg ? `Sinh tối đa ${proPkg.batchConcurrency} batch đồng thời` : 'Sinh tối đa 8 batch đồng thời';
   const proExtraFeatures = (proPkg?.features ?? ['Vòng lặp JaCoCo Refinement tự cải thiện độ bao phủ']).filter(
     (f) => !f.toLowerCase().includes('lượt gọi') && !f.toLowerCase().includes('batch') && !f.toLowerCase().includes('hồi lại')
@@ -101,8 +101,8 @@ export function UpgradeToProModal({
   const selectedPriceText = selectedPkg
     ? `${selectedPkg.price.toLocaleString('vi-VN')} VNĐ`
     : selectedTier === 'PLUS'
-    ? '10.000 VNĐ'
-    : '20.000 VNĐ';
+    ? '40.000 VNĐ'
+    : '80.000 VNĐ';
 
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
 
@@ -314,7 +314,7 @@ export function UpgradeToProModal({
                 </p>
               ) : (
                 <p className="mt-1 text-xs text-body-subtle">
-                  {plusPkg?.description || 'Phù hợp nhu cầu cơ bản hàng tuần'}
+                  {plusPkg?.description || 'Phù hợp nhu cầu cơ bản hàng tháng'}
                 </p>
               )}
 

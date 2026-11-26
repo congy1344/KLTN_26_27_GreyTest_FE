@@ -1,7 +1,7 @@
 import { Check, CircleCheck, Clock, PencilLine, Ruler, Shuffle, TriangleAlert, X, type LucideIcon } from 'lucide-react';
 import { useLanguage, type Language } from '../i18n/language';
 
-type SemanticBadgeKind = 'test-type' | 'review-status';
+type SemanticBadgeKind = 'test-type' | 'review-status' | 'priority';
 
 const LABELS: Record<string, [string, string]> = {
   HAPPY_PATH: ['Trường hợp hợp lệ', 'Happy path'],
@@ -58,7 +58,7 @@ const LABELS: Record<string, [string, string]> = {
 
 type Tone = 'success' | 'warning' | 'danger' | 'brand' | 'neutral';
 
-/** Loại test là phân loại: chip trung tính, chỉ icon nhỏ mang màu gợi ý. */
+/** Loại test: viên thuốc tô nền nhạt theo màu gợi ý, kèm icon. */
 const TEST_TYPES: Record<string, { tone: Tone; icon: LucideIcon }> = {
   HAPPY_PATH: { tone: 'success', icon: CircleCheck },
   BOUNDARY: { tone: 'warning', icon: Ruler },
@@ -87,12 +87,11 @@ const TONE_PILL: Record<Tone, string> = {
   neutral: 'bg-neutral-secondary-medium text-body',
 };
 
-const TONE_TEXT: Record<Tone, string> = {
-  success: 'text-fg-success-strong',
-  warning: 'text-fg-warning',
-  danger: 'text-fg-danger-strong',
-  brand: 'text-fg-brand-strong',
-  neutral: 'text-body-subtle',
+/** Mức ưu tiên: Cao = đỏ, Trung bình = vàng, Thấp = xanh lá. */
+const PRIORITY_TONES: Record<string, Tone> = {
+  HIGH: 'danger',
+  MEDIUM: 'warning',
+  LOW: 'success',
 };
 
 export function formatSemanticLabel(value: unknown, language: Language) {
@@ -113,12 +112,21 @@ interface SemanticBadgeProps {
 export function SemanticBadge({ value, kind, label, className = '' }: SemanticBadgeProps) {
   const { language } = useLanguage();
   const text = label ?? formatSemanticLabel(value, language);
+  if (kind === 'priority') {
+    const tone = PRIORITY_TONES[value] ?? 'neutral';
+    return (
+      <span data-tone={tone} className={`inline-flex items-center gap-1 rounded-control px-2.5 py-1 text-xs font-semibold ${TONE_PILL[tone]} ${className}`}>
+        {text}
+      </span>
+    );
+  }
   if (kind === 'test-type') {
     const type = TEST_TYPES[value];
     const Icon = type?.icon;
+    const tone = type?.tone ?? 'neutral';
     return (
-      <span data-tone={type?.tone ?? 'neutral'} className={`inline-flex items-center gap-1 rounded-control bg-neutral-secondary-medium px-2.5 py-1 text-xs font-semibold text-heading ${className}`}>
-        {Icon && <Icon size={12} strokeWidth={2.2} aria-hidden="true" className={`shrink-0 ${TONE_TEXT[type.tone]}`} />}
+      <span data-tone={tone} className={`inline-flex items-center gap-1 rounded-control px-2.5 py-1 text-xs font-semibold ${TONE_PILL[tone]} ${className}`}>
+        {Icon && <Icon size={12} strokeWidth={2.2} aria-hidden="true" className="shrink-0" />}
         {text}
       </span>
     );

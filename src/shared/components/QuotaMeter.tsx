@@ -76,7 +76,7 @@ export function QuotaMeter() {
       </dl>
       <p className="mt-3 text-xs leading-relaxed text-body-subtle">{t('1 lượt tương ứng với 2 Unit Test, 2 Test Case, 2 Test Plan hoặc 3 phương thức mã nguồn.', '1 credit corresponds to 2 Unit Tests, 2 Test Cases, 2 Test Plans, or 3 source methods.')}</p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Link to="/settings" onClick={close} className="btn btn-secondary flex-1 text-xs">{t('Xem chi tiết', 'View details')}</Link>
+        <Link to="/settings?tab=subscription" onClick={close} className="btn btn-secondary flex-1 text-xs">{t('Xem chi tiết', 'View details')}</Link>
         {quota.tier !== 'PRO' && <button type="button" onClick={() => { close(); setUpgrade(true); }} className="btn btn-brand flex-1 text-xs">{t('Nâng cấp gói', 'Upgrade plan')}</button>}
       </div>
     </section>}

@@ -32,6 +32,8 @@ export function useStartCoverageRefinement(projectId: number, servicePath?: stri
   return useMutation({
     mutationFn: () => startCoverageRefinement(projectId, servicePath),
     onSuccess: () => {
+      // Backend tự chạy sandbox sau khi lưu test bổ sung: đọc lại trạng thái để bắt đầu theo dõi lượt chạy đó.
+      queryClient.invalidateQueries({ queryKey: ['coverage-run', projectId] });
       queryClient.invalidateQueries({ queryKey: ['test-cases', projectId] });
       queryClient.invalidateQueries({ queryKey: ['unit-tests', projectId] });
       queryClient.invalidateQueries({ queryKey: ['unit-test-files', projectId] });
@@ -58,6 +60,10 @@ export function useSandboxRun(projectId: number, servicePath?: string) {
   });
   const status = state.data?.status;
   useEffect(() => {
+    if (!status || status === 'IDLE' || status === 'RUNNING') return;
+    // Lượt xác minh có thể sửa hoặc loại Unit Test, kể cả khi kết thúc FAILED.
+    queryClient.invalidateQueries({ queryKey: ['unit-tests', projectId] });
+    queryClient.invalidateQueries({ queryKey: ['unit-test-files', projectId] });
     // Chạy xong thì coverage và status project đã đổi ở backend.
     if (status !== 'SUCCEEDED' && status !== 'TESTS_FAILED') return;
     queryClient.invalidateQueries({ queryKey: ['coverage', projectId] });

@@ -13,9 +13,12 @@ import {
   FileJson2,
   FileText,
   FolderKanban,
+  GitBranch,
   Link2,
+  ListChecks,
   ShieldCheck,
 } from 'lucide-react';
+import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
@@ -232,6 +235,17 @@ const SectionCard = memo(function SectionCard({
   );
 });
 
+/** Export dùng responseType text nên body lỗi là chuỗi JSON thô; đọc message của backend từ đó. */
+function reportErrorMessage(error: unknown) {
+  if (axios.isAxiosError(error) && typeof error.response?.data === 'string') {
+    try {
+      const message = (JSON.parse(error.response.data) as { message?: unknown }).message;
+      if (typeof message === 'string' && message) return message;
+    } catch { /* không phải JSON thì dùng thông điệp chung */ }
+  }
+  return getErrorMessage(error);
+}
+
 export function ReportPanel({ projectId, servicePath }: { projectId: number; servicePath?: string }) {
   const [format, setFormat] = useState<ReportFormat>('markdown');
   const { t } = useLanguage();
@@ -239,6 +253,7 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
   const preview = useReportExport(projectId, format, servicePath);
   const jsonReport = useReportExport(projectId, 'json', servicePath);
   const summary = useMemo(() => parseReportSummary(jsonReport.data), [jsonReport.data]);
+  const empty = jsonReport.isLoading ? '…' : '-';
 
   useEffect(() => {
     if (preview.data || jsonReport.data) {
@@ -312,20 +327,30 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+      {jsonReport.isError && <div className="mb-3"><InlineAlert tone="danger">{reportErrorMessage(jsonReport.error)}</InlineAlert></div>}
+      {/* Đang tải hiện "…", lỗi hoặc chưa có dữ liệu hiện "-" */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard
           icon={ShieldCheck}
           label="Requirement Coverage"
-          value={summary?.requirementCoverage != null ? `${summary.requirementCoverage}%` : '-'}
+          value={summary?.requirementCoverage != null ? `${summary.requirementCoverage}%` : empty}
           tone="brand"
         />
         <MetricCard
           icon={CheckCircle2}
           label="Line Coverage"
-          value={summary?.lineCoverage != null ? `${summary.lineCoverage}%` : '-'}
+          value={summary?.lineCoverage != null ? `${summary.lineCoverage}%` : empty}
         />
-        <MetricCard icon={ClipboardList} label="Unit Tests" value={summary ? summary.totalUnitTests : '-'} />
-        <MetricCard icon={Link2} label="Trace Links" value={summary ? summary.traceability.length : '-'} />
+        <MetricCard
+          icon={GitBranch}
+          label="Branch Coverage"
+          value={summary?.branchCoverage != null ? `${summary.branchCoverage}%` : empty}
+        />
+        <MetricCard icon={ClipboardList} label="Unit Tests" value={summary ? summary.totalUnitTests : empty} />
+        <MetricCard icon={ListChecks} label={t('Test đạt', 'Tests passed')}
+          value={summary?.testRun ? `${summary.testRun.passed}/${summary.testRun.tests}` : empty}
+          hint={summary?.testRun && summary.testRun.failed > 0 ? t(`${summary.testRun.failed} test không đạt`, `${summary.testRun.failed} failed`) : undefined} />
+        <MetricCard icon={Link2} label="Trace Links" value={summary ? summary.traceability.length : empty} />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
@@ -375,7 +400,7 @@ export function ReportPanel({ projectId, servicePath }: { projectId: number; ser
             <LoadingState label={t('Đang tạo báo cáo...', 'Generating report...')} minHeight="min-h-[430px]" />
           ) : preview.isError ? (
             <div className="p-4">
-              <InlineAlert tone="danger">{getErrorMessage(preview.error)}</InlineAlert>
+              <InlineAlert tone="danger">{reportErrorMessage(preview.error)}</InlineAlert>
               <button type="button" className="btn btn-secondary mt-3" onClick={() => preview.refetch()}>
                 {t('Thử lại', 'Retry')}
               </button>

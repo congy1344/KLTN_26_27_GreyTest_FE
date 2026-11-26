@@ -55,6 +55,32 @@ describe('source update viewed scope', () => {
     client.clear();
   });
 
+  it('shows markers again after "Tiếp tục sinh" adds artifacts to a stage already viewed', () => {
+    const { client, cacheUpdate } = setup();
+    cacheUpdate(200);
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const visit = (count: number) => renderHook(() => useSourceUpdateImpact(105, 'BUSINESS_RULE', undefined, true, count), { wrapper });
+    // Mở tab ngay sau khi áp dụng source, lúc chưa sinh bù.
+    visit(3).unmount();
+    expect(visit(3).result.current.changesSeen).toBe(true);
+    // Sinh bù thêm 2 BR: phải tô màu lại.
+    expect(visit(5).result.current.changesSeen).toBe(false);
+    client.clear();
+  });
+
+  it('ignores updates that are uploaded but not applied', () => {
+    const { client } = setup();
+    client.setQueryData(['source-updates', 105], [
+      { id: 300, status: 'ANALYZED', totalChangedMethods: 1, impactSummary: null, items: [{ targetType: 'TEST_PLAN', targetId: 9, action: 'CREATE' }] },
+      { id: 200, status: 'APPLIED', totalChangedMethods: 1, impactSummary: null, items: [{ targetType: 'TEST_PLAN', targetId: 7, action: 'CREATE' }] },
+    ]);
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const { result } = renderHook(() => useSourceUpdateImpact(105, 'TEST_PLAN', undefined, false), { wrapper });
+    expect(result.current.activeUpdate?.id).toBe(200);
+    expect(result.current.addedPlanIds.has(9)).toBe(false);
+    client.clear();
+  });
+
   it('restores markers when a new applied update arrives during a visit', async () => {
     const { client, cacheUpdate, visit } = setup();
     visit().unmount();

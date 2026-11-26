@@ -103,6 +103,7 @@ export function UnitTestTree({ tests, activeId, filtering, scrollToActive, fileP
   return (
     <SimpleTreeView
       ref={treeRef}
+      className="zebra-tree"
       selectedItems={activeId === undefined ? null : activeItem}
       onSelectedItemsChange={(_event, item) => {
         const test = item ? testById.get(item) : undefined;

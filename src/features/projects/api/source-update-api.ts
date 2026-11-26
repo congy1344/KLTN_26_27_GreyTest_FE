@@ -148,6 +148,20 @@ export async function generateAllSourceUpdate(
   return data;
 }
 
+/** Áp dụng source mới ngay sau phân tích; artifact bị ảnh hưởng được xóa để sinh lại bằng "Tiếp tục sinh". */
+export async function applySourceChanges(
+  projectId: number,
+  updateId: number,
+  options?: SourceUpdateRequestOptions,
+): Promise<SourceUpdateDto> {
+  const { data } = await apiClient.post<SourceUpdateDto>(
+    `/projects/${projectId}/source-updates/${updateId}/apply-source`,
+    undefined,
+    requestConfig(options),
+  );
+  return data;
+}
+
 export async function applySourceUpdate(
   projectId: number,
   updateId: number,

@@ -71,7 +71,7 @@ describe('GithubCallbackPage', () => {
     renderCallback(['/auth/callback/github?code=github_code_abc&state=valid-state-123']);
 
     expect(mockMutate).toHaveBeenCalledWith(
-      { code: 'github_code_abc' },
+      { code: 'github_code_abc', state: 'valid-state-123' },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );
 

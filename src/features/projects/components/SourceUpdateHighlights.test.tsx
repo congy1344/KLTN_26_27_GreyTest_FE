@@ -221,7 +221,7 @@ describe('applied source deletion history in downstream panels', () => {
 
       const history = screen.getByRole('region', { name: `${label} đã xóa` });
       expect(history).toHaveTextContent(`${label} #99`);
-      expect(history).toHaveTextContent('- Đã xóa');
+      expect(history).toHaveTextContent('Đã xóa');
       expect(history).toHaveTextContent(`${label} thuộc method đã xóa`);
       expect(history).not.toHaveTextContent(`${label} #98`);
       expect(history).not.toHaveTextContent(`${label} #1`);

@@ -62,6 +62,7 @@ export interface GithubConfigResponse {
 
 export interface GithubLoginRequest {
   code: string;
+  state: string;
 }
 
 export interface GithubRepo {

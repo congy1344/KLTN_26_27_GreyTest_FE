@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CoveragePanel } from './CoveragePanel';
@@ -100,6 +100,50 @@ describe('CoveragePanel', () => {
     expect(screen.getByText('+10% so với vòng trước')).toBeInTheDocument();
   });
 
+  it('shows the pass rate of the latest server run', () => {
+    mockUseCoverageReport.mockReturnValue({ data: report, isLoading: false, isError: false });
+    sandboxState = { status: 'TESTS_FAILED', message: 'x', tests: 8, failed: 2, logTail: '' };
+    render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
+    expect(screen.getByText('Test đạt')).toBeInTheDocument();
+    expect(screen.getByText('6/8 test đạt, 2 không đạt')).toBeInTheDocument();
+  });
+
+  it('shows up to 20 failures from the latest run with optional Test Case codes', () => {
+    mockUseCoverageReport.mockReturnValue({ data: null, isLoading: false, isError: false });
+    sandboxState = {
+      status: 'TESTS_FAILED', tests: 54, failed: 22,
+      failures: Array.from({ length: 22 }, (_, index) => ({
+        className: 'demo.OrderTest', methodName: `checks${index}`,
+        testCaseCode: index === 0 ? 'TC-001' : null,
+        message: 'expected: <100> but was: <90>',
+      })),
+    };
+    render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
+    const rows = screen.getAllByRole('listitem');
+    expect(rows).toHaveLength(20);
+    expect(within(rows[0]).getByText('demo.OrderTest#checks0')).toBeVisible();
+    expect(within(rows[0]).getByText('TC-001')).toBeVisible();
+    expect(within(rows[1]).getByText('expected: <100> but was: <90>')).toBeVisible();
+    expect(within(rows[1]).queryByText('TC-001')).not.toBeInTheDocument();
+    expect(screen.getByText('Hiển thị 20/22 test không đạt')).toBeVisible();
+  });
+
+  it('falls back to the test counts saved with the report after a backend restart', () => {
+    mockUseCoverageReport.mockReturnValue({ data: { ...report, testsRun: 62, testsFailed: 0 }, isLoading: false, isError: false });
+    sandboxState = { status: 'IDLE', message: '', tests: 0, failed: 0, logTail: '' };
+    render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
+    expect(screen.getByText('62/62 test đạt, 0 không đạt')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Test không đạt ở lượt chạy gần nhất' })).not.toBeInTheDocument();
+    sandboxState = undefined;
+  });
+
+  it('hides the previous-round delta on the first measured round', () => {
+    mockUseCoverageReport.mockReturnValue({ data: { ...report, round: 1 }, isLoading: false, isError: false });
+    render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
+    expect(screen.getByText('80%')).toBeInTheDocument();
+    expect(screen.queryByText(/so với vòng trước/)).not.toBeInTheDocument();
+  });
+
   it('shows Service coverage beside the module-wide numbers', () => {
     mockUseCoverageReport.mockReturnValue({
       data: {
@@ -145,12 +189,12 @@ describe('CoveragePanel', () => {
     expect(screen.queryByText('Service Branch Coverage')).not.toBeInTheDocument();
   });
 
-  it('places compact manual upload after the server section and renders gaps as a table', () => {
+  it('renders gaps as a table without a server run section', () => {
     mockUseCoverageReport.mockReturnValue({ data: report, isLoading: false, isError: false });
+    sandboxState = { status: 'SUCCEEDED', message: 'ok', tests: 1, failed: 0, logTail: '' };
     render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
-    const server = screen.getByRole('region', { name: 'Chạy test trên server' });
-    const upload = screen.getByRole('heading', { name: 'JaCoCo XML' });
-    expect(server.compareDocumentPosition(upload) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Kết quả chạy test trên server' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'JaCoCo XML' })).toBeVisible();
     expect(screen.getByRole('columnheader', { name: 'Nhánh thiếu' })).toBeVisible();
     expect(screen.getByText('OrderService.createOrder').closest('tr')).toHaveTextContent('12, 15');
   });
@@ -207,6 +251,13 @@ describe('CoveragePanel', () => {
     expect(screen.getByRole('button', { name: /Upload JaCoCo vòng mới trước/i })).toBeDisabled();
   });
 
+  it('blocks another refinement while the server is running the tests', () => {
+    mockUseCoverageReport.mockReturnValue({ data: report, isLoading: false, isError: false });
+    sandboxState = { status: 'RUNNING', message: 'x', tests: 0, failed: 0, logTail: '' };
+    render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
+    expect(screen.getByRole('button', { name: 'Đang chạy test trên server...' })).toBeDisabled();
+  });
+
   it('keeps out-of-scope gaps visible but does not start a refinement round', () => {
     mockUseCoverageReport.mockReturnValue({
       data: {
@@ -232,29 +283,13 @@ describe('CoveragePanel', () => {
     expect(mockRefine).not.toHaveBeenCalled();
   });
 
-  it('starts a server sandbox run and shows its result and log', () => {
+  it('does not show the server run log on the coverage page', () => {
     mockUseCoverageReport.mockReturnValue({ data: null, isLoading: false, isError: false });
-    sandboxState = { status: 'TESTS_FAILED', message: 'Đã chạy 3 test: 2 đạt, 1 không đạt.', tests: 3, failed: 1, logTail: 'Tests run: 3, Failures: 1' };
+    sandboxState = { status: 'FAILED', message: 'Source của project không biên dịch được', tests: 0, failed: 0, logTail: '[INFO] Building' };
     render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Chạy test' }));
-
-    expect(mockSandboxStart).toHaveBeenLastCalledWith(false);
-    // Nút thứ hai bật bước AI sửa test không đạt.
-    fireEvent.click(screen.getByRole('button', { name: 'Chạy và để AI sửa test lỗi' }));
-    expect(mockSandboxStart).toHaveBeenLastCalledWith(true);
-    expect(screen.getByText('Đã chạy 3 test: 2 đạt, 1 không đạt.')).toBeVisible();
-    expect(screen.getByText('Tests run: 3, Failures: 1')).toBeVisible();
+    expect(screen.queryByText('[INFO] Building')).not.toBeInTheDocument();
+    expect(screen.queryByText('Thất bại')).not.toBeInTheDocument();
     sandboxState = undefined;
-  });
-  it.each([
-    ['RUNNING', 'Đang chạy'], ['SUCCEEDED', 'Thành công'], ['TESTS_FAILED', 'Có test lỗi'], ['FAILED', 'Thất bại'],
-  ])('renders the %s server status from the run hook', (status, label) => {
-    mockUseCoverageReport.mockReturnValue({ data: null, isLoading: false, isError: false });
-    sandboxState = { status, message: 'Server status', tests: 4, failed: 0, logTail: '' };
-    render(<MemoryRouter><CoveragePanel projectId={7} /></MemoryRouter>);
-    expect(screen.getByText(label)).toBeVisible();
-    if (status === 'RUNNING') expect(screen.getByRole('button', { name: 'Chạy và để AI sửa test lỗi' })).toBeDisabled();
   });
 
 });

@@ -26,6 +26,8 @@ import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgre
 import { displaySourcePath } from '../../../shared/utils/source-path';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
+import { diffRowClass } from '../../projects/diffHighlight';
+import { DeletedTag } from '../../../shared/components/DeletedItems';
 import { SourceUpdateDeletionHistory } from '../../projects/components/SourceUpdateDeletionHistory';
 import { UnitTestTree } from './UnitTestTree';
 import type { ProjectStatus } from '../../projects/types';
@@ -70,7 +72,7 @@ export function UnitTestsPanel({
     modifiedRuleIds,
     deletedRuleIds,
   } = useSourceUpdateImpact(projectId, 'UNIT_TEST', servicePath,
-    !tests.isLoading && !tests.isFetching && !tests.error && (tests.data?.length ?? 0) > 0);
+    !tests.isLoading && !tests.isFetching && !tests.error && (tests.data?.length ?? 0) > 0, tests.data?.length ?? 0);
   const hideGenerationIndicators = changesSeen || coverageNavigated || projectStatus === 'COVERAGE_ANALYZED' || projectStatus === 'COMPLETED';
   const cases = useTestCases(projectId, servicePath);
   const plans = useTestPlans(projectId, servicePath);
@@ -465,7 +467,7 @@ export function UnitTestsPanel({
                    || methodDiffMap[method.methodName])
                 : undefined;
             });
-            const hasAdded = !hideGenerationIndicators && (addedUnitTestIds.has(item.id) || item.generationType === 'NEW_TEST' || (testCase ? addedCaseIds.has(testCase.id) : false) || (testPlan ? addedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
+            const hasAdded = !hideGenerationIndicators && (addedUnitTestIds.has(item.id) || (testCase ? addedCaseIds.has(testCase.id) : false) || (testPlan ? addedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
             const hasDeleted = deletedUnitTestIds.has(item.id) || (testCase ? deletedCaseIds.has(testCase.id) : false) || (testPlan ? deletedPlanIds.has(testPlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
             const hasModified = !hideGenerationIndicators && !hasAdded && !hasDeleted && (
               modifiedUnitTestIds.has(item.id)
@@ -477,17 +479,11 @@ export function UnitTestsPanel({
               || coveredRules.some((r) => r && (modifiedRuleIds.has(r.id) || affectedRuleIds.has(r.id)))
             );
 
-            const diffBorder = hasAdded
-              ? 'border-l-4 border-l-success bg-success/[0.04]'
-              : hasDeleted
-                ? 'border-l-4 border-l-danger bg-danger/[0.04]'
-                : hasModified
-                  ? 'border-l-4 border-l-warning bg-warning/[0.04]'
-                  : '';
+            const diffBorder = diffRowClass({ added: hasAdded, modified: hasModified, deleted: hasDeleted });
 
             return (
-            <span className={`block rounded-control px-2 py-1.5 text-left ${diffBorder}`}>
-              <span className="flex items-center gap-2">
+            <span className={`block rounded-base px-2.5 py-2 text-left ${diffBorder}`}>
+              <span className="flex min-w-0 items-center gap-2">
                 <Tag>{testCase?.caseCode ?? `#${item.testCaseId}`}</Tag>
                 {hasAdded && (
                   <Tag>
@@ -495,9 +491,7 @@ export function UnitTestsPanel({
                   </Tag>
                 )}
                 {hasDeleted && (
-                  <Tag>
-                    {t('- Đã xóa', '- Deleted')}
-                  </Tag>
+                  <DeletedTag />
                 )}
                 {hasModified && (
                   <Tag>
@@ -508,8 +502,8 @@ export function UnitTestsPanel({
                   <Tag className="ml-auto">{formatSemanticLabel(item.generationType, language)}</Tag>
                 )}
               </span>
-              <span className="mt-2 block break-all font-mono text-xs font-semibold text-heading">{item.testMethodName}</span>
-              {testCase?.description && <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-body-subtle">{testCase.description}</span>}
+              <span className="mt-1.5 block truncate font-mono text-[13px] font-semibold text-heading" title={item.testMethodName}>{item.testMethodName}</span>
+              {testCase?.description && <span className="mt-0.5 block line-clamp-2 text-xs leading-relaxed text-body" title={testCase.description}>{testCase.description}</span>}
             </span>
           );}}
             />
@@ -545,7 +539,7 @@ export function UnitTestsPanel({
                            || methodDiffMap[method.methodName])
                         : undefined;
                     });
-                    const hasAdded = !hideGenerationIndicators && ((active ? addedUnitTestIds.has(active.id) : false) || active?.generationType === 'NEW_TEST' || (activeCase ? addedCaseIds.has(activeCase.id) : false) || (activePlan ? addedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
+                    const hasAdded = !hideGenerationIndicators && ((active ? addedUnitTestIds.has(active.id) : false) || (activeCase ? addedCaseIds.has(activeCase.id) : false) || (activePlan ? addedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('ADDED') || coveredRules.some((r) => r && addedRuleIds.has(r.id)));
                     const hasDeleted = (active ? deletedUnitTestIds.has(active.id) : false) || (activeCase ? deletedCaseIds.has(activeCase.id) : false) || (activePlan ? deletedPlanIds.has(activePlan.id) : false) || ruleDiffs.includes('DELETED') || coveredRules.some((r) => r && deletedRuleIds.has(r.id));
                     const hasModified = !hideGenerationIndicators && !hasAdded && !hasDeleted && (
                       (active ? modifiedUnitTestIds.has(active.id) || affectedUnitTestIds.has(active.id) : false)
@@ -564,9 +558,7 @@ export function UnitTestsPanel({
                     }
                     if (hasDeleted) {
                       return (
-                        <Tag>
-                          {t('- Đã xóa', '- Deleted')}
-                        </Tag>
+                        <DeletedTag />
                       );
                     }
                     if (hasModified) {

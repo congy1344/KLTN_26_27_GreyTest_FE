@@ -31,6 +31,9 @@ export interface CoverageReport {
   previousLineCoverage: number | null;
   previousBranchCoverage: number | null;
   previousRequirementCoverage: number | null;
+  /** Số test của lượt chạy sandbox tạo ra báo cáo; null khi upload thủ công. */
+  testsRun?: number | null;
+  testsFailed?: number | null;
   totalLines: number;
   coveredLines: number;
   totalBranches: number;

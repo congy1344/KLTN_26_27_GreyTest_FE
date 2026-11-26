@@ -100,7 +100,7 @@ export function ProjectWorkspace({ active, status, reachedStatus, selector, chil
     { id: 'unit-tests', label: 'Unit Test', value: units?.length,
       hint: completedRun && run.tests != null && run.failed != null
         ? t(`${run.tests - run.failed}/${run.tests} đạt khi chạy thật (toàn dự án)`, `${run.tests - run.failed}/${run.tests} passed in the project run`) : undefined,
-      warning: completedRun && run.failed > 0 },
+      warning: run?.compilationError === true },
     { id: 'coverage', label: 'Coverage', value: coverage?.lineCoverage != null ? `${coverage.lineCoverage}%` : undefined,
       hint: coverage?.branchCoverage != null ? t(`dòng, nhánh ${coverage.branchCoverage}%`, `lines, branches ${coverage.branchCoverage}%`) : undefined },
     { id: 'traceability', label: t('Truy vết', 'Traceability'),
@@ -141,9 +141,9 @@ export function ProjectWorkspace({ active, status, reachedStatus, selector, chil
             {stages.map((stage) => {
               const done = isWorkflowStepCompleted(stage.id, status, active);
               const working = stage.id === current;
-              const state = stage.warning ? t('Có test lỗi', 'Tests failed') : done ? t('Hoàn thành', 'Completed')
+              const state = stage.warning ? t('Lỗi biên dịch', 'Compilation error') : done ? t('Hoàn thành', 'Completed')
                 : working ? t('Đang thực hiện', 'In progress') : t('Chưa thực hiện', 'Not started');
-              const shortState = stage.warning ? t('Test lỗi', 'Tests failed') : done ? t('Hoàn tất', 'Done')
+              const shortState = stage.warning ? t('Test lỗi', 'Compilation error') : done ? t('Hoàn tất', 'Done')
                 : working ? t('Đang chạy', 'Running') : t('Chưa chạy', 'Not started');
               const isActive = stage.id === active;
               const reason = disabledDescriptions[stage.id];

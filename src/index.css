@@ -802,3 +802,5 @@ html:has(.landing-nav) { scroll-behavior: smooth; }
 .btn-tier { background: var(--tier); color: var(--tier-on); box-shadow: 0 8px 20px -10px var(--tier); }
 .btn-tier:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 12px 24px -10px var(--tier); }
 @media (prefers-reduced-motion: reduce) { .tier-card:hover, .btn-tier:hover:not(:disabled) { transform: none; } }
+/* Zebra cho các dòng method trong cây Unit Test; màu theo token nên tự đổi ở dark mode, bỏ qua dòng đang chọn */
+.zebra-tree .MuiCollapse-wrapperInner > li:nth-child(even) > .MuiTreeItem-content:not([data-selected]):not(:hover) { background: color-mix(in srgb, var(--neutral-secondary-medium) 50%, transparent); }

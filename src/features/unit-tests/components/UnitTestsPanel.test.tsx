@@ -191,7 +191,7 @@ describe('UnitTestsPanel', () => {
     ];
     const { unmount } = renderPanel();
 
-    expect(screen.getByText('+ Mới thêm')).toBeInTheDocument();
+    expect(screen.queryByText('+ Mới thêm')).not.toBeInTheDocument(); // nhãn Test mới đã đủ, không lặp lại
     expect(screen.getByText('Test mới')).toBeInTheDocument();
 
     // Người dùng ấn nút Tiếp tục đến Coverage

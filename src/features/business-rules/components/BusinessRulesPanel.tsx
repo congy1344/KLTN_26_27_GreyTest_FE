@@ -7,7 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { Clock,
   ArrowRight,
   Bot,
-  Download,
   Check,
   CheckCircle2,
   FileCode2,
@@ -43,7 +42,6 @@ import {
   useUpdateBusinessRule,
 } from '../hooks/useBusinessRules';
 import type { BusinessRule, BusinessRuleReview } from '../types';
-import { downloadBusinessRules } from '../utils/business-rule-export';
 import { cleanAiText, formatBusinessRuleReviewNote, splitBusinessRuleText } from '../utils/business-rule-text';
 import { useLanguage } from '../../../shared/i18n/language';
 import { CodeBlock } from '../../../shared/components/CodeBlock';
@@ -51,6 +49,9 @@ import { displaySourcePath } from '../../../shared/utils/source-path';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { belongsToService, projectWorkflowPath } from '../../projects/utils/project-service';
 import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
+import { diffRowClass } from '../../projects/diffHighlight';
+import { SourceUpdateDeletionHistory } from '../../projects/components/SourceUpdateDeletionHistory';
+import { DeletedItemCard, DeletedItemsSection, DeletedTag } from '../../../shared/components/DeletedItems';
 
 interface BusinessRulesPanelProps {
   projectId: number;
@@ -80,7 +81,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
   const { data: analysis } = analysisQuery;
   const impactData = useSourceUpdateImpact(projectId, 'BUSINESS_RULE', servicePath,
     !isLoading && !isFetching && !error && rules.length > 0
-      && !analysisQuery.isLoading && !analysisQuery.isFetching && !analysisQuery.error && Boolean(analysis));
+      && !analysisQuery.isLoading && !analysisQuery.isFetching && !analysisQuery.error && Boolean(analysis), rules.length);
   const effectiveMethodDiffMap = impactData.changesSeen ? {} : methodDiffMap ?? impactData.methodDiffMap;
   const effectiveAffectedRuleIds = impactData.changesSeen ? new Set<number>() : affectedRuleIds ?? impactData.affectedRuleIds;
   const getMethodDiff = impactData.getMethodDiff;
@@ -372,9 +373,7 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
                 </Tag>
               )}
               {isDeleted && (
-                <Tag>
-                  {t('- Đã xóa', '- Deleted')}
-                </Tag>
+                <DeletedTag />
               )}
               {isModified && (
                 <Tag>
@@ -386,7 +385,8 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
             </span>);
     if (!detail) return (
       <button key={rule.id} type="button" onClick={() => setSelectedRuleId(rule.id)}
-        className={`flex w-full items-start gap-3.5 border-t border-border-default px-4 py-3.5 text-left text-sm text-heading transition-colors ${selectedRule?.id === rule.id ? 'bg-brand-softer' : 'bg-neutral-primary-soft hover:bg-neutral-secondary-soft'}`}
+        className={`flex w-full items-start gap-3.5 border-t border-border-default px-4 py-3.5 text-left text-sm text-heading transition-colors ${selectedRule?.id === rule.id ? 'bg-brand-softer'
+          : diffRowClass({ added: isAdded, modified: sourceChanged && !isAdded && !isDeleted, deleted: isDeleted }, 'bg-neutral-primary-soft hover:bg-neutral-secondary-soft')}`}
         style={selectedRule?.id === rule.id ? { boxShadow: 'inset 3px 0 0 var(--brand)' } : undefined}>
         <span className="w-14 shrink-0 pt-0.5 font-mono text-xs text-body">{rule.ruleCode}</span>
         <span className="min-w-0 flex-1">
@@ -549,12 +549,6 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="btn btn-secondary"
-            disabled={pending || isFetching || analysisQuery.isFetching || !analysis || rules.length === 0}
-            onClick={() => analysis && downloadBusinessRules(projectId, servicePath, rules, analysis)}>
-            <Download size={14} />
-            {t('Tải BR (JSON)', 'Download BRs (JSON)')}
-          </button>
           <div className="flex flex-wrap items-center gap-2">
             {rules.length === 0 ? (
               <button className="btn btn-secondary" disabled={pending} onClick={() => handleGenerate(true)}>
@@ -712,10 +706,12 @@ export function BusinessRulesPanel({ projectId, servicePath, methodDiffMap, affe
                 <h3 className="bg-neutral-secondary-soft px-4 py-2.5 text-xs font-semibold text-body">{t('Chưa gắn method', 'Unassigned method')}</h3>
                 {unmappedRules.map((rule) => renderRule(rule))}
               </div>}
-              {deletedMethods.map((method) => <div key={method.methodKey} className="rounded-base border border-border-danger-subtle bg-danger-soft p-3 text-xs text-fg-danger-strong">
-                <p className="break-all font-mono line-through">{method.signature}</p>
-                <p className="mt-1">{method.reason || t('Phương thức này đã bị xóa trong phiên bản source code mới nhất.', 'This method was removed in the latest source code.')}</p>
-              </div>)}
+              {deletedMethods.length > 0 && <DeletedItemsSection title={t('Method đã xóa', 'Deleted methods')} count={deletedMethods.length}>
+                {deletedMethods.map((method) => <DeletedItemCard key={method.methodKey} code={method.signature}
+                  reason={method.reason || t('Phương thức này đã bị xóa trong phiên bản source code mới nhất.', 'This method was removed in the latest source code.')} />)}
+              </DeletedItemsSection>}
+              <SourceUpdateDeletionHistory update={impactData.activeUpdate} impact={impactData.impact} targetType="BUSINESS_RULE"
+                currentIds={rules.map((rule) => rule.id)} servicePath={servicePath ?? undefined} />
             </section>
             {selectedRule && <aside aria-label="Chi tiết Business Rule" className="min-w-0 rounded-base border border-border-default bg-neutral-primary-soft lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
               {renderRule(selectedRule, true)}

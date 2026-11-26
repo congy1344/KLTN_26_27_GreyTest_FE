@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import { ReportPanel } from './ReportPanel';
 import { LanguageProvider } from '../../../shared/i18n/language';
 import { LanguageToggle } from '../../../shared/components/LanguageToggle';
@@ -43,6 +44,7 @@ const jsonBody = JSON.stringify({
   traceability: [{}, {}, {}],
   coverageGaps: [],
   uncoveredRuleCodes: [],
+  testRun: { status: 'TESTS_FAILED', tests: 12, passed: 10, failed: 2, message: 'x' },
 });
 
 function stubExports(markdown = '# GreyTest Report — Demo') {
@@ -56,6 +58,23 @@ function stubExports(markdown = '# GreyTest Report — Demo') {
 }
 
 describe('ReportPanel', () => {
+  it('shows branch coverage and the latest test run in the summary cards', () => {
+    stubExports();
+    renderReportPanel({ projectId: 5 });
+    expect(screen.getByText('75%')).toBeInTheDocument();
+    expect(screen.getByText('10/12')).toBeInTheDocument();
+    expect(screen.getByText('2 test không đạt')).toBeInTheDocument();
+  });
+
+  it('explains why the summary cards are empty when the JSON report fails', () => {
+    mockUseReportExport.mockImplementation((_projectId: number, format: string) => format === 'json'
+      ? { data: undefined, isLoading: false, isError: true, refetch: vi.fn(),
+        error: new AxiosError('Request failed', '400', undefined, undefined, { data: JSON.stringify({ message: 'Chỉ xuất báo cáo sau khi đã phân tích coverage.' }), status: 400, statusText: '', headers: {}, config: {} } as never) }
+      : { data: '# r', isLoading: false, isError: false, error: null, refetch: vi.fn() });
+    renderReportPanel({ projectId: 5 });
+    expect(screen.getByText('Chỉ xuất báo cáo sau khi đã phân tích coverage.')).toBeInTheDocument();
+  });
+
   it('updates status tags in an already rendered markdown report when language changes', () => {
     stubExports('# Report\n\n## Results\n\n| Status | Priority |\n| --- | --- |\n| APPROVED | HIGH |');
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

@@ -7,10 +7,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  ChevronRight,
   ChevronUp,
   Clock3,
-  Copy,
   Loader2,
   Pause,
   Play,
@@ -50,27 +48,6 @@ function formatLogTime(timestamp?: string): string {
   }
 }
 
-/** Parse và format thời gian timestamp dạng đầy đủ ngày giờ. */
-function formatFullLogTime(timestamp?: string): string {
-  if (!timestamp) return '';
-  try {
-    const hasTimezone = /(?:z|[+-]\d{2}:\d{2})$/i.test(timestamp);
-    const date = new Date(hasTimezone ? timestamp : `${timestamp}Z`);
-    if (isNaN(date.getTime())) return '';
-    return date.toLocaleString('vi-VN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
-  } catch {
-    return timestamp;
-  }
-}
-
 /** Chuyển đổi timestamp sang milliseconds để tính toán khoảng thời gian. */
 function parseLogTimestamp(timestamp?: string): number | null {
   if (!timestamp) return null;
@@ -93,33 +70,6 @@ function formatDuration(totalSeconds: number): string {
     return `${secs}s`;
   }
   return `${mins}m ${secs.toString().padStart(2, '0')}s`;
-}
-
-/** Trích xuất danh sách các đối tượng (plan, method, rule, case) nằm trong dấu ngoặc đơn của message */
-function extractLogItems(message: string): { label: string; items: string[] } | null {
-  const match = message.match(/\(([^)]+)\)/);
-  if (!match) return null;
-  const inside = match[1].trim();
-  const rawList = inside.split(',').map((s) => s.trim()).filter(Boolean);
-  if (rawList.length === 0) return null;
-
-  // Lọc bỏ chuỗi tóm tắt kiểu "+3 plan" nếu có
-  const items = rawList.filter((item) => !/^\+\d+\s+/i.test(item));
-  if (items.length === 0) return null;
-
-  let label = 'Danh sách chi tiết';
-  const lower = message.toLowerCase();
-  if (lower.includes('test plan') || items.some((i) => i.startsWith('TP-'))) {
-    label = 'Danh sách Test Plan';
-  } else if (lower.includes('test case') || items.some((i) => i.startsWith('TC-'))) {
-    label = 'Danh sách Test Case';
-  } else if (lower.includes('business rule') || items.some((i) => i.startsWith('BR-'))) {
-    label = 'Danh sách Business Rule';
-  } else if (lower.includes('method') || items.some((i) => i.includes('()') || i.startsWith('Method#'))) {
-    label = 'Danh sách Method';
-  }
-
-  return { label, items };
 }
 
 /** Chuyển đổi các thông điệp log kỹ thuật/testability thô sang câu thông báo ngắn gọn, dễ hiểu cho người dùng */
@@ -211,20 +161,6 @@ export function isUserFacingLog(message: string): boolean {
     return false;
   }
   return true;
-}
-
-/** Hiển thị tóm tắt ngắn gọn ở dòng log thu gọn ngoài danh sách */
-function formatCollapsedLogMessage(message: string): string {
-  const humanized = formatHumanLogMessage(message);
-  const match = humanized.match(/\(([^)]+)\)/);
-  if (!match) return humanized;
-  const inside = match[1].trim();
-  const items = inside.split(',').map((s) => s.trim()).filter(Boolean);
-  if (items.length <= 2) return humanized;
-
-  const remaining = items.length - 2;
-  const preview = `${items[0]}, ${items[1]} (+${remaining} chi tiết)`;
-  return humanized.replace(`(${inside})`, `(${preview})`);
 }
 
 /** Tùy biến màu chữ thông điệp log phù hợp theo ngữ cảnh (thành công, lỗi, cảnh báo/lưu ý, đang xử lý) */
@@ -378,6 +314,8 @@ export function AiGenerationProgress({
     && (active || isQueued || currentProgress?.status === 'RUNNING');
 
   const runKey = getProgressRunKey(currentProgress);
+  const firstLogTimestamp = currentProgress?.logs[0]?.timestamp;
+  const expansionRunKey = currentProgress && firstLogTimestamp ? `${currentProgress.stage}_${firstLogTimestamp}` : '';
 
   const [floatingDismissed, setFloatingDismissed] = useState<boolean>(() => {
     if (!runKey) return false;
@@ -386,27 +324,25 @@ export function AiGenerationProgress({
   });
 
   const [isMinimized, setIsMinimized] = useState<boolean>(() => {
-    return getStorageItem(minimizedStorageKey) === 'true';
+    return !expansionRunKey || getStorageItem(minimizedStorageKey) !== expansionRunKey;
   });
+  const previousExpansionScope = useRef(minimizedStorageKey);
+  const previousExpansionRun = useRef(expansionRunKey);
 
-  const [copied, setCopied] = useState(false);
-  const [expandedLogs, setExpandedLogs] = useState<Record<number, boolean>>({});
-  const [copiedLogIndex, setCopiedLogIndex] = useState<number | null>(null);
-  const logContainerRef = useRef<HTMLDivElement>(null);
+  // Giữ lựa chọn khi log đầu tiên tới, rồi lưu theo lượt chạy để lần sinh mới mặc định thu nhỏ.
+  useEffect(() => {
+    const sameScope = previousExpansionScope.current === minimizedStorageKey;
+    if (sameScope && previousExpansionRun.current === expansionRunKey) return;
+    const wasWaitingForFirstLog = !previousExpansionRun.current;
+    previousExpansionScope.current = minimizedStorageKey;
+    previousExpansionRun.current = expansionRunKey;
 
-  const toggleLogExpand = (index: number) => {
-    setExpandedLogs((prev) => ({
-      ...prev,
-      [index]: !prev[index],
-    }));
-  };
-
-  const handleCopySingleLog = (message: string, index: number) => {
-    navigator.clipboard.writeText(message).then(() => {
-      setCopiedLogIndex(index);
-      setTimeout(() => setCopiedLogIndex(null), 2000);
-    });
-  };
+    if (sameScope && wasWaitingForFirstLog && expansionRunKey && !isMinimized) {
+      setStorageItem(minimizedStorageKey, expansionRunKey);
+      return;
+    }
+    setIsMinimized(!expansionRunKey || getStorageItem(minimizedStorageKey) !== expansionRunKey);
+  }, [minimizedStorageKey, expansionRunKey, isMinimized]);
 
   const prevActiveRef = useRef(active);
   const lastActiveRunKeyRef = useRef<string | null>(null);
@@ -429,13 +365,11 @@ export function AiGenerationProgress({
     if (isNewActiveTrigger) {
       removeStorageItem(dismissedStorageKey);
       setFloatingDismissed(false);
-      setIsMinimized(false);
-      setStorageItem(minimizedStorageKey, 'false');
     } else if (isRunning && runKey && getStorageItem(dismissedStorageKey) !== runKey && lastActiveRunKeyRef.current !== runKey) {
       lastActiveRunKeyRef.current = runKey;
       setFloatingDismissed(false);
     }
-  }, [active, isRunning, runKey, dismissedStorageKey, minimizedStorageKey]);
+  }, [active, isRunning, runKey, dismissedStorageKey]);
 
   const handleDismiss = () => {
     setFloatingDismissed(true);
@@ -449,28 +383,17 @@ export function AiGenerationProgress({
   const handleRestore = () => {
     removeStorageItem(dismissedStorageKey);
     setFloatingDismissed(false);
-    setIsMinimized(false);
-    setStorageItem(minimizedStorageKey, 'false');
   };
 
   const handleToggleMinimize = () => {
-    setIsMinimized((prev) => {
-      const next = !prev;
-      setStorageItem(minimizedStorageKey, String(next));
-      return next;
-    });
+    if (isMinimized && expansionRunKey) setStorageItem(minimizedStorageKey, expansionRunKey);
+    else removeStorageItem(minimizedStorageKey);
+    setIsMinimized(!isMinimized);
   };
 
   const visibleLogs = useMemo(() => {
     return (currentProgress?.logs || []).filter((log) => isUserFacingLog(log.message));
   }, [currentProgress?.logs]);
-
-  // Tự động cuộn xuống cuối khi có log mới
-  useEffect(() => {
-    if (logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-    }
-  }, [visibleLogs.length]);
 
   const hasProgress = Boolean(
     active || (currentProgress && currentProgress.status && currentProgress.status !== 'IDLE')
@@ -527,17 +450,6 @@ export function AiGenerationProgress({
           : isFailed
             ? t('Tác vụ thất bại.', 'Task failed.')
             : t('Đang xử lý...', 'Processing...'));
-
-  const handleCopyLogs = () => {
-    if (visibleLogs.length === 0) return;
-    const text = visibleLogs
-      .map((l) => `[${formatLogTime(l.timestamp)}] ${formatHumanLogMessage(l.message)}`)
-      .join('\n');
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
 
   const announcement = (
     <span role="status" aria-live="polite" className="sr-only">
@@ -655,30 +567,15 @@ export function AiGenerationProgress({
             />
           </div>
 
+          {isMinimized && latestLog && (
+            <p className={`truncate px-3 py-1.5 text-xs ${getLogMessageColor(currentMessage)}`} title={currentMessage}>
+              {currentMessage}
+            </p>
+          )}
+
           {/* Nội dung chi tiết - có thể thu gọn */}
           {!isMinimized && (
             <div className="p-3.5 space-y-3 bg-neutral-primary-soft flex-1 flex flex-col min-h-0 overflow-y-auto">
-              {metrics && (
-                <section aria-label={t('Số liệu lượt chạy', 'Run metrics')} className="shrink-0 rounded-base border border-border-default-subtle bg-neutral-secondary p-3 text-xs">
-                  <p className="font-semibold text-heading">
-                    {t('Tổng các lần chạy', 'All runs')}: {currentProgress?.stage.replace(/_/g, ' ')}
-                  </p>
-                  <dl className="mt-2 grid grid-cols-2 gap-2">
-                    <div><dt className="text-body-subtle">{t('Tổng thời gian xử lý', 'Total processing time')}</dt><dd className="font-mono font-semibold">{executionTimeText}</dd></div>
-                    <div><dt className="text-body-subtle">{t('Token đã ghi nhận', 'Recorded tokens')}</dt><dd className="font-mono font-semibold">{metrics.recordedCalls > 0 ? metrics.totalTokens.toLocaleString() : '—'}</dd></div>
-                    <div><dt className="text-body-subtle">{t('Token đầu vào / đầu ra', 'Input / output tokens')}</dt><dd className="font-mono">{metrics.inputTokens.toLocaleString()} / {metrics.outputTokens.toLocaleString()}</dd></div>
-                    <div><dt className="text-body-subtle">{t('Phản hồi AI đã ghi nhận', 'Recorded AI responses')}</dt><dd className="font-mono">{metrics.recordedCalls}</dd></div>
-                  </dl>
-                  <p className="mt-2 text-xs text-body-subtle">
-                    {t('Cộng dồn mọi lần chạy và Tiếp tục sinh của bước này cho đến khi hoàn tất; gồm cả chờ xử lý, không tính lúc dừng giữa hai lần và không cộng thời gian từng batch.', 'Adds up every run and resume of this stage until it completes, including queue time; time stopped between runs is excluded and batch durations are not added together.')}
-                    {' '}{metrics.estimatedCalls > 0
-                      ? t(`Có ${metrics.estimatedCalls} phản hồi dùng token ước tính.`, `${metrics.estimatedCalls} responses use estimated tokens.`)
-                      : metrics.recordedCalls > 0 ? t('Token do provider trả về.', 'Tokens reported by the provider.') : t('Chưa có dữ liệu token.', 'No token usage available yet.')}
-                    {' '}{t('Request lỗi không có usage chưa được tính token.', 'Failed requests without usage are excluded from token totals.')}
-                  </p>
-                  <p className="mt-1 break-all text-xs text-body-subtle" title={metrics.runId}>ID: <span className="font-mono">{metrics.runId}</span></p>
-                </section>
-              )}
               {/* Thông báo trạng thái mới nhất - nền đặc */}
               <div className="shrink-0 flex items-start justify-between gap-2.5 rounded-base bg-neutral-secondary p-3 border border-border-default-subtle overflow-hidden">
                 <div className="flex-1 min-w-0 max-h-44 overflow-y-auto custom-scrollbar pr-1">
@@ -715,28 +612,17 @@ export function AiGenerationProgress({
                         <button
                           type="button"
                           onClick={onResume}
-                          disabled={isDraining}
-                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 cursor-pointer"
                         >
-                          {isDraining ? (
-                            <>
-                              <Loader2 size={13} className="animate-spin" />
-                              <span className="font-semibold">{t('Đang lưu batch...', 'Saving in-flight batch...')}</span>
-                            </>
-                          ) : (
-                            <>
-                              <Play size={13} className="fill-current" />
-                              <span className="font-semibold">{t('Tiếp tục sinh', 'Resume generation')}</span>
-                            </>
-                          )}
+                          <Play size={13} className="fill-current" />
+                          <span className="font-semibold">{t('Tiếp tục sinh', 'Resume generation')}</span>
                         </button>
                       )}
                       {onCancel && (
                         <button
                           type="button"
                           onClick={() => setShowCancelConfirm(true)}
-                          disabled={isDraining}
-                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 cursor-pointer text-fg-danger-strong hover:bg-danger-soft disabled:cursor-not-allowed"
+                          className="btn btn-secondary !py-1.5 !px-3 !text-xs inline-flex items-center gap-1.5 cursor-pointer text-fg-danger-strong hover:bg-danger-soft"
                         >
                           <X size={13} />
                           <span>{t('Hủy sinh', 'Cancel generation')}</span>
@@ -744,7 +630,7 @@ export function AiGenerationProgress({
                       )}
                       <span className="text-xs text-body-subtle">
                         {isDraining
-                          ? t('(Chờ lưu nốt các batch đang dở dang)', '(Finishing in-flight batches)')
+                          ? t('(Đang lưu nốt batch dở dang; bấm Tiếp tục sinh thì tác vụ tự chạy khi lưu xong)', '(Finishing in-flight batches; Resume starts automatically once they are saved)')
                           : t('(Tiếp tục từ batch còn dang dở)', '(Resumes from pending batches)')}
                       </span>
                     </div>
@@ -780,7 +666,7 @@ export function AiGenerationProgress({
 
               {/* Danh sách các bước - nền đặc */}
               {currentProgress?.steps && currentProgress.steps.length > 0 && (
-                <div className="shrink-0 rounded-base border border-border-default-subtle bg-neutral-secondary p-1.5 max-h-36 space-y-1 overflow-y-auto custom-scrollbar">
+                <div className="shrink-0 rounded-base border border-border-default-subtle bg-neutral-secondary p-1.5 max-h-72 space-y-1 overflow-y-auto custom-scrollbar">
                   {currentProgress.steps.map((step) => (
                     <div
                       key={step.order}
@@ -815,158 +701,6 @@ export function AiGenerationProgress({
                 </div>
               )}
 
-              {/* Console Log Terminal tinh tế - nền đặc 100% */}
-              {visibleLogs.length > 1 && (
-                <div className="flex-1 flex flex-col min-h-0 space-y-1.5">
-                  <div className="shrink-0 flex items-center justify-between px-1">
-                    <div className="flex items-center gap-1.5 text-body-subtle">
-                      <Terminal size={13} className="text-fg-brand" />
-                      <span className="text-xs font-semibold text-body-subtle">
-                        {t('Nhật ký xử lý', 'Execution Logs')}
-                      </span>
-                      <Tag className="font-mono tabular-nums">
-                        {visibleLogs.length}
-                      </Tag>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="flex items-center gap-1 text-xs font-medium text-body-subtle hover:text-heading transition-colors px-1.5 py-0.5 rounded-control hover:bg-neutral-secondary-medium"
-                      title={t('Sao chép toàn bộ log', 'Copy all logs')}
-                      onClick={handleCopyLogs}
-                    >
-                      {copied ? (
-                        <>
-                          <Check size={12} className="text-fg-success-strong" />
-                          <span className="text-fg-success-strong font-semibold">
-                            {t('Đã chép', 'Copied')}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={12} />
-                          <span>{t('Sao chép', 'Copy')}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <div
-                    ref={logContainerRef}
-                    className="flex-1 min-h-[180px] overflow-y-auto rounded-sm bg-neutral-secondary border border-border-default p-2.5 font-mono text-xs space-y-1 custom-scrollbar"
-                  >
-                    {visibleLogs.map((log, index) => {
-                      const isExpanded = Boolean(expandedLogs[index]);
-                      const isLineCopied = copiedLogIndex === index;
-                      return (
-                        <div
-                          key={`${log.timestamp}-${index}`}
-                          className="group border-t border-t-transparent transition-colors hover:border-t-border-default-subtle overflow-hidden"
-                        >
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            aria-expanded={isExpanded}
-                            onClick={() => toggleLogExpand(index)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                toggleLogExpand(index);
-                              }
-                            }}
-                            className="flex cursor-pointer items-start gap-1.5 px-1.5 py-1 text-heading transition-colors leading-relaxed select-none"
-                          >
-                            <span className="shrink-0 font-mono text-xs text-body-subtle whitespace-nowrap pt-0.5">
-                              {formatLogTime(log.timestamp)}
-                            </span>
-
-                            <button
-                              type="button"
-                              aria-label={isExpanded ? t('Thu gọn', 'Collapse') : t('Mở rộng', 'Expand')}
-                              className="rounded-control shrink-0 text-body-subtle hover:text-heading transition-transform duration-200 pt-0.5"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleLogExpand(index);
-                              }}
-                            >
-                              <ChevronRight
-                                size={12}
-                                className={`transition-transform duration-200 ${
-                                  isExpanded ? 'rotate-90 text-fg-brand' : 'group-hover:text-heading'
-                                }`}
-                              />
-                            </button>
-
-                            <span className={`break-words [overflow-wrap:anywhere] flex-1 text-xs ${getLogMessageColor(log.message)}`}>
-                              {formatCollapsedLogMessage(log.message)}
-                            </span>
-                          </div>
-
-                          {/* Chi tiết log khi mở xuống */}
-                          {isExpanded && (() => {
-                            const details = extractLogItems(log.message);
-                            return (
-                              <div className="mx-1.5 mb-1.5 mt-0.5 rounded-base border border-border-default-subtle bg-neutral-secondary-soft p-2.5 text-xs space-y-2 animate-fade-in font-sans">
-                                <div className="flex items-center justify-between text-body-subtle">
-                                  <span className="font-mono text-xs">
-                                    {formatFullLogTime(log.timestamp)}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="flex items-center gap-1 rounded-control px-1.5 py-0.5 text-body-subtle hover:bg-neutral-secondary-medium hover:text-heading transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCopySingleLog(formatHumanLogMessage(log.message), index);
-                                    }}
-                                    title={t('Sao chép toàn bộ dòng log này', 'Copy this full log entry')}
-                                  >
-                                    {isLineCopied ? (
-                                      <>
-                                        <Check size={11} className="text-fg-success-strong" />
-                                        <span className="text-fg-success-strong font-medium">
-                                          {t('Đã chép', 'Copied')}
-                                        </span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Copy size={11} />
-                                        <span>{t('Sao chép', 'Copy')}</span>
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-
-                                {/* Thông điệp hoàn chỉnh */}
-                                <p className="font-mono text-xs text-heading whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed select-text bg-neutral-primary-soft p-2 rounded-sm border border-border-default-subtle">
-                                  {formatHumanLogMessage(log.message)}
-                                </p>
-
-                                {/* Danh sách chi tiết từng đối tượng cụ thể */}
-                                {details && details.items.length > 0 && (
-                                  <div className="space-y-1.5 pt-0.5">
-                                    <div className="flex items-center justify-between">
-                                      <span className="font-semibold text-xs text-heading">
-                                        {details.label} ({details.items.length}):
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto custom-scrollbar p-0.5">
-                                      {details.items.map((item, idx) => (
-                                        <Tag key={idx} className="select-text">
-                                          {item}
-                                        </Tag>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </aside>

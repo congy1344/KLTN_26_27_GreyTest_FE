@@ -13,4 +13,6 @@ export interface ReportSummary {
   traceability: unknown[];
   coverageGaps: unknown[];
   uncoveredRuleCodes: string[];
+  /** Lượt chạy test trên server gần nhất; null khi chưa chạy. */
+  testRun?: { status: string; tests: number; passed: number; failed: number; message: string } | null;
 }

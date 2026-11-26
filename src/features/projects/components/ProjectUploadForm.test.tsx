@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { ProjectUploadForm } from './ProjectUploadForm';
+import { apiClient } from '../../../shared/api/api-client';
 
 let mockCurrentUser: any = {
   id: 4,
@@ -60,7 +61,8 @@ describe('ProjectUploadForm GitHub Reconnect', () => {
     });
   });
 
-  it('shows reconnect button in card when GITHUB_TOKEN_EXPIRED occurs even if githubUsername exists', () => {
+  it('shows reconnect button in card when GITHUB_TOKEN_EXPIRED occurs even if githubUsername exists', async () => {
+    const statePost = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: { state: 'server-state' } });
     mockReposError = new AxiosError(
       'Request failed with status code 400',
       'ERR_BAD_REQUEST',
@@ -91,7 +93,11 @@ describe('ProjectUploadForm GitHub Reconnect', () => {
 
     expect(window.sessionStorage.getItem('github_oauth_mode')).toBe('link');
     expect(window.sessionStorage.getItem('github_redirect_after')).toBe('/projects/new');
-    expect(window.location.href).toContain('https://github.com/login/oauth/authorize?');
+    await waitFor(() => expect(window.location.href).toContain('https://github.com/login/oauth/authorize?'));
+    expect(statePost).toHaveBeenCalledWith('/auth/github/state');
+    expect(window.location.href).toContain('state=server-state');
+    expect(window.sessionStorage.getItem('github_oauth_state')).toBe('server-state');
+    statePost.mockRestore();
   });
 
   it('calls disconnectGithub mutation when clicking Đăng xuất button on GitHub card', () => {

@@ -94,6 +94,23 @@ describe('JWT session rejection', () => {
     });
   });
 
+  it('sends the session token to /auth/github/state only in link mode so the state binds to the right user', async () => {
+    localStorage.setItem('greytest.token', 'stale-admin-jwt');
+    let capturedAuth: unknown;
+    apiClient.defaults.adapter = async (config) => {
+      capturedAuth = config.headers?.get('Authorization');
+      return { config, status: 200, statusText: 'OK', headers: new AxiosHeaders(), data: { state: 's' } };
+    };
+
+    sessionStorage.setItem('github_oauth_mode', 'login');
+    await apiClient.post('/auth/github/state');
+    expect(capturedAuth).toBeUndefined();
+
+    sessionStorage.setItem('github_oauth_mode', 'link');
+    await apiClient.post('/auth/github/state');
+    expect(capturedAuth).toBe('Bearer stale-admin-jwt');
+  });
+
   it('clears expired token when /auth/github returns 401 in link mode', async () => {
     localStorage.setItem('greytest.token', 'expired-jwt');
     sessionStorage.setItem('github_oauth_mode', 'link');

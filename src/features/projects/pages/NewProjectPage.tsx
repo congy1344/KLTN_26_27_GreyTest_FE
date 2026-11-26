@@ -9,7 +9,7 @@ export function NewProjectPage() {
   const [searchParams] = useSearchParams();
   const source = searchParams.get('source');
   return (
-    <AppShell>
+    <AppShell maxWidth="wide">
       <Link to="/projects" className="btn btn-ghost h-9 py-0 mb-6">
         <ArrowLeft size={16} aria-hidden="true" />
         {t('Quay lại danh sách dự án', 'Back to projects')}

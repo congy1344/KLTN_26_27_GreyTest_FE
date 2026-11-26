@@ -46,6 +46,8 @@ export function AnalysisResult({ data, existingTests = [], methodDiffMap }: Anal
               totalClasses={data.totalClasses}
               totalMethods={data.totalMethods}
               totalEndpoints={data.totalEndpoints}
+              totalServices={data.classes.filter((javaClass) => javaClass.classType === 'SERVICE').length}
+              totalBranches={data.classes.reduce((sum, javaClass) => sum + javaClass.methods.reduce((count, method) => count + (method.branches?.length ?? 0), 0), 0)}
             />
 
             {data.existingTestFiles > 0 && (

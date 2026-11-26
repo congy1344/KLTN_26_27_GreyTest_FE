@@ -20,20 +20,18 @@ const runningProgress: GenerationProgress = {
 };
 
 describe('AiGenerationProgress', () => {
-  it('uses server run totals and clearly labels estimated token usage', () => {
+  it('shows the server run time but hides token accounting from regular users', () => {
     render(<AiGenerationProgress active={false} label="Sinh Test Plan" progress={{
       ...runningProgress, status: 'COMPLETED',
       runMetrics: { runId: 'run-1', startedAt: '2026-08-15T08:00:00Z', finishedAt: '2026-08-15T08:00:12Z',
         elapsedMillis: 12500, recordedCalls: 3, inputTokens: 100, outputTokens: 50,
         totalTokens: 150, estimatedCalls: 1 },
     }} />);
-    const metrics = screen.getByRole('region', { name: 'Số liệu lượt chạy' });
-    expect(within(metrics).getByText('150')).toBeVisible();
-    expect(within(metrics).getByText('100 / 50')).toBeVisible();
-    expect(within(metrics).getByText(/12[,.]50 s/)).toBeVisible();
-    expect(within(metrics).getByText(/Tổng các lần chạy/)).toBeVisible();
-    expect(within(metrics).getByText(/Cộng dồn mọi lần chạy và Tiếp tục sinh/)).toBeVisible();
-    expect(within(metrics).getByText(/Có 1 phản hồi dùng token ước tính/)).toBeVisible();
+    expandDock();
+    expect(screen.getByText(/12[,.]50 s/)).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Số liệu lượt chạy' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/token/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('run-1')).not.toBeInTheDocument();
   });
   it('shows partial results as terminal with the blocked reason and no success percentage', () => {
     render(<AiGenerationProgress active label="Sinh Unit Test" progress={{
@@ -42,6 +40,7 @@ describe('AiGenerationProgress', () => {
     }} />);
     expect(screen.getByRole('status')).toHaveTextContent('hoàn tất một phần');
     expect(screen.getByRole('status')).not.toHaveTextContent('100%');
+    expandDock();
     expect(screen.getByText('TC-002 bị chặn: random.')).toBeVisible();
     expect(screen.getByText('Hoàn tất một phần')).toBeVisible();
   });
@@ -77,19 +76,23 @@ describe('AiGenerationProgress', () => {
     const floatingDock = screen.getByRole('complementary');
     expect(floatingDock).toBeVisible();
     expect(within(floatingDock).getByText('0%')).toBeVisible();
+    expandDock();
     expect(within(floatingDock).getByText('Đang chờ worker xử lý')).toBeVisible();
   });
 
-  it('displays percentage, steps and log directly in the floating dock without opening buttons', () => {
+  it('starts minimized and shows the steps and log when expanded', () => {
     render(<AiGenerationProgress active label="Đang sinh Test Plan" progress={runningProgress} />);
 
     // Không còn nút Log trong header
     expect(screen.queryByRole('button', { name: /Log/i })).not.toBeInTheDocument();
 
-    // Floating dock hiển thị trực tiếp với đầy đủ thông tin
     const floatingDock = screen.getByRole('complementary');
     expect(floatingDock).toBeVisible();
     expect(within(floatingDock).getByText('50%')).toBeVisible();
+    expect(within(floatingDock).getByText('Đã nhận 3 Test Plan từ AI.')).toHaveClass('truncate');
+    expect(within(floatingDock).queryByText('Kiểm tra và lưu Test Plan')).not.toBeInTheDocument();
+
+    expandDock();
     expect(within(floatingDock).getByText('Sinh Test Plan - batch 1/1')).toBeVisible();
     expect(within(floatingDock).getByText('Kiểm tra và lưu Test Plan')).toBeVisible();
     expect(within(floatingDock).getByText('Hoàn thành')).toBeVisible();
@@ -120,6 +123,7 @@ describe('AiGenerationProgress', () => {
 
     fireEvent.click(restoreButton);
     expect(screen.getByRole('complementary')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Mở rộng' })).toBeVisible();
   });
 
   it('identifies the failed step and displays it in the floating dock', () => {
@@ -139,6 +143,7 @@ describe('AiGenerationProgress', () => {
       />,
     );
 
+    expandDock();
     const floatingDock = screen.getByRole('complementary');
     expect(within(floatingDock).getByText('Lỗi')).toBeVisible();
     expect(within(floatingDock).getByText('Đang chờ')).toBeVisible();
@@ -155,6 +160,7 @@ describe('AiGenerationProgress', () => {
     );
 
     expect(screen.getByRole('status')).toHaveTextContent('Đang sinh Test Plan: thất bại 50%');
+    expandDock();
     const floatingDock = screen.getByRole('complementary');
     expect(floatingDock).toBeVisible();
     expect(within(floatingDock).getByText('Thất bại')).toBeVisible();
@@ -176,6 +182,7 @@ describe('AiGenerationProgress', () => {
     );
 
     expect(screen.getByRole('status')).toHaveTextContent('Đang sinh Test Plan: hoàn tất 100%');
+    expandDock();
     const floatingDock = screen.getByRole('complementary');
     expect(floatingDock).toBeVisible();
     expect(within(floatingDock).getAllByText('Hoàn thành').length).toBeGreaterThanOrEqual(1);
@@ -227,7 +234,7 @@ describe('AiGenerationProgress', () => {
       completedSteps: 2,
     };
 
-    const { unmount } = render(
+    const { rerender } = render(
       <AiGenerationProgress
         projectId={1}
         active={false}
@@ -236,12 +243,11 @@ describe('AiGenerationProgress', () => {
       />,
     );
 
+    expandDock();
     fireEvent.click(screen.getByRole('button', { name: /Đóng/i }));
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
-    unmount();
 
-    // Bắt đầu đợt sinh mới với active={true}
-    render(
+    rerender(
       <AiGenerationProgress
         projectId={1}
         active={true}
@@ -251,9 +257,28 @@ describe('AiGenerationProgress', () => {
     );
 
     expect(screen.getByRole('complementary')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Mở rộng' })).toBeVisible();
   });
 
-  it('preserves minimized state across remounts for the same project', () => {
+  it('preserves expansion across progress updates and remounts in the same run', () => {
+    const { rerender, unmount } = render(
+      <AiGenerationProgress projectId={1} active label="Tiến trình AI" />,
+    );
+    expandDock();
+
+    rerender(<AiGenerationProgress projectId={1} active label="Tiến trình AI" progress={runningProgress} />);
+    expect(screen.getByRole('button', { name: 'Thu nhỏ' })).toBeVisible();
+
+    const completedProgress = { ...runningProgress, totalSteps: 3, status: 'COMPLETED' } as const;
+    rerender(<AiGenerationProgress projectId={1} active={false} label="Tiến trình AI" progress={completedProgress} />);
+    expect(screen.getByRole('button', { name: 'Thu nhỏ' })).toBeVisible();
+    unmount();
+
+    render(<AiGenerationProgress projectId={1} active={false} label="Tiến trình AI" progress={completedProgress} />);
+    expect(screen.getByRole('button', { name: 'Thu nhỏ' })).toBeVisible();
+  });
+
+  it('preserves an explicit minimize across remounts in the same run', () => {
     const { unmount } = render(
       <AiGenerationProgress
         projectId={1}
@@ -263,6 +288,7 @@ describe('AiGenerationProgress', () => {
       />,
     );
 
+    expandDock();
     const minimizeButton = screen.getByRole('button', { name: /Thu nhỏ/i });
     fireEvent.click(minimizeButton);
     expect(screen.getByRole('button', { name: /Mở rộng/i })).toBeVisible();
@@ -297,12 +323,32 @@ describe('AiGenerationProgress', () => {
     );
 
     expect(screen.getByRole('status')).toHaveTextContent('đã tạm dừng');
+    expandDock();
     expect(screen.getByText('Đã tạm dừng')).toBeVisible();
 
     const resumeBtn = screen.getByRole('button', { name: /Tiếp tục sinh/i });
     expect(resumeBtn).toBeVisible();
     fireEvent.click(resumeBtn);
     expect(handleResume).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the user resume or cancel while the paused worker is still saving its batch', () => {
+    const handleResume = vi.fn();
+    render(
+      <AiGenerationProgress
+        active={false}
+        label="Tiến trình AI"
+        progress={{ ...runningProgress, status: 'PAUSED', percent: 50, busy: true }}
+        onResume={handleResume}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expandDock();
+    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục sinh/i }));
+    expect(handleResume).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /Hủy sinh/i })).toBeEnabled();
+    expect(screen.getByText(/tác vụ tự chạy khi lưu xong/)).toBeVisible();
   });
 
   it('correctly styles error logs as danger even if they contain success-like substrings like "đã sinh"', () => {
@@ -379,7 +425,7 @@ describe('AiGenerationProgress', () => {
     expect(isUserFacingLog('Đang đối chiếu setup mock với source và thử cách kiểm chứng bằng dependency thật.')).toBe(false);
   });
 
-  it('renders only user-facing logs in the terminal, excluding internal warnings', () => {
+  it('shows only the latest user-facing message, without the technical log list', () => {
     const progressWithInternalLogs: GenerationProgress = {
       ...runningProgress,
       logs: [
@@ -391,8 +437,9 @@ describe('AiGenerationProgress', () => {
 
     render(<AiGenerationProgress active label="Sinh Unit Test" progress={progressWithInternalLogs} />);
 
+    expandDock();
     const floatingDock = screen.getByRole('complementary');
-    expect(within(floatingDock).getByText('Gọi AI Agent sinh Unit Test - batch 3/11 (4 case)')).toBeVisible();
+    expect(within(floatingDock).queryByText('Gọi AI Agent sinh Unit Test - batch 3/11 (4 case)')).not.toBeInTheDocument();
     expect(within(floatingDock).getAllByText('Hoàn thành batch 3/11').length).toBeGreaterThanOrEqual(1);
     expect(within(floatingDock).queryByText('[Lưu ý] findPetTypeById: Có lời gọi helper nội bộ cần kiểm tra.')).not.toBeInTheDocument();
   });
@@ -402,6 +449,9 @@ describe('AiGenerationProgress', () => {
     const dock = screen.getByRole('complementary');
     expect(dock.parentElement).toBe(document.body);
     expect(container).not.toContainElement(dock);
+    expect(dock).toHaveClass('h-auto', 'w-80');
+    expect(within(dock).queryByText('Nhật ký xử lý')).not.toBeInTheDocument();
+    expandDock();
     expect(dock).toHaveClass('fixed', 'bottom-4', 'right-4', 'w-[420px]', 'max-w-[calc(100vw-2rem)]', 'max-h-[calc(100dvh-2rem)]');
     expect(document.body).not.toHaveClass('ai-progress-dock-open');
     expect(within(dock).getByText('Tiến trình AI')).not.toHaveClass('truncate');
@@ -437,6 +487,7 @@ describe('AiGenerationProgress', () => {
       />,
     );
 
+    expandDock();
     const pauseBtn = screen.getByRole('button', { name: /Tạm dừng/i });
     expect(pauseBtn).toBeVisible();
     fireEvent.click(pauseBtn);
@@ -467,6 +518,7 @@ describe('AiGenerationProgress', () => {
       />,
     );
 
+    expandDock();
     const resumeBtn = screen.getByRole('button', { name: /Tiếp tục sinh/i });
     expect(resumeBtn).toBeVisible();
     fireEvent.click(resumeBtn);
@@ -479,3 +531,7 @@ describe('AiGenerationProgress', () => {
     expect(screen.getByText('Hủy tiến trình AI?')).toBeVisible();
   });
 });
+
+function expandDock() {
+  fireEvent.click(screen.getByRole('button', { name: 'Mở rộng' }));
+}

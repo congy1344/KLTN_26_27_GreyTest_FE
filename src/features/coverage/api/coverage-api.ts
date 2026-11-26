@@ -27,6 +27,13 @@ export interface SandboxRunState {
   tests: number;
   failed: number;
   logTail: string;
+  compilationError?: boolean;
+  failures?: Array<{
+    className: string;
+    methodName: string;
+    testCaseCode?: string | null;
+    message: string;
+  }>;
 }
 
 export async function startSandboxRun(projectId: number, servicePath?: string, repair = false): Promise<SandboxRunState> {

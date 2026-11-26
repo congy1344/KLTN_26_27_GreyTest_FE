@@ -2,7 +2,7 @@ import { Tag } from '../../../shared/components/Tag';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
-import { Box, Boxes, ClipboardCheck, Code2, Database, FileCode2, Folder, Globe, ListTree, Table2, TestTube2 } from 'lucide-react';
+import { Box, Boxes, ClipboardCheck, Code2, Database, FileCheck2, FileCode2, Folder, Globe, ListTree, Table2 } from 'lucide-react';
 import type { ExistingTestInfo, JavaClassInfo, JavaMethodInfo } from '../types';
 import { useLanguage, type Language } from '../../../shared/i18n/language';
 import { CodeBlock } from '../../../shared/components/CodeBlock';
@@ -73,7 +73,7 @@ export function entryIcon(kind: TreeEntryKind) {
   switch (kind) {
     case 'folder': return <Folder {...props} className="text-body-subtle" />;
     case 'java-file': return <FileCode2 {...props} className="text-fg-brand-strong" />;
-    case 'test-file': return <TestTube2 {...props} className="text-fg-success-strong" />;
+    case 'test-file': return <FileCheck2 {...props} className="text-fg-success-strong" />;
     case 'controller': return <Globe {...props} className="text-fg-warning" />;
     case 'service': return <Boxes {...props} className="text-fg-success-strong" />;
     case 'repository': return <Database {...props} className="text-fg-purple" />;

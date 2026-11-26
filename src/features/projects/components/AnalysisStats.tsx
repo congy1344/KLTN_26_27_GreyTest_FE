@@ -1,27 +1,35 @@
-import { Box, Code2, Globe } from 'lucide-react';
+import { Box, Boxes, Code2, GitBranch, Globe } from 'lucide-react';
 
 interface AnalysisStatsProps {
   totalClasses: number;
   totalMethods: number;
   totalEndpoints: number;
+  /** Số class service: phạm vi GreyTest sinh Unit Test. */
+  totalServices?: number;
+  /** Số nhánh if/switch mà Business Rule bám theo (grey-box). */
+  totalBranches?: number;
 }
 
 const STATS = [
   { key: 'classes', label: 'Classes', icon: Box, accentBg: 'bg-neutral-secondary-soft', accentBorder: 'border-border-default', accentText: 'text-body-subtle' },
   { key: 'methods', label: 'Methods', icon: Code2, accentBg: 'bg-neutral-secondary-soft', accentBorder: 'border-border-default', accentText: 'text-body-subtle' },
   { key: 'endpoints', label: 'REST Endpoints', icon: Globe, accentBg: 'bg-neutral-secondary-soft', accentBorder: 'border-border-default', accentText: 'text-body-subtle' },
+  { key: 'services', label: 'Services', icon: Boxes, accentBg: 'bg-neutral-secondary-soft', accentBorder: 'border-border-default', accentText: 'text-body-subtle' },
+  { key: 'branches', label: 'Branches', icon: GitBranch, accentBg: 'bg-neutral-secondary-soft', accentBorder: 'border-border-default', accentText: 'text-body-subtle' },
 ] as const;
 
-export function AnalysisStats({ totalClasses, totalMethods, totalEndpoints }: AnalysisStatsProps) {
-  const values: Record<string, number> = {
+export function AnalysisStats({ totalClasses, totalMethods, totalEndpoints, totalServices, totalBranches }: AnalysisStatsProps) {
+  const values: Record<string, number | undefined> = {
     classes: totalClasses,
     methods: totalMethods,
     endpoints: totalEndpoints,
+    services: totalServices,
+    branches: totalBranches,
   };
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      {STATS.map((stat, i) => {
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
+      {STATS.filter((stat) => values[stat.key] != null).map((stat, i) => {
         const Icon = stat.icon;
         return (
           <div

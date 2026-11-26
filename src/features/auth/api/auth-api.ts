@@ -67,23 +67,21 @@ export async function disconnectGithub(): Promise<AuthUser> {
   return data;
 }
 
-/** Tạo state chống CSRF vào sessionStorage và dựng URL cấp quyền GitHub OAuth */
-export function buildGithubAuthorizeUrl(
+/** Xin backend state chống CSRF dùng một lần, lưu vào sessionStorage và dựng URL cấp quyền GitHub OAuth */
+export async function buildGithubAuthorizeUrl(
   config: GithubConfigResponse,
   redirectAfterPath: string,
   mode: 'login' | 'link' = 'login'
-): string {
-  const bytes = new Uint8Array(16);
-  const state =
-    globalThis.crypto?.randomUUID?.() ??
-    (globalThis.crypto?.getRandomValues(bytes),
-      Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join(''));
+): Promise<string> {
   const safeRedirect = redirectAfterPath.startsWith('/') && !redirectAfterPath.startsWith('//')
     ? redirectAfterPath
     : '/projects';
-  sessionStorage.setItem('github_oauth_state', state);
-  sessionStorage.setItem('github_redirect_after', safeRedirect);
+  // Đặt mode trước để interceptor biết có gửi kèm token khi xin state (state gắn với người dùng khi liên kết).
   sessionStorage.setItem('github_oauth_mode', mode);
+  sessionStorage.setItem('github_redirect_after', safeRedirect);
+  const { data } = await apiClient.post<{ state: string }>('/auth/github/state');
+  const state = data.state;
+  sessionStorage.setItem('github_oauth_state', state);
   const redirectUri = encodeURIComponent(config.redirectUri || `${window.location.origin}/auth/callback/github`);
   const scope = encodeURIComponent('read:user user:email repo');
   return `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(config.clientId)}&redirect_uri=${redirectUri}&scope=${scope}&state=${encodeURIComponent(state)}&prompt=select_account`;

@@ -28,6 +28,16 @@ const impact = (...paths: Array<string | undefined>): ImpactSummaryDto => ({
 });
 
 describe('SourceUpdateDeletionHistory', () => {
+  it('shows the code and description saved when a Business Rule was removed', () => {
+    const applied = update();
+    applied.items = [{ ...applied.items[0], targetType: 'BUSINESS_RULE', targetId: 55,
+      beforeData: JSON.stringify({ ruleCode: 'BR-007', description: 'Phí ship miễn cho VIP' }) }];
+    render(<SourceUpdateDeletionHistory update={applied} impact={null} targetType="BUSINESS_RULE" currentIds={[]} />);
+    expect(screen.getByRole('region', { name: 'Business Rule đã xóa' })).toBeVisible();
+    expect(screen.getByText('BR-007')).toBeVisible();
+    expect(screen.getByText('Phí ship miễn cho VIP')).toBeVisible();
+  });
+
   it.each<SourceUpdateDto['status']>(['DRAFT', 'ANALYZED', 'READY_TO_APPLY', 'CANCELLED', 'FAILED'])(
     'does not describe pending or cancelled removals as deleted at %s', (status) => {
       render(<SourceUpdateDeletionHistory update={update(status)} impact={null} targetType="TEST_PLAN" currentIds={[]} />);

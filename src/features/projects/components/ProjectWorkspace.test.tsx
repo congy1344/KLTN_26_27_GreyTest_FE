@@ -104,7 +104,7 @@ describe('ProjectWorkspace', () => {
     expect(within(progress).queryByText(/—|-/)).not.toBeInTheDocument();
   });
 
-  it('uses returned metrics and warns about failures in the project sandbox run', () => {
+  it('keeps the project pass count without a compile warning for assertion failures', () => {
     data.analysis.mockReturnValue({ data: { totalClasses: 17, totalMethods: 42 } });
     data.rules.mockReturnValue({ data: [{ status: 'APPROVED' }, { status: 'PENDING_REVIEW' }] });
     data.units.mockReturnValue({ data: [{ id: 1 }] });
@@ -115,8 +115,17 @@ describe('ProjectWorkspace', () => {
     expect(within(progress).getByText('2')).toBeVisible();
     expect(within(progress).getByText('17 lớp, 42 method, 1 đã duyệt')).toBeVisible();
     expect(within(progress).getByText('65.4%')).toBeVisible();
-    expect(within(progress).getByText(/7\/9 đạt khi chạy thật/).parentElement).toHaveClass('border-b-warning');
+    expect(within(progress).getByText(/7\/9 đạt khi chạy thật/)).toBeVisible();
+    expect(within(progress).queryByText('Test lỗi')).not.toBeInTheDocument();
     expect(data.rules).toHaveBeenCalledWith(7, 'billing');
+  });
+
+  it.each([true, false])('shows the warning for a FAILED run only when compilationError is %s', (compilationError) => {
+    data.run.mockReturnValue({ state: { status: 'FAILED', tests: 0, failed: 0, compilationError } });
+    show('TEST_GENERATED');
+    const warning = within(screen.getByRole('region', { name: 'Tiến độ quy trình' })).queryByText('Test lỗi');
+    if (compilationError) expect(warning).toHaveAttribute('title', 'Lỗi biên dịch');
+    else expect(warning).not.toBeInTheDocument();
   });
   it('shows only a completion icon at the right of completed sidebar steps, without metric counts', () => {
     data.rules.mockReturnValue({ data: Array(13).fill({ status: 'APPROVED' }) });

@@ -63,7 +63,7 @@ describe('QuotaMeter', () => {
   it('links to settings, opens the existing upgrade dialog and hides upgrade for Pro', () => {
     const view = show();
     const trigger = screen.getByRole('button'); fireEvent.click(trigger);
-    expect(screen.getByRole('link', { name: 'Xem chi tiết' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Xem chi tiết' })).toHaveAttribute('href', '/settings?tab=subscription');
     fireEvent.click(screen.getByRole('button', { name: 'Nâng cấp gói' }));
     expect(screen.getByRole('dialog')).toBeVisible();
     expect(screen.queryByRole('region')).toBeNull();

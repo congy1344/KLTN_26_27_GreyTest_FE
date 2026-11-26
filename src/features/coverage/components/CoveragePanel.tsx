@@ -1,13 +1,11 @@
 import { Tag } from '../../../shared/components/Tag';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, AlertCircle,
+import {
   ArrowRight,
   BarChart3,
   CheckCircle2,
   Loader2,
-  Play,
-  Sparkles,
   UploadCloud,
 } from 'lucide-react';
 import { getErrorMessage } from '../../../shared/api/api-client';
@@ -22,9 +20,9 @@ import type { CoverageGap } from '../types';
 import type { ProjectStatus } from '../../projects/types';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
 
-// Hint chênh lệch so với vòng upload trước (chỉ có từ vòng 2)
-function deltaHint(current: number | undefined, previous: number | null | undefined, t: (vi: string, en: string) => string) {
-  if (current == null || previous == null) return undefined;
+// Hint chênh lệch so với vòng upload trước; vòng đầu chưa có gì để so nên không hiện
+function deltaHint(current: number | undefined, previous: number | null | undefined, round: number | undefined, t: (vi: string, en: string) => string) {
+  if (current == null || previous == null || round == null || round <= 1) return undefined;
   const delta = Math.round((current - previous) * 100) / 100;
   const sign = delta > 0 ? '+' : '';
   return t(`${sign}${delta}% so với vòng trước`, `${sign}${delta}% vs previous round`);
@@ -39,7 +37,6 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
   const upload = useUploadCoverage(projectId, servicePath);
   const refinement = useStartCoverageRefinement(projectId, servicePath);
   const sandbox = useSandboxRun(projectId, servicePath);
-  const sandboxRunning = sandbox.state?.status === 'RUNNING';
   const report =reportQuery.data ?? null;
   const serviceCoverage = report?.serviceCoverage ?? null;
   const fileName = selectedFile?.name ?? '';
@@ -63,20 +60,25 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
     });
   };
 
-  const metrics = [
-    { label: 'JaCoCo Line Coverage', value: report?.lineCoverage, hint: deltaHint(report?.lineCoverage, report?.previousLineCoverage, t) },
-    { label: 'JaCoCo Branch Coverage', value: report?.branchCoverage, hint: deltaHint(report?.branchCoverage, report?.previousBranchCoverage, t) },
-    { label: 'Requirement Coverage', value: report?.requirementCoverage, hint: deltaHint(report?.requirementCoverage, report?.previousRequirementCoverage, t), success: true },
+  const metrics: { label: string; value: number | null | undefined; hint?: string; success?: boolean }[] = [
+    { label: 'JaCoCo Line Coverage', value: report?.lineCoverage, hint: deltaHint(report?.lineCoverage, report?.previousLineCoverage, report?.round, t) },
+    { label: 'JaCoCo Branch Coverage', value: report?.branchCoverage, hint: deltaHint(report?.branchCoverage, report?.previousBranchCoverage, report?.round, t) },
+    { label: 'Requirement Coverage', value: report?.requirementCoverage, hint: deltaHint(report?.requirementCoverage, report?.previousRequirementCoverage, report?.round, t), success: true },
     { label: 'Service Line Coverage', value: serviceCoverage?.lineCoverage,
       hint: serviceCoverage && serviceCoverage.coveredLines != null && serviceCoverage.totalLines != null ? t(`${serviceCoverage.coveredLines}/${serviceCoverage.totalLines} dòng`, `${serviceCoverage.coveredLines}/${serviceCoverage.totalLines} lines`) : undefined },
     { label: 'Service Branch Coverage', value: serviceCoverage?.branchCoverage,
       hint: serviceCoverage && serviceCoverage.coveredBranches != null && serviceCoverage.totalBranches != null ? t(`${serviceCoverage.coveredBranches}/${serviceCoverage.totalBranches} nhánh`, `${serviceCoverage.coveredBranches}/${serviceCoverage.totalBranches} branches`) : undefined },
   ];
+  // Tỉ lệ test đạt của lượt chạy sandbox gần nhất (test không đạt có thể là lệch nghiệp vụ, xem thông báo bên dưới)
   const runStatus = sandbox.state?.status;
-  const statusLabel = runStatus === 'RUNNING' ? t('Đang chạy', 'Running')
-    : runStatus === 'SUCCEEDED' ? t('Thành công', 'Succeeded')
-    : runStatus === 'TESTS_FAILED' ? t('Có test lỗi', 'Tests failed')
-    : runStatus === 'FAILED' ? t('Thất bại', 'Failed') : undefined;
+  const failedTests = sandbox.state?.failures?.slice(0, 20) ?? [];
+  // Backend vừa khởi động lại thì trạng thái trong bộ nhớ là IDLE: dùng số test đã lưu cùng báo cáo coverage.
+  const run = sandbox.state && sandbox.state.status !== 'IDLE' ? sandbox.state
+    : report?.testsRun ? { status: 'SUCCEEDED', tests: report.testsRun, failed: report.testsFailed ?? 0 } : undefined;
+  if (run && run.status !== 'RUNNING' && run.tests > 0) {
+    metrics.push({ label: t('Test đạt', 'Tests passed'), value: Math.round((run.tests - run.failed) / run.tests * 1000) / 10,
+      hint: t(`${run.tests - run.failed}/${run.tests} test đạt, ${run.failed} không đạt`, `${run.tests - run.failed}/${run.tests} passed, ${run.failed} failed`), success: true });
+  }
   return (
     <section className="space-y-5 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -96,28 +98,19 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
           {metric.hint && <p className="mt-2 text-xs text-body-subtle">{metric.hint}</p>}
         </div>)}
       </section>}
-      <section aria-label={t('Chạy test trên server', 'Run tests on server')} className="overflow-hidden rounded-base border border-border-default bg-neutral-primary-soft">
-        <div className="flex flex-wrap items-center gap-3 border-b border-border-default px-4 py-4">
-          <div className="min-w-0 flex-[1_1_260px]">
-            <h2 className="font-display text-lg font-semibold text-heading">{t('Chạy test trên server', 'Run tests on server')}</h2>
-            <p className="mt-1 text-sm text-body-subtle">{t('Mỗi lần chạy dùng một container riêng để biên dịch và chạy test bằng Maven.', 'Each run compiles and tests with Maven in a separate container.')}</p>
-          </div>
-          <button type="button" className="btn btn-secondary" disabled={sandboxRunning || sandbox.start.isPending} onClick={() => sandbox.start.mutate(false)}>
-            {sandboxRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-            {sandboxRunning ? t('Đang chạy trong sandbox...', 'Running in sandbox...') : t('Chạy test', 'Run tests')}
-          </button>
-          <button type="button" className="btn btn-brand" disabled={sandboxRunning || sandbox.start.isPending} onClick={() => sandbox.start.mutate(true)}>
-            <Sparkles size={14} />{t('Chạy và để AI sửa test lỗi', 'Run and let AI fix failing tests')}
-          </button>
-        </div>
-        <p className="px-4 py-3 text-xs text-body-subtle">{t('AI sửa các test không đạt theo lỗi chạy thật rồi chạy lại, tối đa 3 vòng; có tính vào quota AI.', 'AI fixes failing tests from the real failure and reruns, up to 3 rounds; this uses AI quota.')}</p>
-        {sandbox.start.isError && <div className="px-4 pb-3"><InlineAlert tone="danger">{getErrorMessage(sandbox.start.error)}</InlineAlert></div>}
-        {statusLabel && <div className="flex flex-wrap items-center gap-3 px-4 py-3" aria-live="polite">
-          <Tag variant="status" tone={runStatus === 'SUCCEEDED' ? 'success' : runStatus === 'TESTS_FAILED' ? 'warning' : runStatus === 'FAILED' ? 'danger' : 'brand'} icon={runStatus === 'RUNNING' ? Loader2 : runStatus === 'SUCCEEDED' ? Check : AlertCircle}>{statusLabel}</Tag>
-          <span className="text-sm">{sandbox.state?.message}</span>
-        </div>}
-        {sandbox.state?.logTail && <pre className="code-surface max-h-80 overflow-auto px-4 py-3 font-mono text-xs leading-relaxed">{sandbox.state.logTail}</pre>}
-      </section>
+      {failedTests.length > 0 && <section className="rounded-base border border-border-default bg-neutral-primary-soft p-4">
+        <h2 className="font-display text-lg font-semibold text-heading">{t('Test không đạt ở lượt chạy gần nhất', 'Failed tests in the latest run')}</h2>
+        <ul className="mt-2 divide-y divide-border-default">
+          {failedTests.map((test, index) => <li key={`${test.className}#${test.methodName}-${index}`} className="break-words py-2 text-sm">
+            <span className="font-mono text-heading">{test.className}#{test.methodName}</span>
+            {test.testCaseCode && <Tag className="ml-2 font-mono">{test.testCaseCode}</Tag>}
+            <p className="mt-1 text-body-subtle">{test.message}</p>
+          </li>)}
+        </ul>
+        {sandbox.state && sandbox.state.failed > failedTests.length && <p className="mt-2 text-xs text-body-subtle">
+          {t(`Hiển thị ${failedTests.length}/${sandbox.state.failed} test không đạt`, `Showing ${failedTests.length}/${sandbox.state.failed} failed tests`)}
+        </p>}
+      </section>}
       <section className="rounded-base border border-border-default bg-neutral-primary-soft p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-[1_1_240px]">
@@ -141,10 +134,10 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
         <div className="flex flex-wrap items-center gap-3 border-b border-border-default px-4 py-3.5">
           <h2 className="flex-1 font-display text-lg font-semibold text-heading">{t('Nhánh chưa được phủ', 'Uncovered branches')}</h2>
           {report && <Tag className="font-mono tabular-nums">{t(`Vòng ${report.round}`, `Round ${report.round}`)}</Tag>}
-          {report && visibleGaps.length > 0 && <button type="button" className="btn btn-secondary" disabled={refinement.isPending || !canRefine || refinableGapCount === 0}
-            onClick={() => refinement.mutate(undefined, { onSuccess: () => navigate(projectWorkflowPath(projectId, 'unit-tests', servicePath), { state: { workflowNotice: t(`Đã sinh bổ sung Test Case và Unit Test cho vòng ${report.round + 1}.`, `Supplemental Test Cases and Unit Tests for round ${report.round + 1} were generated.`) } }) })}>
-            {refinement.isPending ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
-            {refinement.isPending ? t('AI đang bổ sung...', 'AI is refining...') : canRefine ? t('Sinh Test Case bổ sung', 'Generate supplemental Test Cases') : t('Upload JaCoCo vòng mới trước', 'Upload the new JaCoCo report first')}
+          {report && visibleGaps.length > 0 && <button type="button" className="btn btn-secondary" disabled={refinement.isPending || runStatus === 'RUNNING' || !canRefine || refinableGapCount === 0}
+            onClick={() => refinement.mutate(undefined, { onSuccess: () => navigate(projectWorkflowPath(projectId, 'unit-tests', servicePath), { state: { workflowNotice: t(`Đã sinh bổ sung Test Case và Unit Test cho vòng ${report.round + 1}. GreyTest đang tự chạy test để cập nhật coverage.`, `Supplemental Test Cases and Unit Tests for round ${report.round + 1} were generated. GreyTest is running the tests to update coverage.`) } }) })}>
+            {refinement.isPending || runStatus === 'RUNNING' ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
+            {refinement.isPending ? t('AI đang bổ sung...', 'AI is refining...') : runStatus === 'RUNNING' ? t('Đang chạy test trên server...', 'Running tests on the server...') : canRefine ? t('Sinh Test Case bổ sung', 'Generate supplemental Test Cases') : t('Upload JaCoCo vòng mới trước', 'Upload the new JaCoCo report first')}
           </button>}
         </div>
         {report && <p className="px-4 py-3 text-xs text-body-subtle">{t(`Upload lúc ${parseApiDate(report.uploadedAt).toLocaleString('vi-VN')}`, `Uploaded at ${parseApiDate(report.uploadedAt).toLocaleString('en-US')}`)}</p>}
@@ -160,7 +153,7 @@ export function CoveragePanel({ projectId, projectStatus = 'COVERAGE_ANALYZED', 
             <tbody>{visibleGaps.map((gap) => <GapRow key={`${gap.className}.${gap.methodName}-${gap.methodId}`} gap={gap} />)}</tbody>
           </table></div>}
         {refinement.isError && <div className="p-4"><InlineAlert tone="danger">{getErrorMessage(refinement.error)}</InlineAlert></div>}
-        {report && visibleGaps.length > 0 && <p className="px-4 py-3 text-xs text-body-subtle">{t(`AI sẽ bổ sung ${refinableGapCount} Service gap và tự sinh Unit Test cho vòng ${report.round + 1}.`, `AI will refine ${refinableGapCount} Service gaps and generate their Unit Tests for round ${report.round + 1}.`)}</p>}
+        {report && visibleGaps.length > 0 && <p className="px-4 py-3 text-xs text-body-subtle">{t(`AI sẽ bổ sung ${refinableGapCount} Service gap, sinh Unit Test rồi tự chạy lại cho vòng ${report.round + 1}.`, `AI will refine ${refinableGapCount} Service gaps, generate their Unit Tests and rerun them for round ${report.round + 1}.`)}</p>}
       </section>
     </section>
   );

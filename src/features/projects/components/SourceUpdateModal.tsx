@@ -1,20 +1,18 @@
 import { IconButton } from '../../../shared/components/IconButton';
 import { Tag } from '../../../shared/components/Tag';
 import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Upload,
   GitBranch,
   CheckCircle2,
-  XCircle,
   AlertTriangle,
   ArrowRight,
   Loader2,
   RefreshCw,
-  Cpu,
   ChevronDown,
   ChevronUp,
   X,
-  Clock,
   Plus,
   PencilLine,
   Trash2,
@@ -25,27 +23,18 @@ import {
   fetchProjectSourceUpdates,
   fetchSourceUpdate,
   analyzeSourceUpdate,
-  generateIncrementalSourceUpdate,
-  generateAllSourceUpdate,
+  applySourceChanges,
   SOURCE_UPDATE_TIMEOUT_MS,
-  patchSourceUpdateItem,
-  applySourceUpdate,
   cancelSourceUpdate,
 } from '../api/source-update-api';
 import type { SourceUpdateRequestOptions } from '../api/source-update-api';
-import type {
-  ImpactSummaryDto,
-  MethodDiffItem,
-  Project,
-  SourceUpdateAction,
-  SourceUpdateDto,
-  SourceUpdateItemDto,
-  SourceUpdateReviewStatus,
-} from '../types';
+import type { ImpactSummaryDto, MethodDiffItem, Project, ProjectStatus, SourceUpdateDto } from '../types';
 import { getErrorMessage } from '../../../shared/api/api-client';
 import { useLanguage } from '../../../shared/i18n/language';
-import { formatSemanticLabel, SemanticBadge } from '../../../shared/components/SemanticBadge';
+import { formatSemanticLabel } from '../../../shared/components/SemanticBadge';
 import { SourceUpdateHistory } from './SourceUpdateHistory';
+import { CodeBlock } from '../../../shared/components/CodeBlock';
+import { projectWorkflowPath } from '../utils/project-service';
 
 interface SourceUpdateModalProps {
   project: Project;
@@ -62,12 +51,24 @@ interface SourceUpdateProgress {
 
 const TIMEOUT_ERROR_NAME = 'SourceUpdateTimeoutError';
 const TERMINAL_UPDATE_STATUSES = new Set<SourceUpdateDto['status']>(['APPLIED', 'CANCELLED']);
-const GENERATION_STAGE_NAMES = {
-  BUSINESS_RULE: 'Business Rule',
-  TEST_PLAN: 'Test Plan',
-  TEST_CASE: 'Test Case',
-  UNIT_TEST: 'Unit Test',
-};
+
+/** Thứ tự pipeline để biết project đã đi tới bước nào trước khi cập nhật source. */
+const PIPELINE_ORDER: ProjectStatus[] = [
+  'UPLOADED', 'ANALYZED', 'BR_PENDING_REVIEW', 'BR_APPROVED', 'PLAN_PENDING_REVIEW', 'PLAN_APPROVED',
+  'CASE_PENDING_REVIEW', 'CASE_APPROVED', 'TEST_GENERATED', 'COVERAGE_ANALYZED', 'COMPLETED',
+];
+
+/** Các tab người dùng cần bấm "Tiếp tục sinh", chỉ tính những bước project đã đi tới. */
+const NEXT_STEPS: { from: ProjectStatus; vi: string; en: string }[] = [
+  { from: 'BR_PENDING_REVIEW', vi: 'Business Rule: bấm "Tiếp tục sinh" rồi duyệt BR mới', en: 'Business Rules: click "Resume generation", then approve' },
+  { from: 'PLAN_PENDING_REVIEW', vi: 'Test Plan: bấm "Tiếp tục sinh" rồi duyệt', en: 'Test Plans: click "Resume generation", then approve' },
+  { from: 'CASE_PENDING_REVIEW', vi: 'Test Case: bấm "Tiếp tục sinh" rồi duyệt', en: 'Test Cases: click "Resume generation", then approve' },
+  { from: 'TEST_GENERATED', vi: 'Unit Test: bấm "Tiếp tục sinh" cho các Test Case mới', en: 'Unit Tests: click "Resume generation" for new Test Cases' },
+];
+
+function reachedAtLeast(status: ProjectStatus | undefined, target: ProjectStatus) {
+  return status != null && PIPELINE_ORDER.indexOf(status) >= PIPELINE_ORDER.indexOf(target);
+}
 
 function withSourceUpdateTimeout<T>(
   operation: (signal: AbortSignal) => Promise<T>,
@@ -107,103 +108,93 @@ function isSourceUpdateTimeout(error: unknown): boolean {
 
 const progressPercent = (percent: number) => Math.min(100, Math.max(0, Math.round(percent)));
 
-/** Định dạng số giây thực thi (giây -> Xs hoặc Xm Ys). */
-function formatDuration(totalSeconds: number): string {
-  if (totalSeconds < 0) totalSeconds = 0;
-  const mins = Math.floor(totalSeconds / 60);
-  const secs = totalSeconds % 60;
-  if (mins === 0) return `${secs}s`;
-  return `${mins}m ${secs.toString().padStart(2, '0')}s`;
+/** Số dòng (đánh từ 1) có nội dung không xuất hiện ở bản còn lại; đủ để chỉ ra chỗ đổi mà không cần thư viện diff. */
+function changedLines(source: string, other: string): Set<number> {
+  const otherLines = new Set(other.replace(/\r\n/g, '\n').split('\n').map((line) => line.trim()));
+  const changed = new Set<number>();
+  source.replace(/\r\n/g, '\n').split('\n').forEach((line, index) => {
+    if (line.trim() && !otherLines.has(line.trim())) changed.add(index + 1);
+  });
+  return changed;
 }
 
+/** Method sửa: hai cột trước / sau, tô các dòng khác nhau. Method thêm hoặc xóa: một khung full chiều ngang. */
+function MethodSourceDiff({ method }: { method: MethodDiffItem }) {
+  const { t } = useLanguage();
+  const body = 'max-h-[360px]';
+  if (method.diffType === 'MODIFIED' && method.beforeSource && method.afterSource) {
+    const removed = changedLines(method.beforeSource, method.afterSource);
+    const added = changedLines(method.afterSource, method.beforeSource);
+    return (
+      <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
+        <CodeBlock code={method.beforeSource} title={t('Trước', 'Before')} meta={method.signature} bodyClassName={body}
+          highlight={(line) => removed.has(line)} ariaLabel={t(`Source trước của ${method.signature}`, `Source before ${method.signature}`)} className="min-w-0" />
+        <CodeBlock code={method.afterSource} title={t('Sau', 'After')} meta={method.signature} bodyClassName={body}
+          highlight={(line) => added.has(line)} ariaLabel={t(`Source sau của ${method.signature}`, `Source after ${method.signature}`)} className="min-w-0" />
+      </div>
+    );
+  }
+  const code = method.afterSource ?? method.beforeSource;
+  if (!code) return null;
+  const title = method.diffType === 'ADDED' ? t('Method mới thêm', 'Added method') : method.diffType === 'DELETED'
+    ? t('Method đã xóa', 'Deleted method') : t('Source', 'Source');
+  return (
+    <CodeBlock code={code} title={title} meta={method.signature} bodyClassName={body} className="mt-3"
+      ariaLabel={t(`Source của ${method.signature}`, `Source of ${method.signature}`)} />
+  );
+}
+
+function parseImpact(update: SourceUpdateDto | null): ImpactSummaryDto | null {
+  if (!update?.impactSummary) return null;
+  try {
+    return JSON.parse(update.impactSummary) as ImpactSummaryDto;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cập nhật source theo 3 bước: tải source → xem thay đổi → áp dụng.
+ * Áp dụng xong, BR/Plan/Case/Unit Test của method bị sửa hoặc xóa được xóa; người dùng sinh lại
+ * phần còn thiếu bằng "Tiếp tục sinh" ở từng tab như luồng thường, phần không đổi giữ nguyên.
+ */
 export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApplied }: SourceUpdateModalProps) {
   const { t, language } = useLanguage();
+  const { pathname, search } = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'ZIP' | 'GITHUB'>(project.sourceType === 'GITHUB' ? 'GITHUB' : 'ZIP');
   const [file, setFile] = useState<File | null>(null);
   const [branch, setBranch] = useState('main');
   const [updateDraft, setUpdateDraft] = useState<SourceUpdateDto | null>(null);
+  const [applied, setApplied] = useState<{ update: SourceUpdateDto; statusBefore: ProjectStatus } | null>(null);
   const [history, setHistory] = useState<SourceUpdateDto[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const [impactSummary, setImpactSummary] = useState<ImpactSummaryDto | null>(null);
   const [loading, setLoading] = useState(false);
-  const [generatingStage, setGeneratingStage] = useState<string | null>(null);
   const [progress, setProgress] = useState<SourceUpdateProgress | null>(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [finalDurationText, setFinalDurationText] = useState<string | null>(null);
-  const timerStartRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [stageNotice, setStageNotice] = useState<{ type: 'success' | 'error'; message: string; timestamp: string } | null>(null);
-  const completedStages = Object.fromEntries(Object.entries(updateDraft?.generationSummary?.stages ?? {})
-    .map(([stage, summary]) => [stage, summary.completed]));
-  const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
   const [expandedDiffMethodKey, setExpandedDiffMethodKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeAbortRef = useRef<AbortController | null>(null);
   const operationVersionRef = useRef(0);
 
-  // Theo dõi thời gian thực thi của tác vụ đang chạy
   useEffect(() => {
-    const busy = loading || generatingStage !== null || updateDraft?.generationSummary?.running === true;
-    if (busy) {
-      if (timerStartRef.current === null) {
-        timerStartRef.current = Date.now();
-        setFinalDurationText(null);
-        setElapsedSeconds(0);
-      }
-      const interval = setInterval(() => {
-        if (timerStartRef.current) {
-          setElapsedSeconds(Math.max(0, Math.round((Date.now() - timerStartRef.current) / 1000)));
-        }
-      }, 1000);
-      return () => clearInterval(interval);
-    } else {
-      if (timerStartRef.current !== null) {
-        const total = Math.max(0, Math.round((Date.now() - timerStartRef.current) / 1000));
-        setFinalDurationText(formatDuration(total));
-        setElapsedSeconds(total);
-        timerStartRef.current = null;
-      }
-    }
-  }, [loading, generatingStage, updateDraft?.generationSummary?.running]);
-
-  useEffect(() => {
-    if (isOpen && project.id) {
+    if (isOpen) {
       setError(null);
       setProgress(null);
-      setStageNotice(null);
-      setFinalDurationText(null);
-      setElapsedSeconds(0);
-      timerStartRef.current = null;
-    } else if (!isOpen) {
+    } else {
       cancelActiveOperation();
       setUpdateDraft(null);
+      setApplied(null);
       setHistory([]);
       setHistoryError(null);
       setHistoryLoading(false);
-      setImpactSummary(null);
-      setStageNotice(null);
-      setExpandedItemId(null);
       setExpandedDiffMethodKey(null);
       setFile(null);
       setProgress(null);
       setLoading(false);
-      setGeneratingStage(null);
-      setFinalDurationText(null);
-      setElapsedSeconds(0);
-      timerStartRef.current = null;
     }
   }, [isOpen, project.id]);
-
-  useEffect(() => {
-    if (updateDraft?.impactSummary) {
-      try {
-        setImpactSummary(JSON.parse(updateDraft.impactSummary));
-      } catch {
-        setImpactSummary(null);
-      }
-    }
-  }, [updateDraft]);
 
   useEffect(() => {
     if (!isOpen || !project.id) return;
@@ -221,37 +212,13 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
         if (activeDraft) setUpdateDraft(activeDraft);
       })
       .catch((err) => {
-        if (!controller.signal.aborted) {
-          setHistoryError(getSourceUpdateErrorMessage(err));
-        }
+        if (!controller.signal.aborted) setHistoryError(getSourceUpdateErrorMessage(err));
       })
       .finally(() => {
         if (!controller.signal.aborted) setHistoryLoading(false);
       });
     return () => controller.abort();
   }, [isOpen, project.id]);
-
-  useEffect(() => {
-    if (!isOpen || !updateDraft || !(loading || generatingStage || updateDraft.generationSummary?.running)) return;
-    const controller = new AbortController();
-    const operationId = operationVersionRef.current;
-    let pending = false;
-    const timer = window.setInterval(async () => {
-      if (pending) return;
-      pending = true;
-      try {
-        const current = await fetchSourceUpdate(project.id, updateDraft.id, { signal: controller.signal });
-        if (controller.signal.aborted || operationId !== operationVersionRef.current) return;
-        setUpdateDraft(current);
-        const completed = Object.values(current.generationSummary?.stages ?? {}).filter((stage) => stage.completed).length;
-        if (current.generationSummary?.running) {
-          setProgress({ percent: 5 + completed * 22, label: `Server đã xác nhận ${completed}/4 stage. Đang xử lý phần còn thiếu...` });
-        }
-      } catch { /* Request chính và thao tác tải lại vẫn hiển thị lỗi cho người dùng. */ }
-      finally { pending = false; }
-    }, 2_000);
-    return () => { controller.abort(); window.clearInterval(timer); };
-  }, [isOpen, project.id, updateDraft?.id, updateDraft?.generationSummary?.running, loading, generatingStage]);
 
   if (!isOpen) return null;
 
@@ -271,14 +238,10 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     return operationVersionRef.current === operationId;
   }
 
-  function runRequest<T>(
-    operation: (signal: AbortSignal) => Promise<T>,
-    timeoutMessage: string,
-    timeoutMs = SOURCE_UPDATE_TIMEOUT_MS,
-  ) {
+  function runRequest<T>(operation: (signal: AbortSignal) => Promise<T>, timeoutMessage: string) {
     const controller = new AbortController();
     activeAbortRef.current = controller;
-    return withSourceUpdateTimeout(operation, timeoutMessage, controller, timeoutMs).finally(() => {
+    return withSourceUpdateTimeout(operation, timeoutMessage, controller).finally(() => {
       if (activeAbortRef.current === controller) activeAbortRef.current = null;
     });
   }
@@ -291,61 +254,44 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     try {
       const updates = await runRequest(
         (signal) => fetchProjectSourceUpdates(project.id, { signal }),
-        'Kiểm tra bản nháp source code quá thời gian chờ 120 giây.',
+        'Kiểm tra bản cập nhật source code quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return false;
       const activeDraft = updates.find((update) => !TERMINAL_UPDATE_STATUSES.has(update.status));
       if (!activeDraft) return false;
-      // Nếu server đã lưu bản nháp sau khi request upload bị ngắt, giữ lại ID để người dùng tiếp tục xử lý.
+      // Server có thể đã lưu bản cập nhật sau khi request upload bị ngắt; giữ ID để người dùng làm tiếp.
       setUpdateDraft(activeDraft);
       setError(null);
-      updateProgress(100, 'Đã nhận lại bản nháp source code từ server.');
+      updateProgress(100, 'Đã nhận lại bản cập nhật source code từ server.');
       return true;
     } catch {
       return false;
     }
   }
 
-  async function reconcileDraftAfterTimeout(operationId: number, updateId: number, showCompletion = true) {
+  async function reconcileAfterTimeout(operationId: number, updateId: number) {
     try {
       const current = await runRequest(
         (signal) => fetchSourceUpdate(project.id, updateId, { signal }),
-        'Kiểm tra trạng thái source update quá thời gian chờ 120 giây.',
+        'Kiểm tra trạng thái cập nhật source quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return null;
       setUpdateDraft(current);
-      if (showCompletion) {
-        setError(null);
-        updateProgress(100, 'Đã đồng bộ lại trạng thái source update từ server.');
-      }
       return current;
     } catch {
       return null;
     }
   }
 
-  function isBusy() {
-    return loading || generatingStage !== null || updateDraft?.generationSummary?.running === true;
-  }
-
-  function showGenerationError(cause: unknown, stageName: string) {
-    const message = isSourceUpdateTimeout(cause)
-      ? `Chưa xác nhận kết quả sinh ${stageName}: ${getSourceUpdateErrorMessage(cause)}`
-      : `Sinh ${stageName} thất bại: ${getSourceUpdateErrorMessage(cause)}`;
-    setError(message);
-    setStageNotice(null);
-    setProgress((current) => current && ({ ...current, label: message }));
-  }
-
   async function analyzeDraft(updateId: number, startPercent: number, operationId: number) {
-    updateProgress(startPercent, 'Đang phân tích cấu trúc AST của source code...');
+    updateProgress(startPercent, 'Đang so sánh source mới với source hiện tại...');
     const analyzed = await runRequest(
       (signal) => analyzeSourceUpdate(project.id, updateId, servicePath, { signal }),
-      'Phân tích AST quá thời gian chờ 120 giây.',
+      'Phân tích thay đổi quá thời gian chờ 120 giây.',
     );
     if (!isCurrentOperation(operationId)) return;
     setUpdateDraft(analyzed);
-    updateProgress(100, 'Đã hoàn tất cập nhật và phân tích source code.');
+    updateProgress(100, 'Đã phân tích xong thay đổi của source code.');
   }
 
   async function handleCreateDraft() {
@@ -390,7 +336,6 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       }
       if (!isCurrentOperation(operationId)) return;
       setUpdateDraft(draft);
-      // Tự động phân tích AST diff ngay sau khi upload
       await analyzeDraft(draft.id, 45, operationId);
     } catch (err) {
       if (isCurrentOperation(operationId)) {
@@ -403,7 +348,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
   }
 
   async function handleAnalyze(updateId: number) {
-    if (isBusy()) return;
+    if (loading) return;
     const operationId = beginOperation();
     setLoading(true);
     setError(null);
@@ -412,7 +357,7 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
       await analyzeDraft(updateId, 10, operationId);
     } catch (err) {
       if (isCurrentOperation(operationId)) {
-        const reconciled = isSourceUpdateTimeout(err) && await reconcileDraftAfterTimeout(operationId, updateId);
+        const reconciled = isSourceUpdateTimeout(err) && await reconcileAfterTimeout(operationId, updateId);
         if (!reconciled && isCurrentOperation(operationId)) setError(getSourceUpdateErrorMessage(err));
       }
     } finally {
@@ -420,199 +365,39 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     }
   }
 
-  async function handleGenerateStage(stage: 'BUSINESS_RULE' | 'TEST_PLAN' | 'TEST_CASE' | 'UNIT_TEST') {
-    if (!updateDraft || isBusy()) return;
+  function finishApply(update: SourceUpdateDto, statusBefore: ProjectStatus) {
+    setUpdateDraft(null);
+    setProgress(null);
+    onApplied();
+    const target = projectWorkflowPath(project.id, undefined, servicePath ?? undefined);
+    if (target === pathname + search) {
+      setApplied({ update, statusBefore });
+      return;
+    }
+    onClose();
+    navigate(target, { state: { workflowNotice: t('Đã áp dụng source mới.', 'New source applied.') } });
+  }
+
+  async function handleApplySource() {
+    if (!updateDraft || loading) return;
     const operationId = beginOperation();
-    setGeneratingStage(stage);
+    const statusBefore = project.status;
+    setLoading(true);
     setError(null);
-    setStageNotice(null);
-    const stageName = GENERATION_STAGE_NAMES[stage];
-    updateProgress(5, `Đang sinh ${stageName}...`);
+    updateProgress(40, 'Đang áp dụng source mới vào dự án...');
     try {
-      const prevCount = updateDraft.items?.length ?? 0;
       const result = await runRequest(
-        (signal) => generateIncrementalSourceUpdate(project.id, updateDraft.id, stage, { signal }),
-        `Chưa xác nhận kết quả sinh ${stageName}.`,
-        0,
+        (signal) => applySourceChanges(project.id, updateDraft.id, { signal }),
+        'Áp dụng source mới quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return;
-      setUpdateDraft(result);
-      const newCount = (result.items?.length ?? 0) - prevCount;
-      setStageNotice({
-        type: 'success',
-        message: `✓ Đã sinh xong ${stageName}! ${newCount > 0 ? `Đã tạo thêm ${newCount} đề xuất mới sẵn sàng duyệt.` : 'Đã cập nhật các đề xuất tương ứng.'}`,
-        timestamp: new Date().toLocaleTimeString(),
-      });
-      updateProgress(100, `Đã hoàn tất sinh ${stageName}.`);
+      finishApply(result, statusBefore);
     } catch (err) {
       if (isCurrentOperation(operationId)) {
-        // Đọc được bản nháp không chứng minh stage vừa sinh đã hoàn tất.
-        showGenerationError(err, stageName);
-        if (isSourceUpdateTimeout(err)) void reconcileDraftAfterTimeout(operationId, updateDraft.id, false);
-      }
-    } finally {
-      if (isCurrentOperation(operationId)) setGeneratingStage(null);
-    }
-  }
-
-  async function handleGenerateAll() {
-    if (!updateDraft || isBusy()) return;
-    const operationId = beginOperation();
-    setLoading(true);
-    setError(null);
-    setStageNotice(null);
-    updateProgress(0, 'Đang bắt đầu sinh tăng dần toàn bộ...');
-    try {
-      const prevCount = updateDraft.items?.length ?? 0;
-      updateProgress(10, 'Server đang tiếp tục sinh BR, Test Plan, Test Case và Unit Test còn thiếu...');
-      const result = await runRequest(
-        (signal) => generateAllSourceUpdate(project.id, updateDraft.id, { signal }),
-        'Chưa xác nhận kết quả sinh; các checkpoint đã lưu sẽ được tiếp tục ở lần sau.',
-        0,
-      );
-      if (!isCurrentOperation(operationId)) return;
-      setUpdateDraft(result);
-      const totalCreated = (result.items?.length ?? 0) - prevCount;
-      setStageNotice({
-        type: 'success',
-        message: `✓ Đã sinh thành công toàn bộ BR, Test Plan, Test Case và Unit Test! Tổng cộng ${totalCreated > 0 ? `${totalCreated} đề xuất mới` : `${result.items?.length ?? 0} đề xuất`} đã sẵn sàng áp dụng.`,
-        timestamp: new Date().toLocaleTimeString(),
-      });
-      updateProgress(100, 'Đã hoàn tất sinh tăng dần cho source code.');
-    } catch (err) {
-      if (isCurrentOperation(operationId)) {
-        showGenerationError(err, 'toàn bộ pipeline');
-        void reconcileDraftAfterTimeout(operationId, updateDraft.id, false);
-      }
-    } finally {
-      if (isCurrentOperation(operationId)) setLoading(false);
-    }
-  }
-
-  async function handlePatchItem(itemId: number, reviewStatus: SourceUpdateReviewStatus, action?: SourceUpdateAction) {
-    if (!updateDraft || isBusy()) return;
-    const operationId = beginOperation();
-    setLoading(true);
-    setError(null);
-    try {
-      await runRequest(
-        (signal) => patchSourceUpdateItem(project.id, updateDraft.id, itemId, {
-          reviewStatus, action,
-          expectedVersion: updateDraft.items.find((item) => item.id === itemId)?.version,
-          expectedUserRevision: updateDraft.items.find((item) => item.id === itemId)?.userRevision,
-        }, { signal }),
-        'Cập nhật đề xuất quá thời gian chờ 120 giây.',
-      );
-      if (!isCurrentOperation(operationId)) return;
-      const refreshed = await runRequest(
-        (signal) => fetchSourceUpdate(project.id, updateDraft.id, { signal }),
-        'Tải lại bản nháp quá thời gian chờ 120 giây.',
-      );
-      if (!isCurrentOperation(operationId)) return;
-      setUpdateDraft(refreshed);
-    } catch (err) {
-      if (isCurrentOperation(operationId)) {
-        const reconciled = isSourceUpdateTimeout(err) && await reconcileDraftAfterTimeout(operationId, updateDraft.id);
-        if (!reconciled && isCurrentOperation(operationId)) setError(getSourceUpdateErrorMessage(err));
-      }
-    } finally {
-      if (isCurrentOperation(operationId)) setLoading(false);
-    }
-  }
-
-  async function handleResolveConflict(
-    conflict: { stage: string; targetKey: string; itemId: number | null },
-    resolution: 'KEEP_USER' | 'USE_PROPOSAL',
-  ) {
-    if (!updateDraft || isBusy()) return;
-    const item = updateDraft.items.find((candidate) => candidate.id === conflict.itemId);
-    if (!item) return;
-    const operationId = beginOperation();
-    setLoading(true);
-    setError(null);
-    try {
-      await runRequest((signal) => patchSourceUpdateItem(project.id, updateDraft.id, item.id, {
-        expectedVersion: item.version, expectedUserRevision: item.userRevision,
-        conflictStage: conflict.stage, conflictTargetKey: conflict.targetKey, resolution,
-      }, { signal }), 'Giải quyết xung đột quá thời gian chờ.');
-      const refreshed = await runRequest((signal) => fetchSourceUpdate(project.id, updateDraft.id, { signal }),
-        'Tải lại bản nháp quá thời gian chờ.');
-      if (!isCurrentOperation(operationId)) return;
-      setUpdateDraft(refreshed);
-      setStageNotice({ type: 'success', message: 'Đã lưu lựa chọn. Bấm Sinh Tất Cả để xác thực lại các phần phụ thuộc.',
-        timestamp: new Date().toLocaleTimeString() });
-    } catch (failure) {
-      if (isCurrentOperation(operationId)) setError(getSourceUpdateErrorMessage(failure));
-    } finally {
-      if (isCurrentOperation(operationId)) setLoading(false);
-    }
-  }
-
-  async function handleAcceptAllItems() {
-    if (!updateDraft || isBusy() || !updateDraft.items || updateDraft.items.length === 0) return;
-    const pendingItems = updateDraft.items.filter((item) => item.reviewStatus === 'PENDING');
-    if (pendingItems.length === 0) return;
-    const operationId = beginOperation();
-    setLoading(true);
-    setError(null);
-    updateProgress(10, `Đang chấp nhận tất cả ${pendingItems.length} đề xuất...`);
-    try {
-      for (let i = 0; i < pendingItems.length; i++) {
-        const item = pendingItems[i];
-        await runRequest(
-          (signal) => patchSourceUpdateItem(project.id, updateDraft.id, item.id, {
-            reviewStatus: 'ACCEPTED', expectedVersion: item.version, expectedUserRevision: item.userRevision,
-          }, { signal }),
-          'Chấp nhận đề xuất quá thời gian chờ.',
-        );
-        updateProgress(10 + Math.round(((i + 1) / pendingItems.length) * 80), `Đã chấp nhận ${i + 1}/${pendingItems.length} đề xuất...`);
-      }
-      const refreshed = await runRequest(
-        (signal) => fetchSourceUpdate(project.id, updateDraft.id, { signal }),
-        'Tải lại bản nháp sau khi duyệt.',
-      );
-      if (!isCurrentOperation(operationId)) return;
-      setUpdateDraft(refreshed);
-      updateProgress(100, `Đã chấp nhận thành công tất cả ${pendingItems.length} đề xuất!`);
-      setStageNotice({
-        type: 'success',
-        message: refreshed.generationSummary?.readyForApply
-          ? `✓ Đã chấp nhận tất cả ${pendingItems.length} đề xuất. Chưa áp dụng vào dự án; bấm Áp Dụng Cập Nhật để ghi nhận cả Unit Test.`
-          : `Đã chấp nhận ${pendingItems.length} đề xuất. Chưa áp dụng vào dự án; cần hoàn tất hoặc xác thực các bước còn thiếu trước khi Apply.`,
-        timestamp: new Date().toLocaleTimeString(),
-      });
-    } catch (err) {
-      if (isCurrentOperation(operationId)) {
-        setError(getSourceUpdateErrorMessage(err));
-      }
-    } finally {
-      if (isCurrentOperation(operationId)) setLoading(false);
-    }
-  }
-
-  async function handleApply() {
-    if (!updateDraft || isBusy()) return;
-    const operationId = beginOperation();
-    setLoading(true);
-    setError(null);
-    updateProgress(5, 'Đang chuẩn bị áp dụng cập nhật vào dự án...');
-    try {
-      updateProgress(60, 'Đang ghi nhận thay đổi vào dự án...');
-      await runRequest(
-        (signal) => applySourceUpdate(project.id, updateDraft.id, { signal }),
-        'Áp dụng cập nhật quá thời gian chờ 120 giây.',
-      );
-      if (!isCurrentOperation(operationId)) return;
-      updateProgress(100, 'Đã áp dụng thành công cập nhật vào dự án.');
-      onApplied();
-      onClose();
-    } catch (err) {
-      if (isCurrentOperation(operationId)) {
-        const reconciled = isSourceUpdateTimeout(err) && await reconcileDraftAfterTimeout(operationId, updateDraft.id);
-        if (reconciled && reconciled.status === 'APPLIED') {
-          onApplied();
-          onClose();
-        } else if (!reconciled && isCurrentOperation(operationId)) {
+        const reconciled = isSourceUpdateTimeout(err) ? await reconcileAfterTimeout(operationId, updateDraft.id) : null;
+        if (reconciled?.status === 'APPLIED') {
+          finishApply(reconciled, statusBefore);
+        } else if (isCurrentOperation(operationId)) {
           setError(getSourceUpdateErrorMessage(err));
         }
       }
@@ -624,10 +409,6 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
   async function handleCancelDraft() {
     if (!updateDraft) {
       cancelActiveOperation();
-      setLoading(false);
-      setFile(null);
-      setProgress(null);
-      setGeneratingStage(null);
       onClose();
       return;
     }
@@ -637,13 +418,11 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     try {
       await runRequest(
         (signal) => cancelSourceUpdate(project.id, updateDraft.id, { signal }),
-        'Hủy bản nháp quá thời gian chờ 120 giây.',
+        'Hủy cập nhật quá thời gian chờ 120 giây.',
       );
       if (!isCurrentOperation(operationId)) return;
       setUpdateDraft(null);
-      setImpactSummary(null);
       setProgress(null);
-      setGeneratingStage(null);
       onClose();
     } catch (err) {
       if (isCurrentOperation(operationId)) setError(getSourceUpdateErrorMessage(err));
@@ -652,36 +431,66 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
     }
   }
 
-  const canApply = updateDraft?.generationSummary?.readyForApply === true
-    && !updateDraft.items.some((item) => item.reviewStatus === 'PENDING');
+  const impact = parseImpact(applied?.update ?? updateDraft);
+  const serviceMethods = (impact?.changedMethods ?? []).filter((m: MethodDiffItem) => {
+    if (!m.isServiceMethod) return false;
+    if (!servicePath || !m.servicePath) return true;
+    return m.servicePath === servicePath;
+  });
+  const affected = {
+    rules: impact?.affectedBusinessRuleIds?.length ?? 0,
+    plans: impact?.affectedTestPlanIds?.length ?? 0,
+    cases: impact?.affectedTestCaseIds?.length ?? 0,
+    unitTests: impact?.affectedUnitTestIds?.length ?? 0,
+  };
+  const nothingAffected = (impact?.addedMethodsCount ?? 0) === 0 && affected.rules === 0;
+  // ponytail: chỉ xóa method thì không còn gì để sinh; ca hiếm Test Plan phủ thêm BR không đổi do backend lùi trạng thái.
+  const nothingToRegenerate = (impact?.addedMethodsCount ?? 0) === 0
+    && ((impact?.modifiedMethodsCount ?? 0) === 0 || affected.rules === 0);
+  const isAnalyzed = updateDraft?.status === 'ANALYZED';
+  // Bản cập nhật tạo theo luồng sinh tăng dần cũ không áp dụng trực tiếp được; người dùng hủy rồi tải lại.
+  const isLegacyDraft = updateDraft != null && ['GENERATING', 'READY_TO_APPLY'].includes(updateDraft.status);
+  const step = applied ? 3 : updateDraft ? 2 : 1;
+  const steps = [
+    t('Tải source mới', 'Upload new source'),
+    t('Xem thay đổi', 'Review changes'),
+    t('Sinh lại phần thay đổi', 'Regenerate changed parts'),
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-dark/60 p-4 backdrop-blur-sm">
-      <div role="dialog" aria-modal="true" aria-labelledby="source-update-title" className="relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-base border border-border-default bg-neutral-primary-soft shadow-2xl">
-        {/* Header */}
+      <div role="dialog" aria-modal="true" aria-labelledby="source-update-title" className="relative flex max-h-[90vh] w-full max-w-6xl flex-col rounded-base border border-border-default bg-neutral-primary-soft shadow-2xl">
         <div className="flex items-center justify-between border-b border-border-default px-6 py-4">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-control bg-brand-softer text-fg-brand-strong">
               <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
             </div>
             <div>
-              <h2 id="source-update-title" className="font-semibold text-heading text-lg font-display">Cập nhật Source Code & Sinh Tăng Dần</h2>
-              <p className="text-xs text-body-subtle font-mono">
-                Dự án: <span className="font-semibold text-heading">{project.name}</span>
-                {servicePath ? (
-                  <>
-                    {', '}Đang chọn Service: <span className="font-semibold text-brand">{servicePath}</span> (chỉ phân tích & cập nhật service này)
-                  </>
-                ) : (
-                  ', nhận diện thay đổi method và chỉ sinh cho phần bị ảnh hưởng'
-                )}
+              <h2 id="source-update-title" className="font-semibold text-heading text-lg font-display">{t('Cập nhật source code', 'Update source code')}</h2>
+              <p className="text-xs text-body-subtle">
+                {project.name}{servicePath ? ` · Service: ${servicePath}` : ''}
               </p>
             </div>
           </div>
           <IconButton icon={X} label={t('Đóng modal', 'Close modal')} onClick={onClose} />
         </div>
 
-        {/* Error alert */}
+        <ol aria-label={t('Các bước cập nhật source', 'Source update steps')} className="flex flex-wrap gap-2 border-b border-border-default px-6 py-3 text-xs">
+          {steps.map((label, index) => {
+            const number = index + 1;
+            const state = number < step ? 'done' : number === step ? 'current' : 'todo';
+            return (
+              <li key={label} aria-current={state === 'current' ? 'step' : undefined}
+                className={`inline-flex items-center gap-1.5 rounded-control px-3 py-1 font-semibold ${
+                  state === 'current' ? 'bg-brand-softer text-fg-brand-strong'
+                    : state === 'done' ? 'bg-success-soft text-fg-success-strong' : 'bg-neutral-secondary-medium text-body-subtle'}`}>
+                {state === 'done' ? <CheckCircle2 size={13} aria-hidden="true" /> : <span>{number}.</span>}
+                {label}
+              </li>
+            );
+          })}
+        </ol>
+
         {error && (
           <div role="alert" className="mx-6 mt-4 flex max-h-32 shrink-0 items-center gap-2 overflow-y-auto rounded-base bg-danger-soft p-3 text-sm text-fg-danger-strong border border-border-danger-subtle">
             <AlertTriangle size={16} />
@@ -689,483 +498,216 @@ export function SourceUpdateModal({ project, servicePath, isOpen, onClose, onApp
           </div>
         )}
 
-        {stageNotice && !error && (
-          <div role={stageNotice.type === 'error' ? 'alert' : 'status'}
-            className="mx-6 mt-4 flex shrink-0 items-start justify-between gap-3 rounded-base border border-border-success-subtle bg-success-soft p-3.5 text-xs text-fg-success-strong dark:text-fg-success-strong">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="shrink-0" />
-              <div>
-                <p className="font-semibold">{stageNotice.message}</p>
-                <p className="mt-0.5 text-xs opacity-80">
-                  Thời gian: {stageNotice.timestamp}
-                  {finalDurationText ? ` , Tổng thời gian: ${finalDurationText}` : ''}
-                </p>
-              </div>
-            </div>
-            <IconButton icon={X} label={t('Đóng thông báo', 'Dismiss notification')} onClick={() => setStageNotice(null)} />
-          </div>
-        )}
-
-        {/* Content Body */}
         <div role="region" aria-label="Nội dung cập nhật source" className="flex-1 overflow-y-auto p-6 space-y-6">
-          {progress ? (
+          {progress && (
             <div className="rounded-base border border-border-brand-subtle bg-brand-softer p-4" aria-live="polite">
               <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-heading">Tiến trình xử lý source code</span>
-                  {isBusy() && (
-                    <Tag className="font-mono tabular-nums">
-                      <Clock size={12} aria-hidden="true"  />
-                      <span>Thời gian: {formatDuration(elapsedSeconds)}</span>
-                    </Tag>
-                  )}
-                </div>
+                <span className="font-semibold text-heading">Tiến trình xử lý source code</span>
                 <span className="font-semibold text-brand">{progress.percent}%</span>
               </div>
-              <div
-                role="progressbar"
-                aria-label="Tiến trình xử lý source code"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={progress.percent}
-                className="h-2 overflow-hidden rounded-full bg-neutral-secondary-medium"
-              >
-                <div
-                  className="h-full rounded-full bg-brand transition-colors duration-300 ease-out"
-                  style={{ width: `${progress.percent}%` }}
-                />
+              <div role="progressbar" aria-label="Tiến trình xử lý source code" aria-valuemin={0} aria-valuemax={100}
+                aria-valuenow={progress.percent} className="h-2 overflow-hidden rounded-full bg-neutral-secondary-medium">
+                <div className="h-full rounded-full bg-brand transition-colors duration-300 ease-out" style={{ width: `${progress.percent}%` }} />
               </div>
-              <div className="mt-2 flex items-center justify-between text-xs text-body-subtle">
-                <p>{progress.label}</p>
-                {finalDurationText && !isBusy() && (
-                  <span className="font-medium text-fg-success-strong dark:text-fg-success-strong">
-                    ✓ Hoàn tất trong {finalDurationText}
-                  </span>
+              <p className="mt-2 text-xs text-body-subtle">{progress.label}</p>
+            </div>
+          )}
+
+          {step === 1 && (
+            <>
+              <SourceUpdateHistory updates={history} loading={historyLoading} error={historyError} servicePath={servicePath} />
+              <div className="space-y-4">
+                <p className="text-sm text-body">
+                  {t(
+                    'Tải source mới lên. Hệ thống so sánh với source hiện tại và chỉ cập nhật những method có thay đổi; phần còn lại giữ nguyên.',
+                    'Upload the new source. GreyTest compares it with the current source and only updates changed methods; everything else is kept.',
+                  )}
+                </p>
+                <div className="flex gap-2 border-b border-border-default pb-2">
+                  <button type="button" onClick={() => setActiveTab('ZIP')} aria-pressed={activeTab === 'ZIP'}
+                    className={activeTab === 'ZIP' ? 'btn btn-ghost bg-brand-softer text-fg-brand-strong' : 'btn btn-ghost'}>
+                    <Upload size={16} />
+                    Upload file ZIP mới
+                  </button>
+                  <button type="button" onClick={() => setActiveTab('GITHUB')} aria-pressed={activeTab === 'GITHUB'}
+                    className={activeTab === 'GITHUB' ? 'btn btn-ghost bg-brand-softer text-fg-brand-strong' : 'btn btn-ghost'}>
+                    <GitBranch size={16} />
+                    Lấy từ nhánh GitHub
+                  </button>
+                </div>
+
+                {activeTab === 'ZIP' ? (
+                  <div
+                    onClick={(event) => { if (event.target !== fileInputRef.current) fileInputRef.current?.click(); }}
+                    className="flex cursor-pointer flex-col items-center justify-center rounded-base border-2 border-dashed border-border-default p-8 text-center transition-colors hover:border-brand hover:bg-brand-softer"
+                    role="button" tabIndex={0}
+                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInputRef.current?.click(); } }}
+                  >
+                    <input ref={fileInputRef} type="file" accept=".zip" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                    <Upload size={32} className="mb-2 text-brand" />
+                    <p className="text-sm font-semibold text-heading">
+                      {file ? file.name : t('Nhấp để chọn file ZIP dự án mới', 'Click to select new project ZIP file')}
+                    </p>
+                    <p className="mt-1 text-xs text-body-subtle">Hỗ trợ file ZIP toàn bộ mã nguồn Java Spring Boot</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-heading" htmlFor="source-update-branch">Tên nhánh (Branch)</label>
+                    <input id="source-update-branch" type="text" value={branch} onChange={(e) => setBranch(e.target.value)}
+                      placeholder="ví dụ: main, develop, feature/new-logic"
+                      className="w-full rounded-control border border-border-default bg-neutral-primary px-4 py-2.5 text-sm text-heading" />
+                    <p className="text-xs text-body-subtle">Hệ thống sẽ lấy commit mới nhất từ nhánh trên repository: {project.sourceUrl}</p>
+                  </div>
                 )}
               </div>
-            </div>
-          ) : null}
+            </>
+          )}
 
-          <SourceUpdateHistory updates={history} loading={historyLoading} error={historyError} servicePath={servicePath} />
-          {!updateDraft ? (
-            /* Bước 1: Upload source mới */
-            <div className="space-y-4">
-              <div className="flex gap-2 border-b border-border-default pb-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('ZIP')}
-                  className={activeTab === "ZIP" ? "btn btn-ghost bg-brand-softer text-fg-brand-strong" : "btn btn-ghost"} aria-pressed={activeTab === "ZIP"}
-                >
-                  <Upload size={16} />
-                  Upload file ZIP mới
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('GITHUB')}
-                  className={activeTab === "GITHUB" ? "btn btn-ghost bg-brand-softer text-fg-brand-strong" : "btn btn-ghost"} aria-pressed={activeTab === "GITHUB"}
-                >
-                  <GitBranch size={16} />
-                  Lấy từ nhánh GitHub
-                </button>
-              </div>
-
-              {activeTab === 'ZIP' ? (
-                <div
-                  onClick={(event) => { if (event.target !== fileInputRef.current) fileInputRef.current?.click(); }}
-                  className="flex cursor-pointer flex-col items-center justify-center rounded-base border-2 border-dashed border-border-default p-8 text-center transition-colors hover:border-brand hover:bg-brand-softer" role="button" tabIndex={0}
-                  onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); fileInputRef.current?.click(); } }}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".zip"
-                    className="hidden"
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  />
-                  <Upload size={32} className="mb-2 text-brand" />
-                  <p className="text-sm font-semibold text-heading">
-                    {file ? file.name : t('Nhấp để chọn file ZIP dự án mới', 'Click to select new project ZIP file')}
-                  </p>
-                  <p className="mt-1 text-xs text-body-subtle">Hỗ trợ file ZIP toàn bộ mã nguồn Java Spring Boot</p>
+          {step === 2 && updateDraft && (
+            <div className="space-y-5">
+              {isLegacyDraft && (
+                <div role="status" className="rounded-base border border-border-warning-subtle bg-warning-soft p-4 text-sm text-fg-warning">
+                  {t(
+                    `Bản cập nhật này được tạo theo cách cũ (${formatSemanticLabel(updateDraft.status, language)}) và không thể áp dụng trực tiếp. Hãy bấm "Hủy cập nhật" rồi tải source lại.`,
+                    `This update was created with the old flow (${formatSemanticLabel(updateDraft.status, language)}) and cannot be applied directly. Cancel it and upload the source again.`,
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-heading">Tên nhánh (Branch)</label>
-                  <input
-                    type="text"
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                    placeholder="ví dụ: main, develop, feature/new-logic"
-                    className="w-full rounded-control border border-border-default bg-neutral-primary px-4 py-2.5 text-sm text-heading"
-                  />
-                  <p className="text-xs text-body-subtle">
-                    Hệ thống sẽ lấy commit mới nhất từ nhánh trên repository: {project.sourceUrl}
-                  </p>
+              )}
+              {!isAnalyzed && !isLegacyDraft && (
+                <div role="status" className="rounded-base border border-border-default p-4 text-sm text-body">
+                  {t('Source đã được tải lên nhưng chưa phân tích xong. Bấm "Phân tích lại" để tiếp tục.',
+                    'The source is uploaded but not analyzed yet. Click "Analyze again" to continue.')}
                 </div>
               )}
 
-              <div className="flex justify-end pt-4">
-                <button
-                  type="button"
-                  disabled={loading || (activeTab === 'ZIP' && !file)}
-                  onClick={handleCreateDraft}
-                  className="btn btn-brand whitespace-nowrap text-sm"
-                >
-                  {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-                  Tải lên & Phân tích khác biệt AST
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Bước 2, 3, 4: Đã có bản nháp update */
-            <div className="space-y-6">
-              {/* Tóm tắt AST Diff & Impact */}
-              {impactSummary && (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div className="border-t border-t-border-default p-3">
-                    <p className="text-xs text-body-subtle">Method thay đổi</p>
-                    <p className="text-lg font-semibold text-heading">{impactSummary.totalChangedMethods}</p>
-                    <div className="mt-1 flex gap-2 text-xs text-body-subtle">
-                      <span className="text-fg-success-strong">+{impactSummary.addedMethodsCount} thêm</span>
-                      <span className="text-fg-warning">~{impactSummary.modifiedMethodsCount} sửa</span>
-                      <span className="text-fg-danger-strong">-{impactSummary.deletedMethodsCount} xóa</span>
-                    </div>
+              {impact && (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-semibold text-heading">{t('Thay đổi phát hiện:', 'Detected changes:')}</span>
+                    <Tag variant="status" tone="success" icon={Plus}>{impact.addedMethodsCount} {t('method mới', 'new methods')}</Tag>
+                    <Tag variant="status" tone="warning" icon={PencilLine}>{impact.modifiedMethodsCount} {t('method sửa', 'modified')}</Tag>
+                    <Tag variant="status" tone="danger" icon={Trash2}>{impact.deletedMethodsCount} {t('method xóa', 'deleted')}</Tag>
                   </div>
-                  <div className="border-t border-t-border-default p-3">
-                    <p className="text-xs text-body-subtle">Business Rule (BR) ảnh hưởng</p>
-                    <p className="text-lg font-semibold text-heading">{impactSummary.affectedBusinessRuleIds?.length ?? 0}</p>
-                    <p className="mt-1 text-xs text-body-subtle">Cần sinh / cập nhật</p>
-                  </div>
-                  <div className="border-t border-t-border-default p-3">
-                    <p className="text-xs text-body-subtle">Test Plan ảnh hưởng</p>
-                    <p className="text-lg font-semibold text-heading">{impactSummary.affectedTestPlanIds?.length ?? 0}</p>
-                    <p className="mt-1 text-xs text-body-subtle">Test Plan</p>
-                  </div>
-                  <div className="border-t border-t-border-default p-3">
-                    <p className="text-xs text-body-subtle">Test Case / Unit Test</p>
-                    <p className="text-lg font-semibold text-heading">
-                      {(impactSummary.affectedTestCaseIds?.length ?? 0) + (impactSummary.affectedUnitTestIds?.length ?? 0)}
-                    </p>
-                    <p className="mt-1 text-xs text-body-subtle">Test Case & Unit Test</p>
-                  </div>
-                </div>
-              )}
 
-              {/* Danh sách Changed Methods Diff (Chỉ hiển thị Service) */}
-              {(() => {
-                const serviceMethods = (impactSummary?.changedMethods || []).filter((m: MethodDiffItem) => {
-                  if (!m.isServiceMethod) return false;
-                  if (!servicePath) return true;
-                  if (m.servicePath) return m.servicePath === servicePath;
-                  return true;
-                });
-                if (serviceMethods.length === 0) return null;
-                return (
-                  <div className="border-t border-t-border-default p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h2 className="text-xs font-semibold text-body-subtle">
-                        Danh sách phương thức Service thay đổi {servicePath ? `(${servicePath})` : ''} (AST Diff)
-                      </h2>
-                      <span className="text-xs text-body-subtle">
-                        Nhấp vào phương thức để xem chi tiết mã nguồn trước / sau
-                      </span>
-                    </div>
+                  {isAnalyzed && (
+                    <section aria-label={t('Điều gì xảy ra khi áp dụng', 'What applying does')} className="rounded-base border border-border-brand-subtle bg-brand-softer p-4 text-sm">
+                      <h3 className="font-semibold text-heading">{t('Khi bấm "Áp dụng source mới":', 'When you click "Apply new source":')}</h3>
+                      {nothingAffected ? (
+                        <p className="mt-2 text-body">{t('Không có Business Rule, Test Plan, Test Case hay Unit Test nào bị ảnh hưởng. Chỉ cập nhật source.',
+                          'No Business Rule, Test Plan, Test Case or Unit Test is affected. Only the source is updated.')}</p>
+                      ) : (
+                        <ul className="mt-2 list-disc space-y-1 pl-5 text-body">
+                          {affected.rules > 0 && (
+                            <li>{t(
+                              `Xóa ${affected.rules} Business Rule, ${affected.plans} Test Plan, ${affected.cases} Test Case, ${affected.unitTests} Unit Test của các method bị sửa hoặc xóa.`,
+                              `Remove ${affected.rules} Business Rules, ${affected.plans} Test Plans, ${affected.cases} Test Cases, ${affected.unitTests} Unit Tests of modified or deleted methods.`,
+                            )}</li>
+                          )}
+                          {(impact.modifiedMethodsCount ?? 0) > 0 && affected.rules > 0 && (
+                            <li>{t('Phần của method bị sửa sẽ được sinh lại theo source mới; phần của method bị xóa thì bỏ hẳn.',
+                              'Parts of modified methods are regenerated from the new source; parts of deleted methods are dropped.')}</li>
+                          )}
+                          {impact.addedMethodsCount > 0 && (
+                            <li>{t(`${impact.addedMethodsCount} method mới sẽ cần sinh Business Rule.`, `${impact.addedMethodsCount} new methods will need Business Rules.`)}</li>
+                          )}
+                          <li>{t('Mọi phần khác giữ nguyên, kể cả những gì bạn đã duyệt.', 'Everything else is kept, including what you already approved.')}</li>
+                        </ul>
+                      )}
+                    </section>
+                  )}
+
+                  {serviceMethods.length > 0 && (
                     <div className="space-y-2">
+                      <h3 className="text-xs font-semibold text-body-subtle">
+                        {t('Method Service thay đổi (bấm để xem source trước / sau)', 'Changed Service methods (click to see before / after)')}
+                      </h3>
                       {serviceMethods.map((m: MethodDiffItem) => {
                         const isExpanded = expandedDiffMethodKey === m.methodKey;
                         const hasSource = Boolean(m.beforeSource || m.afterSource);
-
-                      return (
-                        <div
-                          key={m.methodKey}
-                          className={`rounded-base border transition-colors ${
-                            m.diffType === 'ADDED'
-                              ? 'border-border-success-subtle bg-success-soft'
-                              : m.diffType === 'MODIFIED'
-                              ? 'border-border-warning-subtle bg-warning-soft'
-                              : 'border-border-danger-subtle bg-danger-soft'
-                          } p-3 text-xs`}
-                        >
-                          <div
-                            className={`flex items-center justify-between gap-2 ${hasSource ? 'cursor-pointer select-none' : ''}`}
-                            onClick={() => hasSource && setExpandedDiffMethodKey(isExpanded ? null : m.methodKey)}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <Tag variant="status" tone={m.diffType === 'ADDED' ? 'success' : m.diffType === 'DELETED' ? 'danger' : 'warning'} icon={m.diffType === 'ADDED' ? Plus : m.diffType === 'DELETED' ? Trash2 : PencilLine}>
-                                  {m.diffType === 'ADDED' && '+ '}{m.diffType === 'DELETED' && '- '}
-                                  {formatSemanticLabel(m.diffType, language)}
-                                </Tag>
-                                <span className="font-mono font-semibold text-heading truncate">{m.signature}</span>
-                                {m.isServiceMethod && (
-                                  <Tag>
-                                    Service
+                        const tone = m.diffType === 'ADDED' ? 'success' : m.diffType === 'DELETED' ? 'danger' : 'warning';
+                        return (
+                          <div key={m.methodKey} className="rounded-base border border-border-default p-3 text-xs">
+                            <div className={`flex items-center justify-between gap-2 ${hasSource ? 'cursor-pointer select-none' : ''}`}
+                              onClick={() => hasSource && setExpandedDiffMethodKey(isExpanded ? null : m.methodKey)}>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <Tag variant="status" tone={tone} icon={m.diffType === 'ADDED' ? Plus : m.diffType === 'DELETED' ? Trash2 : PencilLine}>
+                                    {formatSemanticLabel(m.diffType, language)}
                                   </Tag>
-                                )}
+                                  <span className="truncate font-mono font-semibold text-heading">{m.signature}</span>
+                                </div>
+                                <p className="mt-1 text-xs text-body-subtle">
+                                  <span className="font-mono">{m.qualifiedClassName}</span>{m.reason ? `, ${m.reason}` : ''}
+                                </p>
                               </div>
-                              <p className="mt-1 text-xs text-body-subtle">
-                                <span className="font-medium text-heading font-mono">{m.qualifiedClassName}</span>, {m.reason}
-                              </p>
+                              {hasSource && (
+                                <IconButton icon={isExpanded ? ChevronUp : ChevronDown}
+                                  label={isExpanded ? t('Thu gọn diff', 'Collapse diff') : t('Mở rộng diff', 'Expand diff')}
+                                  onClick={(event) => { event.stopPropagation(); setExpandedDiffMethodKey(isExpanded ? null : m.methodKey); }}
+                                  aria-expanded={isExpanded} />
+                              )}
                             </div>
-
-                            {hasSource && (
-                              <IconButton icon={isExpanded ? ChevronUp : ChevronDown} label={isExpanded ? t('Thu gọn diff', 'Collapse diff') : t('Mở rộng diff', 'Expand diff')} onClick={(event) => { event.stopPropagation(); setExpandedDiffMethodKey(isExpanded ? null : m.methodKey); }} aria-expanded={isExpanded} />
-                            )}
+                            {isExpanded && <MethodSourceDiff method={m} />}
                           </div>
-
-                          {/* Chi tiết Before/After Source Code */}
-                          {isExpanded && (
-                            <div className="mt-3 space-y-2 border-t border-border-default pt-3">
-                              {m.diffType === 'MODIFIED' && (
-                                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                                  {m.beforeSource && (
-                                    <div>
-                                      <p className="mb-1 text-xs font-semibold text-fg-danger-strong">Mã nguồn ban đầu (Before):</p>
-                                      <pre className="max-h-52 overflow-x-auto rounded-sm border border-border-danger-subtle bg-danger-soft p-2 font-mono text-xs text-fg-danger-strong dark:text-fg-danger-strong">
-                                        <code>{m.beforeSource}</code>
-                                      </pre>
-                                    </div>
-                                  )}
-                                  {m.afterSource && (
-                                    <div>
-                                      <p className="mb-1 text-xs font-semibold text-fg-success-strong">Mã nguồn mới cập nhật (After):</p>
-                                      <pre className="max-h-52 overflow-x-auto rounded-sm border border-border-success-subtle bg-success-soft p-2 font-mono text-xs text-fg-success-strong dark:text-fg-success-strong">
-                                        <code>{m.afterSource}</code>
-                                      </pre>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {m.diffType === 'ADDED' && m.afterSource && (
-                                <div>
-                                  <p className="mb-1 text-xs font-semibold text-fg-success-strong">Mã nguồn phương thức mới thêm:</p>
-                                  <pre className="max-h-52 overflow-x-auto rounded-sm border border-border-success-subtle bg-success-soft p-2 font-mono text-xs text-fg-success-strong dark:text-fg-success-strong">
-                                    <code>{m.afterSource}</code>
-                                  </pre>
-                                </div>
-                              )}
-
-                              {m.diffType === 'DELETED' && m.beforeSource && (
-                                <div>
-                                  <p className="mb-1 text-xs font-semibold text-fg-danger-strong">Mã nguồn phương thức đã bị xóa:</p>
-                                  <pre className="max-h-52 overflow-x-auto rounded-sm border border-border-danger-subtle bg-danger-soft p-2 font-mono text-xs text-fg-danger-strong dark:text-fg-danger-strong">
-                                    <code>{m.beforeSource}</code>
-                                  </pre>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                );
-              })()}
-
-              {/* Action Toolbar Sinh tăng dần */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-base border border-border-brand-subtle bg-brand-softer p-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-heading flex items-center gap-1.5">
-                    <Cpu size={16} className="text-brand" />
-                    Sinh Tăng Dần Bằng AI (Selective Generation)
-                  </h4>
-                  <p className="text-xs text-body-subtle">
-                    Chỉ gọi LLM sinh cho các method và artifacts bị ảnh hưởng, giữ nguyên toàn bộ artifacts khác.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={isBusy()}
-                    onClick={() => handleGenerateStage('BUSINESS_RULE')}
-                    className="btn btn-secondary text-sm"
-                  >
-                    {generatingStage === 'BUSINESS_RULE' ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}
-                    {completedStages['BUSINESS_RULE'] ? '✓ Đã sinh BR' : '1. Sinh BR'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy()}
-                    onClick={() => handleGenerateStage('TEST_PLAN')}
-                    className="btn btn-secondary text-sm"
-                  >
-                    {generatingStage === 'TEST_PLAN' ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}
-                    {completedStages['TEST_PLAN'] ? '✓ Đã sinh Test Plan' : '2. Sinh Test Plan'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy()}
-                    onClick={() => handleGenerateStage('TEST_CASE')}
-                    className="btn btn-secondary text-sm"
-                  >
-                    {generatingStage === 'TEST_CASE' ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}
-                    {completedStages['TEST_CASE'] ? '✓ Đã sinh Test Case' : '3. Sinh Test Case'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy()}
-                    onClick={() => handleGenerateStage('UNIT_TEST')}
-                    className="btn btn-secondary text-sm"
-                  >
-                    {generatingStage === 'UNIT_TEST' ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}
-                    {completedStages['UNIT_TEST'] ? '✓ Đã sinh Unit Test' : '4. Sinh Unit Test'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy()}
-                    onClick={handleGenerateAll}
-                    className="btn btn-secondary text-sm"
-                  >
-                    {loading ? <Loader2 size={12} className="animate-spin" /> : <Cpu size={12} />}
-                    Sinh Tất Cả
-                  </button>
-                </div>
-              </div>
-
-              {/* Danh sách các đề xuất thay đổi (Source Update Items) */}
-              {(updateDraft.generationSummary?.conflicts.length ?? 0) > 0 && (
-                <section aria-label="Xung đột cần giải quyết" className="space-y-3 rounded-base border border-border-warning-subtle p-4">
-                  <h2 className="text-base font-semibold text-heading font-display">Giữ quyết định của bạn hoặc nhận đề xuất mới</h2>
-                  {updateDraft.generationSummary!.conflicts.map((conflict) => (
-                    <div key={`${conflict.stage}:${conflict.targetKey}`} className="space-y-2 text-xs">
-                      <p>{conflict.stage} , {conflict.targetKey}</p>
-                      {conflict.proposedAfterData && <pre className="max-h-40 overflow-auto whitespace-pre-wrap">{conflict.proposedAfterData}</pre>}
-                      <div className="flex gap-2">
-                        <button type="button" disabled={isBusy() || conflict.itemId == null}
-                          onClick={() => handleResolveConflict(conflict, 'KEEP_USER')}
-                          className="btn btn-secondary text-sm">Giữ bản của tôi</button>
-                        <button type="button" disabled={isBusy() || conflict.itemId == null}
-                          onClick={() => handleResolveConflict(conflict, 'USE_PROPOSAL')}
-                          className="btn btn-secondary text-sm">Nhận đề xuất mới</button>
-                      </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </section>
-              )}
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-base font-semibold text-heading flex items-center gap-2 font-display">
-                    <span>Các Đề Xuất Cập Nhật Đang Chờ Duyệt ({updateDraft.items?.length ?? 0})</span>
-                    <span className="text-xs font-normal text-body-subtle">
-                      ({t('Bản nháp', 'Draft')}: <span className="font-semibold text-brand">{formatSemanticLabel(updateDraft.status, language)}</span>)
-                    </span>
-                  </h2>
-                  {updateDraft.items && updateDraft.items.some((i) => i.reviewStatus === 'PENDING') && (
-                    <button
-                      type="button"
-                      disabled={isBusy()}
-                      onClick={handleAcceptAllItems}
-                      className="btn btn-secondary text-sm"
-                    >
-                      <CheckCircle2 size={13} />
-                      Chấp nhận tất cả đề xuất
-                    </button>
                   )}
-                </div>
-
-                {updateDraft.items?.length === 0 ? (
-                  <p className="rounded-base border border-border-default p-4 text-center text-xs text-body-subtle">
-                    Chưa có đề xuất nào. Bấm nút “Sinh Tăng Dần” ở trên để AI tạo các đề xuất mới.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {updateDraft.items.map((item: SourceUpdateItemDto) => {
-                      const isExpanded = expandedItemId === item.id;
-                      return (
-                        <div
-                          key={item.id}
-                          className="border-t border-t-border-default p-3.5 transition-colors"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <Tag>
-                                {formatSemanticLabel(item.targetType, language)}
-                              </Tag>
-                              <Tag variant="status" tone={item.action === 'CREATE' ? 'success' : item.action === 'REMOVE' ? 'danger' : 'warning'} icon={item.action === 'CREATE' ? Plus : item.action === 'REMOVE' ? Trash2 : PencilLine}>
-                                {formatSemanticLabel(item.action, language)}
-                              </Tag>
-                              <span className="text-xs text-body">{item.reason || item.targetKey || `ID #${item.targetId}`}</span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <SemanticBadge kind="review-status" value={item.reviewStatus} />
-
-                              <IconButton icon={CheckCircle2} label={t('Chấp nhận đề xuất này', 'Accept this proposal')} disabled={isBusy()} onClick={() => handlePatchItem(item.id, 'ACCEPTED')} />
-                              <IconButton icon={XCircle} label={t('Từ chối đề xuất này', 'Reject this proposal')} disabled={isBusy()} onClick={() => handlePatchItem(item.id, 'REJECTED')} />
-                              <IconButton icon={isExpanded ? ChevronUp : ChevronDown} label={isExpanded ? t('Thu gọn diff', 'Collapse diff') : t('Mở rộng diff', 'Expand diff')} onClick={() => setExpandedItemId(isExpanded ? null : item.id)} aria-expanded={isExpanded} />
-                            </div>
-                          </div>
-
-                          {isExpanded && item.afterData && (
-                            <div className="mt-3 border-t border-border-default pt-3">
-                              <p className="mb-1 text-xs font-semibold text-body-subtle">Nội dung đề xuất (JSON / Source):</p>
-                              <pre className="max-h-48 overflow-x-auto rounded-sm bg-neutral-secondary-soft p-2 font-mono text-xs text-heading">
-                                {item.afterData}
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
+          )}
+
+          {step === 3 && applied && (
+            <section role="status" className="space-y-4">
+              <div className="flex items-start gap-3 rounded-base border border-border-success-subtle bg-success-soft p-4 text-sm text-fg-success-strong">
+                <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
+                <p className="font-semibold">{t('Đã áp dụng source mới. Phần không thay đổi được giữ nguyên.', 'New source applied. Unchanged parts were kept.')}</p>
+              </div>
+              {nothingToRegenerate ? (
+                <p className="text-sm text-body">{t('Không có phần nào cần sinh lại.', 'Nothing needs to be regenerated.')}</p>
+              ) : (
+                <div className="text-sm">
+                  <h3 className="font-semibold text-heading">{t('Việc cần làm tiếp, theo thứ tự:', 'Next steps, in order:')}</h3>
+                  <ol className="mt-2 list-decimal space-y-1 pl-5 text-body">
+                    {NEXT_STEPS.filter((s) => s.from === 'BR_PENDING_REVIEW' || reachedAtLeast(applied.statusBefore, s.from))
+                      .map((s) => <li key={s.from}>{t(s.vi, s.en)}</li>)}
+                  </ol>
+                  <p className="mt-2 text-xs text-body-subtle">
+                    {t('"Tiếp tục sinh" chỉ sinh cho phần còn thiếu do source thay đổi.', '"Resume generation" only fills in what the source change removed.')}
+                  </p>
+                </div>
+              )}
+            </section>
           )}
         </div>
 
-        {/* Footer Actions */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-default px-6 py-4">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-ghost text-sm"
-            >
-              Đóng
-            </button>
-            {updateDraft && (
-              <button
-                type="button"
-                disabled={loading || generatingStage !== null}
-                onClick={handleCancelDraft}
-                className="btn btn-ghost-danger text-sm"
-              >
-                Hủy bản nháp
+            <button type="button" onClick={onClose} className="btn btn-ghost text-sm">{t('Đóng', 'Close')}</button>
+            {step === 2 && (
+              <button type="button" disabled={loading} onClick={handleCancelDraft} className="btn btn-ghost-danger text-sm">
+                {t('Hủy cập nhật', 'Cancel update')}
               </button>
             )}
           </div>
-
-          {updateDraft && (
+          {step === 1 && (
+            <button type="button" disabled={loading || (activeTab === 'ZIP' && !file)} onClick={handleCreateDraft} className="btn btn-brand whitespace-nowrap text-sm">
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+              {t('Tải lên & xem thay đổi', 'Upload & review changes')}
+            </button>
+          )}
+          {step === 2 && updateDraft && (
             <div className="flex items-center gap-3">
-              {isBusy() && elapsedSeconds > 0 && (
-                <Tag variant="status" tone="brand" icon={Loader2}><span>Đang xử lý: <span className="font-mono tabular-nums">{formatDuration(elapsedSeconds)}</span></span></Tag>
+              {!isLegacyDraft && (
+                <button type="button" disabled={loading} onClick={() => handleAnalyze(updateDraft.id)} className="btn btn-secondary text-sm">
+                  <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                  {t('Phân tích lại', 'Analyze again')}
+                </button>
               )}
-              {!isBusy() && finalDurationText && (
-                <Tag className="font-mono tabular-nums">
-                  <Clock size={12} aria-hidden="true"  />
-                  <span>Tổng thời gian: <strong className="text-heading">{finalDurationText}</strong></span>
-                </Tag>
-              )}
-              <button
-                type="button"
-                disabled={isBusy()}
-                onClick={() => handleAnalyze(updateDraft.id)}
-                className="btn btn-secondary text-sm"
-              >
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                Phân tích lại
-              </button>
-              <button
-                type="button"
-                disabled={isBusy() || !canApply}
-                onClick={handleApply}
-                className="btn btn-brand whitespace-nowrap text-sm"
-              >
-                <CheckCircle2 size={16} />
-                {t('Áp Dụng Cập Nhật Vào Dự Án (Apply)', 'Apply Update to Project')}
+              <button type="button" disabled={loading || !isAnalyzed} onClick={handleApplySource} className="btn btn-brand whitespace-nowrap text-sm">
+                {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                {t('Áp dụng source mới', 'Apply new source')}
               </button>
             </div>
           )}

@@ -11,7 +11,6 @@ import { LanguageToggle } from '../../../shared/components/LanguageToggle';
 
 const mocks = vi.hoisted(() => ({
   traceRows: [] as import("../../traceability/types").TraceabilityRow[],
-  download: vi.fn(),
   generate: vi.fn(),
   generating: false,
   progress: undefined as unknown,
@@ -38,7 +37,6 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../traceability/hooks/useTraceability', () => ({ useTraceability: () => ({ data: { rows: mocks.traceRows, uncoveredRules: [] } }) }));
 
-vi.mock('../utils/business-rule-export', () => ({ downloadBusinessRules: mocks.download }));
 
 vi.mock('../../../shared/hooks/useGenerationProgress', () => ({
   useGenerationProgress: () => ({ data: mocks.progress }),
@@ -99,7 +97,6 @@ describe('BusinessRulesPanel', () => {
 
   beforeEach(() => {
     mocks.traceRows = [];
-    mocks.download.mockReset();
     mocks.rules.splice(1);
     mocks.rules[0].source = 'AI_GENERATED';
     mocks.rules[0].status = 'PENDING_REVIEW';
@@ -116,10 +113,9 @@ describe('BusinessRulesPanel', () => {
     mocks.progress = undefined;
   });
 
-  it('downloads the currently loaded service rules with their analysis', () => {
+  it('does not offer a Business Rule download button', () => {
     render(<LanguageProvider><MemoryRouter><BusinessRulesPanel projectId={1} servicePath="service-a" /></MemoryRouter></LanguageProvider>);
-    fireEvent.click(screen.getByRole('button', { name: 'Tải BR (JSON)' }));
-    expect(mocks.download).toHaveBeenCalledWith(1, 'service-a', mocks.rules, { classes: mocks.classes });
+    expect(screen.queryByRole('button', { name: 'Tải BR (JSON)' })).not.toBeInTheDocument();
   });
 
   it('switches every rule source and review status tag with the system language', () => {

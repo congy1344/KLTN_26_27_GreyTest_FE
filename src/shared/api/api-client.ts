@@ -50,7 +50,7 @@ apiClient.interceptors.request.use((config) => {
   config.headers['Accept-Language'] = getLanguage();
   const token = localStorage.getItem('greytest.token');
   // Đăng nhập GitHub từ /login không gửi kèm token cũ; liên kết GitHub từ dự án bắt buộc còn phiên đăng nhập.
-  const isGithubAuth = config.url?.split('?')[0] === '/auth/github';
+  const isGithubAuth = ['/auth/github', '/auth/github/state'].includes(config.url?.split('?')[0] ?? '');
   const isGithubLink =
     isGithubAuth && typeof sessionStorage !== 'undefined' && sessionStorage.getItem('github_oauth_mode') === 'link';
   if (isGithubLink && !token) {
@@ -103,7 +103,7 @@ apiClient.interceptors.request.use((config) => {
 
 function isLoginRequest(config?: InternalAxiosRequestConfig) {
   const path = config?.url?.split('?')[0] ?? '';
-  if (path === '/auth/github') return !config?.headers?.get('Authorization');
+  if (path === '/auth/github' || path === '/auth/github/state') return !config?.headers?.get('Authorization');
   return [
     '/auth/login',
     '/auth/admin/login',

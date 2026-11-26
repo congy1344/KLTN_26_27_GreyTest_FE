@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestPlansPanel } from './TestPlansPanel';
 
-const mocks = vi.hoisted(() => ({ generate: vi.fn(), generating: false, progress: undefined as unknown,
+const mocks = vi.hoisted(() => ({ generate: vi.fn(), update: vi.fn(), generating: false, progress: undefined as unknown,
   rules: [{ id: 7, methodId: 11, ruleCode: 'BR-007', sourceBranchId: 'IF-1-TRUE', description: 'Email hop le', status: 'APPROVED' }],
 }));
 
@@ -24,7 +24,7 @@ vi.mock('../hooks/useTestPlans', () => {
     useCreateTestPlan: idleMutation,
     useGenerateTestPlans: () => ({ isPending: mocks.generating, error: null, mutate: mocks.generate }),
     useApproveTestPlans: idleMutation,
-    useUpdateTestPlan: idleMutation,
+    useUpdateTestPlan: () => ({ isPending: false, error: null, mutate: mocks.update }),
     useDeleteTestPlan: idleMutation,
   };
 });
@@ -136,5 +136,15 @@ describe('TestPlansPanel', () => {
     expect(dialog).toHaveTextContent('3 Test Case');
     expect(dialog).toHaveTextContent('2 Unit Test');
     expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it('closes the edit form without saving when nothing changed', () => {
+    render(<MemoryRouter><TestPlansPanel projectId={105} projectStatus="COVERAGE_ANALYZED" /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sửa TP-001' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu TP-001' }));
+
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Lưu TP-001' })).not.toBeInTheDocument();
   });
 });

@@ -7,7 +7,11 @@ import { useSourceUpdateSeen } from './useSourceUpdateSeen';
 const normalize = (str?: string | null) => (str ? str.replace(/\s+/g, '') : '');
 
 /** Hook cung cấp thông tin AST diff và các artifact bị ảnh hưởng (BR, TP, TC, UT) cho toàn bộ các bước downstream. */
-export function useSourceUpdateImpact(projectId: number, stage?: Exclude<SourceUpdateTargetType, 'METHOD'>, servicePath?: string, ready = true) {
+/**
+ * `version` là số artifact đang hiển thị ở bước đó: khi "Tiếp tục sinh" thêm mục mới, khóa "đã xem" đổi theo
+ * nên dấu màu hiện lại cho phần vừa sinh thay vì bị xóa từ lần mở tab trước khi sinh.
+ */
+export function useSourceUpdateImpact(projectId: number, stage?: Exclude<SourceUpdateTargetType, 'METHOD'>, servicePath?: string, ready = true, version?: number) {
   let userId: number | undefined;
   let query: { data?: typeof fetchProjectSourceUpdates extends (...args: any[]) => Promise<infer R> ? R : any; isLoading: boolean; error: unknown };
   try {
@@ -23,12 +27,12 @@ export function useSourceUpdateImpact(projectId: number, stage?: Exclude<SourceU
     query = { data: undefined, isLoading: false, error: null };
   }
 
-  const activeUpdate = query.data?.find((u) => u.status === 'READY_TO_APPLY' || u.status === 'ANALYZED' || u.status === 'GENERATING' || u.status === 'DRAFT' || u.status === 'FAILED')
-    ?? query.data?.find((u) => u.status === 'APPLIED' && ((u.totalChangedMethods ?? 0) > 0 || (u.items && u.items.length > 0)))
+  // Bản cập nhật chưa áp dụng không đổi artifact nào, nên chỉ tô màu theo bản đã áp dụng gần nhất.
+  const activeUpdate = query.data?.find((u) => u.status === 'APPLIED' && ((u.totalChangedMethods ?? 0) > 0 || (u.items && u.items.length > 0)))
     ?? query.data?.find((u) => u.status === 'APPLIED');
 
   const seenKey = stage && activeUpdate?.status === 'APPLIED'
-    ? `greytest.source-update-seen.${userId ?? 'local'}.${projectId}.${activeUpdate.id}.${stage}.${servicePath ?? '*'}`
+    ? `greytest.source-update-seen.${userId ?? 'local'}.${projectId}.${activeUpdate.id}.${stage}.${servicePath ?? '*'}${version == null ? '' : `.${version}`}`
     : null;
   const changesSeen = useSourceUpdateSeen(seenKey, ready);
 

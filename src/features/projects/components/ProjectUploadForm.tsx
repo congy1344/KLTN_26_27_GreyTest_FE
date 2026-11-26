@@ -92,7 +92,9 @@ export function ProjectUploadForm({ onSuccess, source }: ProjectUploadFormProps 
       alert(t('Chức năng GitHub OAuth chưa được cấu hình Client ID / Secret.', 'GitHub OAuth is not configured.'));
       return;
     }
-    window.location.href = buildGithubAuthorizeUrl(config, '/projects/new', 'link');
+    buildGithubAuthorizeUrl(config, '/projects/new', 'link')
+      .then((url) => { window.location.href = url; })
+      .catch(() => alert(t('Không khởi tạo được phiên đăng nhập GitHub, vui lòng thử lại.', 'Could not start GitHub sign-in, please try again.')));
   };
 
   function submitImportRepo(e: React.FormEvent) {

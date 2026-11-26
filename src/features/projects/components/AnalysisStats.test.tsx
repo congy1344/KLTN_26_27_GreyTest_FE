@@ -12,6 +12,8 @@ describe('AnalysisStats', () => {
         totalClasses={4}
         totalMethods={12}
         totalEndpoints={3}
+        totalServices={2}
+        totalBranches={9}
       />,
     );
 
@@ -19,6 +21,8 @@ describe('AnalysisStats', () => {
     expect(screen.getByText('4')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('Services')).toBeInTheDocument();
+    expect(screen.getByText('9')).toBeInTheDocument();
     expect(screen.queryByText('Service to Repo')).not.toBeInTheDocument();
   });
 });

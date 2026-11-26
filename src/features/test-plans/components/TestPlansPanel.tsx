@@ -33,6 +33,8 @@ import type { TestPlan, TestType } from '../types';
 import { useLanguage } from '../../../shared/i18n/language';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
+import { diffRowClass } from '../../projects/diffHighlight';
+import { DeletedTag } from '../../../shared/components/DeletedItems';
 import { SourceUpdateDeletionHistory } from '../../projects/components/SourceUpdateDeletionHistory';
 
 interface TestPlansPanelProps {
@@ -61,7 +63,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
     addedRuleIds,
     modifiedRuleIds,
     deletedRuleIds,
-  } = useSourceUpdateImpact(projectId, 'TEST_PLAN', servicePath, !isLoading && !isFetching && !error && plans.length > 0);
+  } = useSourceUpdateImpact(projectId, 'TEST_PLAN', servicePath, !isLoading && !isFetching && !error && plans.length > 0, plans.length);
   const [businessRuleId, setBusinessRuleId] = useState('');
   const [testType, setTestType] = useState<TestType>('HAPPY_PATH');
   const [title, setTitle] = useState('');
@@ -149,6 +151,11 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
 
   const handleSaveEdit = (plan: TestPlan) => {
     if (!editTitle.trim() || !editDescription.trim()) return;
+    // Lưu mà không đổi gì thì chỉ đóng form, không gửi lên để khỏi bị đánh dấu cần duyệt lại
+    if (editTitle.trim() === plan.title.trim() && editDescription.trim() === plan.description.trim() && editTestType === plan.testType) {
+      setEditingPlanId(null);
+      return;
+    }
     updateMutation.mutate({
       planId: plan.id,
       input: {
@@ -356,13 +363,8 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
                 || (!isPastPlans && plan.isModified)
               );
 
-              const cardClass = `border-b border-border-default p-4 last:border-b-0 transition-colors ${hasAdded
-                ? 'border-l-4 border-l-success bg-success/[0.04]'
-                : hasDeleted
-                  ? 'border-l-4 border-l-danger bg-danger/[0.04]'
-                  : hasModified
-                    ? 'border-l-4 border-l-warning bg-warning/[0.04]'
-                    : 'hover:bg-neutral-secondary-soft'}`;
+              const cardClass = `border-b border-border-default p-4 last:border-b-0 transition-colors ${
+                diffRowClass({ added: hasAdded, modified: hasModified, deleted: hasDeleted }, 'even:bg-neutral-secondary-medium/50 hover:bg-neutral-secondary-medium')}`;
 
               return (
               <article key={plan.id} className={cardClass}>
@@ -380,9 +382,7 @@ export function TestPlansPanel({ projectId, projectStatus, servicePath }: TestPl
                     </Tag>
                   )}
                   {hasDeleted && (
-                    <Tag>
-                      {t('- Đã xóa', '- Deleted')}
-                    </Tag>
+                    <DeletedTag />
                   )}
                   {hasModified && (
                     <Tag>

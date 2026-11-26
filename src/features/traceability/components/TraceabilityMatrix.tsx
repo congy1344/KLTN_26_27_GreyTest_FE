@@ -105,7 +105,7 @@ export function TraceabilityMatrix({ projectId, servicePath }: { projectId: numb
                   return ruleRows.map((row, index) => (
                     <tr
                       key={`${ruleCode}-${row.planId ?? 'no-plan'}-${row.caseId ?? index}-${row.unitTestId ?? 'no-test'}`}
-                      className="border-b border-border-default transition-colors last:border-b-0 hover:bg-neutral-secondary-soft"
+                      className="border-b border-border-default transition-colors last:border-b-0 even:bg-neutral-secondary-medium/50 hover:bg-neutral-secondary-medium"
                     >
                       {index === 0 && (
                         <td rowSpan={ruleRows.length} className="border-r border-border-default bg-neutral-secondary-soft px-4 py-4 align-top">

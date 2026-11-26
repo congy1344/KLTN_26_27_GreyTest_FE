@@ -140,8 +140,8 @@ export function InvoiceModal({ open, transaction, user, onClose }: InvoiceModalP
                     <p className="font-semibold text-heading">{packageName}</p>
                     <p className="text-xs text-body-subtle">
                       {isPro
-                        ? t('300 lượt gọi AI, JaCoCo Coverage Refinement & AST Deep Analysis', '300 AI credits, JaCoCo refinement & AST deep analysis')
-                        : t('200 lượt gọi AI, sinh test và phân tích cú pháp', '200 AI credits, test generation and syntax analysis')}
+                        ? t('1.500 lượt gọi AI mỗi tháng, JaCoCo Coverage Refinement & AST Deep Analysis', '1,500 AI credits per month, JaCoCo refinement & AST deep analysis')
+                        : t('600 lượt gọi AI mỗi tháng, sinh test và phân tích cú pháp', '600 AI credits per month, test generation and syntax analysis')}
                     </p>
                   </td>
                   <td className="px-3 py-3 text-center text-body-subtle">

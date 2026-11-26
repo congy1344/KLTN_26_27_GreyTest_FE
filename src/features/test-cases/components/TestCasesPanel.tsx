@@ -12,7 +12,7 @@ import { LoadingState } from '../../../shared/components/LoadingState';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ManualEntrySection } from '../../../shared/components/ManualEntrySection';
 import { SourceTrace } from '../../../shared/components/SourceTrace';
-import { formatSemanticLabel, SemanticBadge } from '../../../shared/components/SemanticBadge';
+import { SemanticBadge } from '../../../shared/components/SemanticBadge';
 import { AiGenerationProgress } from '../../../shared/components/AiGenerationProgress';
 import { useBusinessRules } from '../../business-rules/hooks/useBusinessRules';
 import type { ProjectStatus } from '../../projects/types';
@@ -26,6 +26,8 @@ import { useLanguage } from '../../../shared/i18n/language';
 import { projectWorkflowPath } from '../../projects/utils/project-service';
 import { useGenerationProgress } from '../../../shared/hooks/useGenerationProgress';
 import { useSourceUpdateImpact } from '../../projects/hooks/useSourceUpdateImpact';
+import { diffRowClass } from '../../projects/diffHighlight';
+import { DeletedTag } from '../../../shared/components/DeletedItems';
 import { SourceUpdateDeletionHistory } from '../../projects/components/SourceUpdateDeletionHistory';
 
 const TEST_TYPES: TestType[] = ['HAPPY_PATH', 'BOUNDARY', 'EXCEPTION', 'EDGE'];
@@ -54,7 +56,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
     modifiedRuleIds,
     deletedRuleIds,
   } = useSourceUpdateImpact(projectId, 'TEST_CASE', servicePath,
-    !cases.isLoading && !cases.isFetching && !cases.error && (cases.data?.length ?? 0) > 0);
+    !cases.isLoading && !cases.isFetching && !cases.error && (cases.data?.length ?? 0) > 0, cases.data?.length ?? 0);
   const plans = useTestPlans(projectId, servicePath);
   const rules = useBusinessRules(projectId, servicePath);
   const units = useUnitTests(projectId, servicePath);
@@ -68,7 +70,7 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
   const updateCase = useUpdateTestCase(projectId);
   const removeCase = useDeleteTestCase(projectId);
   const [planId, setPlanId] = useState('');
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
 
   // Form nhập case thủ công
   const [formPlanId, setFormPlanId] = useState('');
@@ -201,6 +203,12 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
 
   const handleSaveEdit = (item: TestCase) => {
     if (!editDescription.trim() || !editPreconditions.trim() || !editExpected.trim()) return;
+    // Lưu mà không đổi gì thì chỉ đóng form, không gửi lên để khỏi bị đánh dấu cần duyệt lại
+    if (editType === item.testType && editPriority === item.priority && editDescription.trim() === item.description.trim()
+      && editPreconditions.trim() === (item.preconditions ?? '').trim() && editExpected.trim() === item.expectedResult.trim()) {
+      setEditingId(null);
+      return;
+    }
     updateCase.mutate({
       caseId: item.id,
       input: {
@@ -398,13 +406,8 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
             || (!isPastCases && item.isModified)
           );
 
-          const cardClass = `border-b border-border-default p-4 last:border-b-0 transition-colors ${hasAdded
-            ? 'border-l-4 border-l-success bg-success/[0.04]'
-            : hasDeleted
-              ? 'border-l-4 border-l-danger bg-danger/[0.04]'
-              : hasModified
-                ? 'border-l-4 border-l-warning bg-warning/[0.04]'
-                : 'hover:bg-neutral-secondary-soft'}`;
+          const cardClass = `border-b border-border-default p-4 last:border-b-0 transition-colors ${
+            diffRowClass({ added: hasAdded, modified: hasModified, deleted: hasDeleted }, 'even:bg-neutral-secondary-medium/50 hover:bg-neutral-secondary-medium')}`;
 
           return (
             <article key={item.id} className={cardClass}>
@@ -415,16 +418,14 @@ export function TestCasesPanel({ projectId, projectStatus, servicePath }: { proj
                   {sourcePlan ? ` -> ${sourcePlan.planCode}` : ''}
                 </span>
                 <SemanticBadge kind="test-type" value={item.testType} />
-                <Tag>{formatSemanticLabel(item.priority, language)}</Tag>
+                <SemanticBadge kind="priority" value={item.priority} />
                 {hasAdded && (
                   <Tag>
                     {t('+ Mới thêm', '+ Added')}
                   </Tag>
                 )}
                 {hasDeleted && (
-                  <Tag>
-                    {t('- Đã xóa', '- Deleted')}
-                  </Tag>
+                  <DeletedTag />
                 )}
                 {hasModified && (
                   <Tag>

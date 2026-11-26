@@ -51,9 +51,9 @@ export function GithubCallbackPage() {
       setLoginError(err);
     };
     if (typeof githubLoginMutation.mutateAsync === 'function') {
-      githubLoginMutation.mutateAsync({ code }).then(handleSuccess, handleError);
+      githubLoginMutation.mutateAsync({ code, state: stateParam ?? '' }).then(handleSuccess, handleError);
     } else {
-      githubLoginMutation.mutate({ code }, { onSuccess: handleSuccess, onError: handleError });
+      githubLoginMutation.mutate({ code, state: stateParam ?? '' }, { onSuccess: handleSuccess, onError: handleError });
     }
   }, [code, isStateInvalid, githubLoginMutation, navigate, savedState]);
 
