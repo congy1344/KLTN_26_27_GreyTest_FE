@@ -65,7 +65,9 @@ export function useGenerationProgress(
       refetchInterval: (currentQuery: { state: { data?: { status?: string; busy?: boolean } } }) => {
         const status = currentQuery.state.data?.status;
         const isBusy = Boolean(currentQuery.state.data?.busy);
-        return active || tracking || isActiveStatus(status) || (status === 'PAUSED' && isBusy) ? 1_500 : false;
+        // Chỉ bước đang chạy mới hỏi nhanh; các bước khác hỏi thưa để phát hiện chuyển bước (tránh 4 bước x 40 req/phút bị WAF khóa IP).
+        if (isActiveStatus(status) || (status === 'PAUSED' && isBusy)) return 1_500;
+        return active || tracking ? 3_000 : false;
       },
       refetchOnMount: 'always' as const,
       retry: 1,
