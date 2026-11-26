@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchCoverageReport, fetchSandboxRun, startCoverageRefinement, startSandboxRun, uploadCoverage } from '../api/coverage-api';
+
+// Ghi nhớ lượt chạy sandbox đã làm mới cache trên từng QueryClient để chuyển tab không bắn lại 5 lệnh invalidate.
+const refreshedSandboxRuns = new WeakMap<QueryClient, Map<number, string>>();
 
 function coverageKey(projectId: number, servicePath?: string) {
   return ['coverage', projectId, servicePath ?? 'auto'];
@@ -59,8 +62,22 @@ export function useSandboxRun(projectId: number, servicePath?: string) {
     onSuccess: (data) => queryClient.setQueryData(key, data),
   });
   const status = state.data?.status;
+  const signature = state.data
+    ? `${state.data.status}:${state.data.tests ?? ''}:${state.data.failed ?? ''}:${state.data.message ?? ''}`
+    : '';
   useEffect(() => {
-    if (!status || status === 'IDLE' || status === 'RUNNING') return;
+    let seenByProject = refreshedSandboxRuns.get(queryClient);
+    if (!seenByProject) {
+      seenByProject = new Map<number, string>();
+      refreshedSandboxRuns.set(queryClient, seenByProject);
+    }
+    if (!status || status === 'IDLE' || status === 'RUNNING') {
+      if (status === 'RUNNING') seenByProject.delete(projectId);
+      return;
+    }
+    if (seenByProject.get(projectId) === signature) return;
+    seenByProject.set(projectId, signature);
+
     // Lượt xác minh có thể sửa hoặc loại Unit Test, kể cả khi kết thúc FAILED.
     queryClient.invalidateQueries({ queryKey: ['unit-tests', projectId] });
     queryClient.invalidateQueries({ queryKey: ['unit-test-files', projectId] });
@@ -69,6 +86,6 @@ export function useSandboxRun(projectId: number, servicePath?: string) {
     queryClient.invalidateQueries({ queryKey: ['coverage', projectId] });
     queryClient.invalidateQueries({ queryKey: ['project', projectId] });
     queryClient.invalidateQueries({ queryKey: ['project-services', projectId] });
-  }, [status, projectId, queryClient]);
+  }, [status, signature, projectId, queryClient]);
   return { state: state.data, start };
 }

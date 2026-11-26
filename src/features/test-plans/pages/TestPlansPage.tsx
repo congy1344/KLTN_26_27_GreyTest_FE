@@ -28,7 +28,7 @@ export function TestPlansPage() {
     );
   }
 
-  if (error || serviceScope.error || !project) {
+  if (!project || (!serviceScope.selected && serviceScope.error)) {
     return (
       <AppShell maxWidth="wide">
         <ErrorState error={error ?? serviceScope.error ?? undefined} title={t('Không tìm thấy dự án', 'Project not found')} backTo="/projects" />
