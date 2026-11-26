@@ -34,8 +34,10 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); client.clear(); });
 function show(Page: typeof SettingsPage | typeof ProfilePage) {
-  render(<QueryClientProvider client={client}><MemoryRouter><Page /></MemoryRouter></QueryClientProvider>);
-  const heading = screen.getByRole('heading', { name: /Hạn mức gọi AI|AI quota/ });
+  // Trang Cài đặt đặt khối hạn mức ở tab Gói dịch vụ & Hóa đơn.
+  const entry = Page === SettingsPage ? '/settings?tab=subscription' : '/';
+  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[entry]}><Page /></MemoryRouter></QueryClientProvider>);
+  const heading = screen.getByRole('heading', { name: /Hạn mức sử dụng|Usage quota|Hạn mức gọi AI|AI quota/ });
   return heading.closest('.rounded-base') as HTMLElement;
 }
 
@@ -60,7 +62,8 @@ describe.each([['Settings', SettingsPage], ['Profile', ProfilePage]] as const)('
 });
 
 it('stacks theme and language groups, retaining two choices side by side in each', () => {
-  show(SettingsPage);
+  render(<QueryClientProvider client={client}><MemoryRouter><SettingsPage /></MemoryRouter></QueryClientProvider>);
+  expect(screen.queryByRole('heading', { name: 'Hạn mức sử dụng' })).not.toBeInTheDocument();
   const theme = screen.getByText('Chế độ giao diện').parentElement!;
   const language = screen.getByText('Ngôn ngữ hiển thị').parentElement!;
   expect(theme.parentElement).toBe(language.parentElement);

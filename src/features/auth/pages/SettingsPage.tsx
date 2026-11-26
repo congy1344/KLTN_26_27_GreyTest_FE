@@ -35,7 +35,7 @@ import { UserFeedbackSection } from '../../feedback/components/UserFeedbackSecti
 /**
  * Trang Cài đặt Hệ thống & Gói dịch vụ (SettingsPage).
  * Phân chia theo 3 tab chuyên biệt:
- * 1. Cài đặt chung: Tùy chỉnh Giao diện (Sáng/Tối), Ngôn ngữ (VI/EN), Thông tin tài khoản & Hạn mức gọi AI.
+ * 1. Cài đặt chung: Tùy chỉnh Giao diện (Sáng/Tối), Ngôn ngữ (VI/EN), Thông tin tài khoản. Hạn mức sử dụng nằm ở tab Gói dịch vụ.
  * 2. Gói dịch vụ & Hóa đơn: Bảng giá các gói (Free, PLUS, PRO) và Lịch sử thanh toán kèm nút Hủy gói.
  * 3. Phản hồi & Báo lỗi: Gửi phản hồi / báo cáo sự cố cho admin xử lý và theo dõi tiến độ.
  */
@@ -76,8 +76,6 @@ export function SettingsPage() {
   const tier = user?.tier ?? quota?.tier ?? 'FREE';
   const isPro = tier === 'PRO';
   const isPlus = tier === 'PLUS';
-  const currentPkg = publicPackages?.find((p) => p.code.toUpperCase() === tier);
-  const userResetCycle = currentPkg?.resetCycle || (isPro || isPlus ? 'WEEKLY' : 'MONTHLY');
 
   const isCurrentFree = tier === 'FREE';
   const isCurrentPlus = tier === 'PLUS';
@@ -420,16 +418,21 @@ export function SettingsPage() {
               </div>
             </div>
 
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* TAB 2: GÓI DỊCH VỤ & HÓA ĐƠN (Subscription & Invoices)          */}
+        {/* Đưa 2 phần này ra riêng theo yêu cầu của người dùng             */}
+        {/* ============================================================== */}
+        {currentTab === 'subscription' && (
+          <div className="space-y-8 animate-fade-in">
             {/* Khối 3: Tiến độ sử dụng Hạn mức AI */}
             <div className="rounded-base border border-border-default bg-neutral-primary-soft p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-heading font-display">
-                    {userResetCycle === 'DAILY'
-                      ? t('Hạn mức gọi AI hôm nay', 'Daily AI quota')
-                      : userResetCycle === 'WEEKLY'
-                      ? t('Hạn mức gọi AI tuần này', 'Weekly AI quota')
-                      : t('Hạn mức gọi AI tháng này', 'Monthly AI quota')}
+                    {t('Hạn mức sử dụng', 'Usage quota')}
                   </h2>
                   <p className="text-xs text-body-subtle mt-0.5">
                     {t('1 lượt tương ứng với 2 Unit Test, 2 Test Case, 2 Test Plan hoặc 3 phương thức mã nguồn.', '1 credit corresponds to 2 Unit Tests, 2 Test Cases, 2 Test Plans, or 3 source methods.')}
@@ -503,15 +506,6 @@ export function SettingsPage() {
                 </>}
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* TAB 2: GÓI DỊCH VỤ & HÓA ĐƠN (Subscription & Invoices)          */}
-        {/* Đưa 2 phần này ra riêng theo yêu cầu của người dùng             */}
-        {/* ============================================================== */}
-        {currentTab === 'subscription' && (
-          <div className="space-y-8 animate-fade-in">
             {/* Phần 1: Bảng giá & Các gói dịch vụ GreyTest */}
             <div>
               <div className="mb-4">
