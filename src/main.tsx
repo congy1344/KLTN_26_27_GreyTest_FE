@@ -13,6 +13,12 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       // Giữ dữ liệu hợp lệ trong 30 giây để tránh gửi request dồn dập khi chuyển qua lại giữa các tab/trang nội bộ
       staleTime: 30_000,
+      // Không tự retry khi bị WAF giới hạn tần suất (429) hoặc lỗi quyền/không tồn tại để tránh nhân bội request gây auto-ban IP
+      retry: (failureCount, error) => {
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        if (status === 429 || status === 401 || status === 403 || status === 404) return false;
+        return failureCount < 1;
+      },
     },
   },
 });

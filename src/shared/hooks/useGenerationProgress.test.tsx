@@ -302,4 +302,89 @@ describe('useGenerationProgress', () => {
       expect(result.current.projectProgress?.status).toBe('COMPLETED');
     });
   });
+
+  it('does not invalidate project cache on mount or when starting next stage over historical completion', async () => {
+    mocks.fetchProgress.mockImplementation((_projectId: number, stage: GenerationProgressStage) => (
+      Promise.resolve(stage === 'BUSINESS_RULE' ? { ...completed, stage: 'BUSINESS_RULE' as const } : idle(stage))
+    ));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const { result, rerender } = renderHook(
+      ({ active }) => useGenerationProgress(7, 'TEST_PLAN', active),
+      { initialProps: { active: false }, wrapper },
+    );
+    await waitFor(() => expect(result.current.data?.status).toBe('IDLE'));
+    rerender({ active: true });
+    await waitFor(() => expect(result.current.projectProgress?.stage).toBe('BUSINESS_RULE'));
+
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+
+  it('invalidates artifact queries when sibling stage completes even if current stage is already completed or hook remounts', async () => {
+    let planFinished = false;
+    mocks.fetchProgress.mockImplementation((_projectId: number, stage: GenerationProgressStage) => {
+      if (stage === 'BUSINESS_RULE') return Promise.resolve({ ...completed, stage: 'BUSINESS_RULE' as const });
+      if (stage === 'TEST_PLAN') {
+        return Promise.resolve(planFinished
+          ? { ...completed, stage: 'TEST_PLAN' as const }
+          : { ...running, stage: 'TEST_PLAN' as const });
+      }
+      return Promise.resolve(idle(stage));
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['test-plans', 7], ['stale']);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const first = renderHook(() => useGenerationProgress(7, 'BUSINESS_RULE', false), { wrapper });
+    await waitFor(() => expect(first.result.current.projectProgress?.stage).toBe('TEST_PLAN'));
+    first.unmount();
+
+    planFinished = true;
+    const second = renderHook(() => useGenerationProgress(7, 'BUSINESS_RULE', false), { wrapper });
+    await waitFor(() => expect(client.getQueryState(['test-plans', 7])?.isInvalidated).toBe(true));
+    second.unmount();
+  });
+
+  it('does not prematurely invalidate when regenerating an already completed stage until the new run finishes', async () => {
+    let phase: 'old-done' | 'running' | 'new-done' = 'old-done';
+    mocks.fetchProgress.mockImplementation((_projectId: number, stage: GenerationProgressStage) => {
+      if (stage !== 'TEST_PLAN') return Promise.resolve(idle(stage));
+      if (phase === 'old-done') return Promise.resolve({ ...completed, stage: 'TEST_PLAN' as const });
+      if (phase === 'running') return Promise.resolve({ ...running, stage: 'TEST_PLAN' as const });
+      return Promise.resolve({
+        ...completed,
+        stage: 'TEST_PLAN' as const,
+        logs: [...completed.logs, { timestamp: '2026-08-14T12:05:00Z', message: 'Sinh lại hoàn tất.' }],
+      });
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const { result, rerender, unmount } = renderHook(
+      ({ active }) => useGenerationProgress(7, 'TEST_PLAN', active),
+      { initialProps: { active: false }, wrapper },
+    );
+    await waitFor(() => expect(result.current.data?.status).toBe('COMPLETED'));
+    expect(invalidate).not.toHaveBeenCalled();
+
+    phase = 'running';
+    rerender({ active: true });
+    await waitFor(() => expect(result.current.data?.status).toBe('RUNNING'));
+    expect(invalidate).not.toHaveBeenCalled();
+
+    phase = 'new-done';
+    rerender({ active: false });
+    await act(async () => { await result.current.refetch(); });
+    await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(1));
+    unmount();
+  });
 });

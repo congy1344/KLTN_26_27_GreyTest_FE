@@ -108,7 +108,7 @@ export function ProjectDetailPage() {
     );
   }
 
-  if (projectError || !project) {
+  if (!project) {
     return (
       <AppShell maxWidth="wide">
         <ErrorState error={projectError ?? undefined} title={t('Không tìm thấy dự án', 'Project not found')} backTo="/projects" />

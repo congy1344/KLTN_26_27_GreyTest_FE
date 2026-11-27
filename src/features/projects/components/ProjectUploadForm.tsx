@@ -353,24 +353,26 @@ export function ProjectUploadForm({ onSuccess, source }: ProjectUploadFormProps 
                 <span className="text-xs">{t('Đang kiểm tra tài khoản...', 'Checking account...')}</span>
               </div>
             ) : !isGithubConnected || isGithubTokenExpired ? (
-              <div className="mb-4 flex min-h-[162px] flex-1 flex-col items-center justify-center py-4 text-center">
-                <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-neutral-secondary-soft text-body-subtle">
-                  <GitBranch size={20} className="opacity-70" />
+              <div className="flex flex-1 flex-col">
+                <div className="mb-4 flex min-h-[162px] flex-col items-center justify-center text-center">
+                  <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-neutral-secondary-soft text-body-subtle">
+                    <GitBranch size={20} className="opacity-70" />
+                  </div>
+                  <p className="mb-1 text-sm font-semibold text-heading">
+                    {isGithubTokenExpired
+                      ? t('Phiên liên kết GitHub đã hết hạn', 'GitHub session expired')
+                      : t('Chưa kết nối GitHub', 'GitHub not connected')}
+                  </p>
+                  <p className="max-w-xs text-xs text-body-subtle">
+                    {isGithubTokenExpired
+                      ? t('Token truy cập GitHub đã hết hạn hoặc bị thu hồi. Vui lòng kết nối lại để tải danh sách repository.', 'Your GitHub access token has expired or been revoked. Please reconnect to load your repositories.')
+                      : t('Kết nối tài khoản GitHub để truy cập và chọn trực tiếp danh sách repository của bạn.', 'Connect your GitHub account to access and choose from your repositories directly.')}
+                  </p>
                 </div>
-                <p className="mb-1 text-sm font-semibold text-heading">
-                  {isGithubTokenExpired
-                    ? t('Phiên liên kết GitHub đã hết hạn', 'GitHub session expired')
-                    : t('Chưa kết nối GitHub', 'GitHub not connected')}
-                </p>
-                <p className="mb-4 text-xs text-body-subtle max-w-xs">
-                  {isGithubTokenExpired
-                    ? t('Token truy cập GitHub đã hết hạn hoặc bị thu hồi. Vui lòng kết nối lại để tải danh sách repository.', 'Your GitHub access token has expired or been revoked. Please reconnect to load your repositories.')
-                    : t('Kết nối tài khoản GitHub để truy cập và chọn trực tiếp danh sách repository của bạn.', 'Connect your GitHub account to access and choose from your repositories directly.')}
-                </p>
                 <button
                   type="button"
                   onClick={handleConnectGithub}
-                  className="btn btn-brand w-full justify-center"
+                  className="btn btn-brand mt-auto w-full justify-center"
                 >
                   <ExternalLink size={14} />
                   {isGithubTokenExpired
