@@ -221,8 +221,8 @@ export function AdminQuotasPage() {
           <Calendar size={13} className="text-fg-brand-strong" />
           <span>
             {language === 'vi'
-              ? 'Chu kỳ làm mới hạn ngạch: Hàng tuần (theo ngày đăng ký)'
-              : 'Quota reset cycle: Weekly (by registration date)'}
+              ? 'Chu kỳ làm mới hạn ngạch: Hàng tháng (theo ngày đăng ký)'
+              : 'Quota reset cycle: Monthly (by registration date)'}
           </span>
         </div>
       </div>

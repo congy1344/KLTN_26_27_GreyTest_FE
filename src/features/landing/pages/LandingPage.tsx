@@ -32,10 +32,10 @@ export function LandingPage() {
   if (localStorage.getItem('greytest.token')) return <Navigate to="/projects" replace />;
 
   const steps = [
-    { icon: Upload, title: t('Tải mã nguồn', 'Upload the source'), text: t('File ZIP hoặc link GitHub public của một dự án Java Spring Boot.', 'A ZIP file or a public GitHub link to a Java Spring Boot project.') },
+    { icon: Upload, title: t('Tải mã nguồn', 'Upload the source'), text: t('File ZIP, link GitHub public hoặc kho private từ tài khoản GitHub đã liên kết của một dự án Java Spring Boot.', 'A ZIP file, a public GitHub link or a private repository from your linked GitHub account, for a Java Spring Boot project.') },
     { icon: FileSearch, title: t('Rút Business Rule', 'Extract Business Rules'), text: t('AI đọc từng nhánh if, switch, vòng lặp trong service và viết thành quy tắc để bạn duyệt.', 'AI reads every if, switch and loop in each service and writes it up as a rule for you to review.') },
-    { icon: ListChecks, title: t('Sinh Test Plan, Test Case, Unit Test', 'Generate plans, cases and unit tests'), text: t('Mỗi bước dựa trên bước trước đã duyệt, sinh ra JUnit 5 và Mockito biên dịch được.', 'Each step builds on the one you approved, ending in JUnit 5 and Mockito tests that compile.') },
-    { icon: PlayCircle, title: t('Chạy thật và đo coverage', 'Run them and measure coverage'), text: t('Test chạy trong sandbox Docker riêng, đo bằng JaCoCo; test lỗi được AI sửa theo lỗi thật.', 'Tests run in an isolated Docker sandbox and are measured with JaCoCo; failing tests are repaired by AI from the real error.') },
+    { icon: ListChecks, title: t('Sinh Test Plan, Test Case, Unit Test', 'Generate plans, cases and unit tests'), text: t('Mỗi bước dựa trên bước trước đã duyệt, sinh ra test JUnit 5 và Mockito được biên dịch thử trong sandbox.', 'Each step builds on the one you approved, ending in JUnit 5 and Mockito tests that are compiled in a sandbox.') },
+    { icon: PlayCircle, title: t('Chạy thật và đo coverage', 'Run them and measure coverage'), text: t('Test chạy trong sandbox Docker riêng, đo bằng JaCoCo; test lỗi biên dịch được AI tự sửa, test sai kết quả được liệt kê để bạn xem.', 'Tests run in an isolated Docker sandbox and are measured with JaCoCo; AI repairs tests that fail to compile, and tests with wrong results are listed for you to review.') },
   ];
 
   const trace = [
@@ -95,7 +95,7 @@ export function LandingPage() {
         </section>
 
         <section id="how-it-works" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 sm:px-8">
-          <h2 className="landing-h2">{t('Từ mã nguồn tới test chạy được', 'From source code to running tests')}</h2>
+          <h2 className="landing-h2">{t('Từ mã nguồn tới test chạy thử', 'From source code to tests you can run')}</h2>
           <p className="mt-3 max-w-2xl text-base text-body">{t('Bạn duyệt ở mỗi bước, nên AI không tự ý đổi ý nghĩa nghiệp vụ của dự án.', 'You approve every step, so AI never quietly changes what your business logic means.')}</p>
           <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {steps.map((step, index) => (
@@ -148,7 +148,10 @@ export function LandingPage() {
 
         <section className="landing-hero">
           <div className="relative mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6 px-4 py-16 sm:px-8">
-            <h2 className="landing-h2 landing-on-band">{t('Thử với dự án Spring Boot của bạn', 'Try it on your Spring Boot project')}</h2>
+            <div>
+              <h2 className="landing-h2 landing-on-band">{t('Thử với dự án Spring Boot của bạn', 'Try it on your Spring Boot project')}</h2>
+              <p className="mt-2 text-base landing-on-band">{t('Đăng ký bằng email, Google hoặc GitHub. Dùng miễn phí với gói FREE, nâng cấp PLUS, PRO qua VNPay khi cần thêm lượt.', 'Sign up with email, Google or GitHub. Start free, then upgrade to PLUS or PRO via VNPay when you need more requests.')}</p>
+            </div>
             <Link to="/register" className="btn btn-brand landing-cta">
               <GitBranch size={18} aria-hidden="true" />{t('Bắt đầu với ZIP hoặc GitHub', 'Start with ZIP or GitHub')}
             </Link>
@@ -158,7 +161,7 @@ export function LandingPage() {
 
       <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-body-subtle sm:px-8">
         <BrandMark size={20} withWordmark />
-        <span>{t('Đồ án tốt nghiệp ngành Kỹ thuật phần mềm', 'Software Engineering graduation project')}</span>
+        <span>{t('Đồ án tốt nghiệp ngành Kỹ thuật phần mềm · Khoa Công nghệ Thông tin, Trường Đại học Công nghiệp TP. Hồ Chí Minh · Huỳnh Công Ý, Nguyễn Văn Khải Tiến', 'Software Engineering graduation project · Faculty of Information Technology, Industrial University of Ho Chi Minh City · Huynh Cong Y, Nguyen Van Khai Tien')}</span>
       </footer>
     </div>
   );
